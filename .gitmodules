@@ -1,0 +1,79 @@
+[submodule "submodules/ament_cmake_core"]
+	path = submodules/ament_cmake_core
+	url = git@github.com:rep159-testing/ament_cmake_core.git
+[submodule "submodules/ament_cmake_core-release"]
+	path = submodules/ament_cmake_core-release
+	url = git@github.com:rep159-testing/ament_cmake_core-release.git
+[submodule "submodules/ament_package"]
+	path = submodules/ament_package
+	url = git@github.com:rep159-testing/ament_package.git
+[submodule "submodules/ament_package-release"]
+	path = submodules/ament_package-release
+	url = git@github.com:rep159-testing/ament_package-release.git
+[submodule "submodules/downstream_bin_a"]
+	path = submodules/downstream_bin_a
+	url = git@github.com:rep159-testing/downstream_bin_a.git
+[submodule "submodules/downstream_bin_a-release"]
+	path = submodules/downstream_bin_a-release
+	url = git@github.com:rep159-testing/downstream_bin_a-release.git
+[submodule "submodules/downstream_src_a"]
+	path = submodules/downstream_src_a
+	url = git@github.com:rep159-testing/downstream_src_a.git
+[submodule "submodules/downstream_src_a-release"]
+	path = submodules/downstream_src_a-release
+	url = git@github.com:rep159-testing/downstream_src_a-release.git
+[submodule "submodules/rep159-rosdistro"]
+	path = submodules/rep159-rosdistro
+	url = git@github.com:rep159-testing/rep159-rosdistro.git
+[submodule "submodules/ros_buildfarm"]
+	path = submodules/ros_buildfarm
+	url = git@github.com:rep159-testing/ros_buildfarm.git
+	branch = rep159
+[submodule "submodules/ros_buildfarm_config"]
+	path = submodules/ros_buildfarm_config
+	url = git@github.com:rep159-testing/ros_buildfarm_config.git
+	branch = rep159
+[submodule "submodules/ros_workspace"]
+	path = submodules/ros_workspace
+	url = git@github.com:rep159-testing/ros_workspace.git
+[submodule "submodules/ros_workspace-release"]
+	path = submodules/ros_workspace-release
+	url = git@github.com:rep159-testing/ros_workspace-release.git
+[submodule "submodules/rosdep"]
+	path = submodules/rosdep
+	url = git@github.com:rep159-testing/rosdep.git
+	branch = rep159
+[submodule "submodules/rosdistro"]
+	path = submodules/rosdistro
+	url = git@github.com:rep159-testing/rosdistro.git
+	branch = rep159
+[submodule "submodules/upstream_a"]
+	path = submodules/upstream_a
+	url = git@github.com:rep159-testing/upstream_a.git
+[submodule "submodules/upstream_a-release"]
+	path = submodules/upstream_a-release
+	url = git@github.com:rep159-testing/upstream_a-release.git
+[submodule "submodules/upstream_b"]
+	path = submodules/upstream_b
+	url = git@github.com:rep159-testing/upstream_b.git
+[submodule "submodules/upstream_b-release"]
+	path = submodules/upstream_b-release
+	url = git@github.com:rep159-testing/upstream_b-release.git
+[submodule "submodules/upstream_c"]
+	path = submodules/upstream_c
+	url = git@github.com:rep159-testing/upstream_c.git
+[submodule "submodules/upstream_c-release"]
+	path = submodules/upstream_c-release
+	url = git@github.com:rep159-testing/upstream_c-release.git
+[submodule "submodules/reps"]
+	path = submodules/reps
+	url = git@github.com:kmom88/reps.git
+[submodule "submodules/reprepro-updater"]
+	path = submodules/reprepro-updater
+	url = git@github.com:rep159-testing/reprepro-updater.git
+[submodule "submodules/downstream_chain_a"]
+	path = submodules/downstream_chain_a
+	url = git@github.com:rep159-testing/downstream_chain_a.git
+[submodule "submodules/bloom"]
+	path = submodules/bloom
+	url = git@github.com:rep159-testing/bloom.git
