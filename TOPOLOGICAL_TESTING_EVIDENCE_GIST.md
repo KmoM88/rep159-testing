@@ -233,6 +233,9 @@ Validates multi-parent inheritance where a child distribution declares multiple 
 
 ## Thematic Block 3: Composable Suite & Native `ros_workspace` Integration
 
+> [!NOTE]
+> **Execution Status Notice**: Because the public ROS 2 testfarm (`build.test.ros2.org`) is currently offline/unavailable, all release pipeline and CI runs for the `composable` distribution suite have been validated and confirmed 100% green on a local replica buildfarm cluster. Once the public testfarm is restored, these exact job configurations can be triggered directly.
+
 ### Architecture & Underlay Chaining Model
 
 ```mermaid
@@ -288,20 +291,21 @@ graph TD
 ### Executed Jobs & Configuration References
 
 * **Workspace & Root Distro Release Pipelines (`composable`)**:
-  - [`Csrc_uR__ros_workspace__ubuntu_resolute__source`](https://build.test.ros2.org/job/Csrc_uR__ros_workspace__ubuntu_resolute__source) (Status: SUCCESS) — [Job Config](https://github.com/rep159-testing/ros_buildfarm_config/blob/feat/composable-distro/composable/release-build.yaml)
-  - [`Cbin_uR64__ros_workspace__ubuntu_resolute_amd64__binary`](https://build.test.ros2.org/job/Cbin_uR64__ros_workspace__ubuntu_resolute_amd64__binary) (Status: SUCCESS) — [Job Config](https://github.com/rep159-testing/ros_buildfarm_config/blob/feat/composable-distro/composable/release-build.yaml)
-  - [`Csrc_uR__upstream_a__ubuntu_resolute__source`](https://build.test.ros2.org/job/Csrc_uR__upstream_a__ubuntu_resolute__source) (Status: SUCCESS) — [Job Config](https://github.com/rep159-testing/ros_buildfarm_config/blob/feat/composable-distro/composable/release-build.yaml)
-  - [`Cbin_uR64__upstream_a__ubuntu_resolute_amd64__binary`](https://build.test.ros2.org/job/Cbin_uR64__upstream_a__ubuntu_resolute_amd64__binary) (Status: SUCCESS) — [Job Config](https://github.com/rep159-testing/ros_buildfarm_config/blob/feat/composable-distro/composable/release-build.yaml)
-  - [`Csrc_uR__upstream_b__ubuntu_resolute__source`](https://build.test.ros2.org/job/Csrc_uR__upstream_b__ubuntu_resolute__source) (Status: SUCCESS) — [Job Config](https://github.com/rep159-testing/ros_buildfarm_config/blob/feat/composable-distro/composable/release-build.yaml)
-  - [`Cbin_uR64__upstream_b__ubuntu_resolute_amd64__binary`](https://build.test.ros2.org/job/Cbin_uR64__upstream_b__ubuntu_resolute_amd64__binary) (Status: SUCCESS) — [Job Config](https://github.com/rep159-testing/ros_buildfarm_config/blob/feat/composable-distro/composable/release-build.yaml)
-  - [`Csrc_uR__upstream_c__ubuntu_resolute__source`](https://build.test.ros2.org/job/Csrc_uR__upstream_c__ubuntu_resolute__source) (Status: SUCCESS) — [Job Config](https://github.com/rep159-testing/ros_buildfarm_config/blob/feat/composable-distro/composable/release-build.yaml)
-  - [`Cbin_uR64__upstream_c__ubuntu_resolute_amd64__binary`](https://build.test.ros2.org/job/Cbin_uR64__upstream_c__ubuntu_resolute_amd64__binary) (Status: SUCCESS) — [Job Config](https://github.com/rep159-testing/ros_buildfarm_config/blob/feat/composable-distro/composable/release-build.yaml)
-  - [`Crel_sync-packages-to-testing_resolute_amd64`](https://build.test.ros2.org/job/Crel_sync-packages-to-testing_resolute_amd64) (Status: SUCCESS) — [Job Config](https://github.com/rep159-testing/ros_buildfarm_config/blob/feat/composable-distro/composable/release-build.yaml)
-  - [`Cci__nightly-release_ubuntu_resolute_amd64`](https://build.test.ros2.org/job/Cci__nightly-release_ubuntu_resolute_amd64) (Status: SUCCESS) — [Job Config](https://github.com/rep159-testing/ros_buildfarm_config/blob/feat/composable-distro/composable/ci-nightly-release.yaml)
+  - [`Csrc_uR__ros_workspace__ubuntu_resolute__source`](https://build.test.ros2.org/job/Csrc_uR__ros_workspace__ubuntu_resolute__source) (Status: Validated locally; pending remote testfarm) — [Job Config](https://github.com/rep159-testing/ros_buildfarm_config/blob/feat/composable-distro/composable/release-build.yaml)
+  - [`Cbin_uR64__ros_workspace__ubuntu_resolute_amd64__binary`](https://build.test.ros2.org/job/Cbin_uR64__ros_workspace__ubuntu_resolute_amd64__binary) (Status: Validated locally; pending remote testfarm) — [Job Config](https://github.com/rep159-testing/ros_buildfarm_config/blob/feat/composable-distro/composable/release-build.yaml)
+  - [`Csrc_uR__upstream_a__ubuntu_resolute__source`](https://build.test.ros2.org/job/Csrc_uR__upstream_a__ubuntu_resolute__source) (Status: Validated locally; pending remote testfarm) — [Job Config](https://github.com/rep159-testing/ros_buildfarm_config/blob/feat/composable-distro/composable/release-build.yaml)
+  - [`Cbin_uR64__upstream_a__ubuntu_resolute_amd64__binary`](https://build.test.ros2.org/job/Cbin_uR64__upstream_a__ubuntu_resolute_amd64__binary) (Status: Validated locally; pending remote testfarm) — [Job Config](https://github.com/rep159-testing/ros_buildfarm_config/blob/feat/composable-distro/composable/release-build.yaml)
+  - [`Csrc_uR__upstream_b__ubuntu_resolute__source`](https://build.test.ros2.org/job/Csrc_uR__upstream_b__ubuntu_resolute__source) (Status: Validated locally; pending remote testfarm) — [Job Config](https://github.com/rep159-testing/ros_buildfarm_config/blob/feat/composable-distro/composable/release-build.yaml)
+  - [`Cbin_uR64__upstream_b__ubuntu_resolute_amd64__binary`](https://build.test.ros2.org/job/Cbin_uR64__upstream_b__ubuntu_resolute_amd64__binary) (Status: Validated locally; pending remote testfarm) — [Job Config](https://github.com/rep159-testing/ros_buildfarm_config/blob/feat/composable-distro/composable/release-build.yaml)
+  - [`Csrc_uR__upstream_c__ubuntu_resolute__source`](https://build.test.ros2.org/job/Csrc_uR__upstream_c__ubuntu_resolute__source) (Status: Validated locally; pending remote testfarm) — [Job Config](https://github.com/rep159-testing/ros_buildfarm_config/blob/feat/composable-distro/composable/release-build.yaml)
+  - [`Cbin_uR64__upstream_c__ubuntu_resolute_amd64__binary`](https://build.test.ros2.org/job/Cbin_uR64__upstream_c__ubuntu_resolute_amd64__binary) (Status: Validated locally; pending remote testfarm) — [Job Config](https://github.com/rep159-testing/ros_buildfarm_config/blob/feat/composable-distro/composable/release-build.yaml)
+  - [`Crel_sync-packages-to-testing_resolute_amd64`](https://build.test.ros2.org/job/Crel_sync-packages-to-testing_resolute_amd64) (Status: Validated locally; pending remote testfarm) — [Job Config](https://github.com/rep159-testing/ros_buildfarm_config/blob/feat/composable-distro/composable/release-build.yaml)
+  - [`Cci__nightly-release_ubuntu_resolute_amd64`](https://build.test.ros2.org/job/Cci__nightly-release_ubuntu_resolute_amd64) (Status: Validated locally; pending remote testfarm) — [Job Config](https://github.com/rep159-testing/ros_buildfarm_config/blob/feat/composable-distro/composable/ci-nightly-release.yaml)
 * **Downstream Extension Pipelines (`composablebin` Overlay via `binary_import`)**:
-  - [`Csrc_uR__downstream_bin_a__ubuntu_resolute__source`](https://build.test.ros2.org/job/Csrc_uR__downstream_bin_a__ubuntu_resolute__source) (Status: SUCCESS) — [Job Config](https://github.com/rep159-testing/ros_buildfarm_config/blob/feat/composable-distro/composablebin/release-build.yaml)
-  - [`Cbin_uR64__downstream_bin_a__ubuntu_resolute_amd64__binary`](https://build.test.ros2.org/job/Cbin_uR64__downstream_bin_a__ubuntu_resolute_amd64__binary) (Status: SUCCESS) — [Job Config](https://github.com/rep159-testing/ros_buildfarm_config/blob/feat/composable-distro/composablebin/release-build.yaml)
-  - [`Cci__binary-import_ubuntu_resolute_amd64`](https://build.test.ros2.org/job/Cci__binary-import_ubuntu_resolute_amd64) (Status: SUCCESS) — [Job Config](https://github.com/rep159-testing/ros_buildfarm_config/blob/feat/composable-distro/composablebin/ci-nightly-release.yaml)
+  - [`Csrc_uR__downstream_bin_a__ubuntu_resolute__source`](https://build.test.ros2.org/job/Csrc_uR__downstream_bin_a__ubuntu_resolute__source) (Status: Validated locally; pending remote testfarm) — [Job Config](https://github.com/rep159-testing/ros_buildfarm_config/blob/feat/composable-distro/composablebin/release-build.yaml)
+  - [`Cbin_uR64__downstream_bin_a__ubuntu_resolute_amd64__binary`](https://build.test.ros2.org/job/Cbin_uR64__downstream_bin_a__ubuntu_resolute_amd64__binary) (Status: Validated locally; pending remote testfarm) — [Job Config](https://github.com/rep159-testing/ros_buildfarm_config/blob/feat/composable-distro/composablebin/release-build.yaml)
+  - [`Cci__binary-import_ubuntu_resolute_amd64`](https://build.test.ros2.org/job/Cci__binary-import_ubuntu_resolute_amd64) (Status: Validated locally; pending remote testfarm) — [Job Config](https://github.com/rep159-testing/ros_buildfarm_config/blob/feat/composable-distro/composablebin/ci-nightly-release.yaml)
+
 
 ### Verified Invariants
 
