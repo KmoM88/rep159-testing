@@ -10,6 +10,7 @@ All documentation has been consolidated into specialized master guides:
 
 | Document | Purpose & Scope |
 |---|---|
+| 🎯 **[roadmap/README.md](roadmap/README.md)** | **Upstream Merge & Release Roadmap**: Master plan of upstream PRs, branches, features, and release dependency graph across all 5 stages, distinguishing core implementation from testing tweaks. |
 | 📖 **[EXECUTION_EXTENDABLE.md](EXECUTION_EXTENDABLE.md)** | **Master Execution & Operations Guide**: End-to-end instructions for launching CI, Source, and Release jobs on the local cluster (`192.168.30.206`) and remote testfarm (`build.test.ros2.org`). Includes detailed topological test procedures for binary chaining, mixed extension, and diamond graphs. |
 | 🗺️ **[STAGE_PR_AND_ISSUE_MAP.md](STAGE_PR_AND_ISSUE_MAP.md)** | **Upstream Roadmap & Staged PR DAG**: Multi-stage dependency graph, upstream issue/PR tracking, and cross-tooling implementation milestones. |
 | 🛠️ **[STAGE4_COMPOSABLE_WORKSPACE_PLAN.md](STAGE4_COMPOSABLE_WORKSPACE_PLAN.md)** | **Stage 4 Architecture & Execution Plan**: Technical roadmap for the `composable` distribution suite, testing `ros_workspace` underlay chaining, custom install prefixes, and dedicated `bloom` packaging fork. |
