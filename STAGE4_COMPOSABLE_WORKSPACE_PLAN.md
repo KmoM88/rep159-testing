@@ -228,10 +228,30 @@ The 5-step validation plan for the `composable` root distribution was executed l
 | **Paso 4** | `Crel_sync-packages-to-testing_resolute_amd64` | #5 | **SUCCESS** | Promoted all 4 packages from `building` to `testing` on `http://192.168.30.202:8088/ubuntu/testing` using `reprepro-updater` filter `--package-prefix vendor-composable-*`. |
 | **Paso 5** | `Cci__nightly-release_ubuntu_resolute_amd64` | #3 | **SUCCESS** | Container APT installed `vendor-composable-ros-workspace` from `.202:8088/ubuntu/testing`. Executed `. /opt/ros/composable/setup.sh && colcon build` and `colcon test`. 3 packages built, 100% test suites passed (CTest / GoogleTest). |
 
-### Key Architectural Validations Confirmed
+### Key Architectural Validations Confirmed (`composable` Root Distro)
 1. **Dynamic Workspace Underlay Sourcing**: `workspace.py` verified the presence of `/opt/ros/composable/setup.sh` and automatically invoked:
    ```bash
    . /opt/ros/composable/setup.sh && PYTHONIOENCODING=utf_8 PYTHONUNBUFFERED=1 colcon build ...
    ```
 2. **Debian Binary Renaming (`binary_rule`)**: Verified package name `vendor-composable-ros-workspace` seamlessly installs to `/opt/ros/composable` and resolves APT dependencies.
 3. **Reprepro Multi-Stage Promotion**: Packages cleanly transition `building` $\to$ `testing` and are consumable by CI docker build tasks.
+
+---
+
+### 7.2 Downstream Binary Import Validation (`composablebin`)
+
+The downstream overlay distribution `composablebin` extends `composable` via `binary_import`, consuming the binary Debian package `vendor-composable-upstream-c` and packaging `downstream_bin_a` with custom naming `vendor-composablebin-downstream-bin-a`.
+
+| Step | Job Name | Build # | Result | Evidence / Highlights |
+|---|---|---|---|---|
+| **Step 1: Distro Config & Job Gen** | `generate_release_jobs.py`<br>`generate_ci_jobs.py` | - | **SUCCESS** | Configured `composablebin/distribution.yaml` and generated release jobs (`Csrc_uR__downstream_bin_a`, `Cbin_uR64__downstream_bin_a`) and CI job `Cci__binary-import_ubuntu_resolute_amd64`. |
+| **Step 2: Source Release** | `Csrc_uR__downstream_bin_a__ubuntu_resolute__source` | #2 | **SUCCESS** | Generated `vendor-composablebin-downstream-bin-a_0.2.0-1resolute.dsc` referencing branch `debian/vendor-composablebin/resolute/downstream_bin_a` and tag `debian/vendor-composablebin-downstream-bin-a_0.2.0-1_resolute`. Published to reprepro `building`. |
+| **Step 3: Binary Release** | `Cbin_uR64__downstream_bin_a__ubuntu_resolute_amd64__binary` | #1 | **SUCCESS** | Installed `vendor-composable-upstream-c` from local APT repository. Built `vendor-composablebin-downstream-bin-a_0.2.0-1resolute_amd64.deb` under prefix `/opt/ros/composablebin`. Successfully imported to reprepro `building`. |
+| **Step 4: APT Sync to Testing** | `Crel_sync-packages-to-testing_resolute_amd64` | #6 | **SUCCESS** | Promoted `vendor-composablebin-downstream-bin-a` to `testing` on `http://192.168.30.202:8088/ubuntu/testing` using FilterFormula `Package (% vendor-composablebin-*)`. |
+| **Step 5: Overlay CI Validation** | `Cci__binary-import_ubuntu_resolute_amd64` | #3 | **SUCCESS** | Injected `ROS_BUILDFARM_PARENT_RESULT_SPACES=/opt/ros/composable`. Sourced `. /opt/ros/composable/setup.sh`. Colcon built all 4 packages (`upstream_{a,b,c}` and `downstream_bin_a`). 100% test suites passed (CTest / GoogleTest: `1/1 Test #1: test_downstream_bin_a ... Passed`). |
+
+### Key Architectural Validations Confirmed (`composablebin`)
+1. **Underlay Sourcing Across Distributions**: The child distribution container dynamically inherited `/opt/ros/composable` from `binary_import`, allowing `downstream_bin_a` to discover CMake target `upstream_cConfig.cmake` and link against `libupstream_c.so`.
+2. **Distinct Binary Rules Across Distro Boundaries**: Root distro produced `vendor-composable-*` while child distro produced `vendor-composablebin-*`. Both coexisted in Reprepro and APT without namespace collisions.
+3. **Hermetic Docker CI**: Validated that `colcon build` and `colcon test` execute seamlessly with 100% tests passing in an isolated container environment.
+

@@ -281,12 +281,13 @@ graph TD
 | **`ros_workspace`** | [`feat/composable-underlay-chaining`](https://github.com/rep159-testing/ros_workspace/tree/feat/composable-underlay-chaining) | Underlay chaining configuration for `/opt/ros/composable` |
 | **`ros_workspace-release`** | [`debian/vendor-composable/resolute/ros_workspace`](https://github.com/rep159-testing/ros_workspace-release/tree/debian/vendor-composable/resolute/ros_workspace) | Release track and tag `debian/vendor-composable-ros-workspace_1.0.4-1_resolute` |
 | **`upstream_{a,b,c}-release`** | [`debian/vendor-composable/resolute/upstream_{a,b,c}`](https://github.com/rep159-testing/upstream_a-release/tree/debian/vendor-composable/resolute/upstream_a) | Release tracks and tags `debian/vendor-composable-upstream-{a,b,c}_0.1.0-1_resolute` |
+| **`downstream_bin_a-release`** | [`debian/vendor-composablebin/resolute/downstream_bin_a`](https://github.com/rep159-testing/downstream_bin_a-release/tree/debian/vendor-composablebin/resolute/downstream_bin_a) | Release track and tag `debian/vendor-composablebin-downstream-bin-a_0.2.0-1_resolute` |
 | **`rep159-rosdistro`** | [`feat/composable-distro`](https://github.com/rep159-testing/rep159-rosdistro/tree/feat/composable-distro) | Distribution definitions for `composable` and `composablebin` |
-| **`ros_buildfarm_config`** | [`feat/composable-distro`](https://github.com/rep159-testing/ros_buildfarm_config/tree/feat/composable-distro) | Buildfarm release, sync, and CI configurations (`composable/`) |
+| **`ros_buildfarm_config`** | [`feat/composable-distro`](https://github.com/rep159-testing/ros_buildfarm_config/tree/feat/composable-distro) | Buildfarm release, sync, and CI configurations (`composable/`, `composablebin/`) |
 
 ### Executed Jobs & Configuration References
 
-* **Workspace & Package Release Pipelines**:
+* **Workspace & Root Distro Release Pipelines (`composable`)**:
   - [`Csrc_uR__ros_workspace__ubuntu_resolute__source`](https://build.test.ros2.org/job/Csrc_uR__ros_workspace__ubuntu_resolute__source) (Status: SUCCESS) — [Job Config](https://github.com/rep159-testing/ros_buildfarm_config/blob/feat/composable-distro/composable/release-build.yaml)
   - [`Cbin_uR64__ros_workspace__ubuntu_resolute_amd64__binary`](https://build.test.ros2.org/job/Cbin_uR64__ros_workspace__ubuntu_resolute_amd64__binary) (Status: SUCCESS) — [Job Config](https://github.com/rep159-testing/ros_buildfarm_config/blob/feat/composable-distro/composable/release-build.yaml)
   - [`Csrc_uR__upstream_a__ubuntu_resolute__source`](https://build.test.ros2.org/job/Csrc_uR__upstream_a__ubuntu_resolute__source) (Status: SUCCESS) — [Job Config](https://github.com/rep159-testing/ros_buildfarm_config/blob/feat/composable-distro/composable/release-build.yaml)
@@ -295,12 +296,17 @@ graph TD
   - [`Cbin_uR64__upstream_b__ubuntu_resolute_amd64__binary`](https://build.test.ros2.org/job/Cbin_uR64__upstream_b__ubuntu_resolute_amd64__binary) (Status: SUCCESS) — [Job Config](https://github.com/rep159-testing/ros_buildfarm_config/blob/feat/composable-distro/composable/release-build.yaml)
   - [`Csrc_uR__upstream_c__ubuntu_resolute__source`](https://build.test.ros2.org/job/Csrc_uR__upstream_c__ubuntu_resolute__source) (Status: SUCCESS) — [Job Config](https://github.com/rep159-testing/ros_buildfarm_config/blob/feat/composable-distro/composable/release-build.yaml)
   - [`Cbin_uR64__upstream_c__ubuntu_resolute_amd64__binary`](https://build.test.ros2.org/job/Cbin_uR64__upstream_c__ubuntu_resolute_amd64__binary) (Status: SUCCESS) — [Job Config](https://github.com/rep159-testing/ros_buildfarm_config/blob/feat/composable-distro/composable/release-build.yaml)
-* **Sync & Integration Pipeline**:
   - [`Crel_sync-packages-to-testing_resolute_amd64`](https://build.test.ros2.org/job/Crel_sync-packages-to-testing_resolute_amd64) (Status: SUCCESS) — [Job Config](https://github.com/rep159-testing/ros_buildfarm_config/blob/feat/composable-distro/composable/release-build.yaml)
   - [`Cci__nightly-release_ubuntu_resolute_amd64`](https://build.test.ros2.org/job/Cci__nightly-release_ubuntu_resolute_amd64) (Status: SUCCESS) — [Job Config](https://github.com/rep159-testing/ros_buildfarm_config/blob/feat/composable-distro/composable/ci-nightly-release.yaml)
+* **Downstream Extension Pipelines (`composablebin` Overlay via `binary_import`)**:
+  - [`Csrc_uR__downstream_bin_a__ubuntu_resolute__source`](https://build.test.ros2.org/job/Csrc_uR__downstream_bin_a__ubuntu_resolute__source) (Status: SUCCESS) — [Job Config](https://github.com/rep159-testing/ros_buildfarm_config/blob/feat/composable-distro/composablebin/release-build.yaml)
+  - [`Cbin_uR64__downstream_bin_a__ubuntu_resolute_amd64__binary`](https://build.test.ros2.org/job/Cbin_uR64__downstream_bin_a__ubuntu_resolute_amd64__binary) (Status: SUCCESS) — [Job Config](https://github.com/rep159-testing/ros_buildfarm_config/blob/feat/composable-distro/composablebin/release-build.yaml)
+  - [`Cci__binary-import_ubuntu_resolute_amd64`](https://build.test.ros2.org/job/Cci__binary-import_ubuntu_resolute_amd64) (Status: SUCCESS) — [Job Config](https://github.com/rep159-testing/ros_buildfarm_config/blob/feat/composable-distro/composablebin/ci-nightly-release.yaml)
 
 ### Verified Invariants
 
 * **Native Setup Sourcing**: Container verified presence of `/opt/ros/composable/setup.sh` and sourced it automatically prior to building and testing.
 * **Underlay Chain Inheritance**: `upstream_a`, `upstream_b`, and `upstream_c` compiled with `colcon` and resolved build dependencies (`ament_cmake_core`) from the chained `/opt/ros/upstream` underlay without manual environment intervention.
+* **Downstream Binary Overlay Chaining**: `downstream_bin_a` compiled and linked against `vendor-composable-upstream-c` installed via `binary_import` under prefix `/opt/ros/composable`, verifying seamless cross-distribution ABI and environment inheritance.
 * **Hermetic Unit Test Execution**: 100% unit tests passed across all packages with CTest and GoogleTest XML reports archived.
+

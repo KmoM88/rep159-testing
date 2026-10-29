@@ -175,6 +175,11 @@ Para mantener la máxima compatibilidad, trazabilidad y facilidad al enviar Pull
 | `Cbin_uR64__upstream_c__ubuntu_resolute_amd64__binary` | #3 | 2026-10-28 | `debian/vendor-composable/resolute/upstream_c` | **SUCCESS** | Compiló e importó `vendor-composable-upstream-c_0.1.0-1resolute_amd64.deb` en `building`. |
 | `Crel_sync-packages-to-testing_resolute_amd64` | #5 | 2026-10-28 | `feat/composable-distro` | **SUCCESS** | Promovió los 4 paquetes debian de `building` a `testing` (`vendor-composable-ros-workspace` y `vendor-composable-upstream-{a,b,c}`). |
 | `Cci__nightly-release_ubuntu_resolute_amd64` | #3 | 2026-10-28 | `feat/composable-distro` | **SUCCESS** | **STAGE 4 ROOT DISTRO VALIDADA**: APT instaló `vendor-composable-ros-workspace` desde `testing`. Colcon compiló `upstream_{a,b,c}` sourceando nativamente `. /opt/ros/composable/setup.sh`. Todos los tests (CTest y GoogleTest) 100% green. |
+| `Csrc_uR__downstream_bin_a__ubuntu_resolute__source` | #2 | 2026-10-28 | `debian/vendor-composablebin/resolute/downstream_bin_a` | **SUCCESS** | **Stage 4 / Composablebin Sourcedeb**: Construyó sourcedeb `vendor-composablebin-downstream-bin-a_0.2.0-1resolute.dsc` e importó en `building`. |
+| `Cbin_uR64__downstream_bin_a__ubuntu_resolute_amd64__binary` | #1 | 2026-10-28 | `debian/vendor-composablebin/resolute/downstream_bin_a` | **SUCCESS** | **Stage 4 / Composablebin Binarydeb**: Instaló dependencia `vendor-composable-upstream-c` de APT, compiló con prefijo `/opt/ros/composablebin`, generó `vendor-composablebin-downstream-bin-a_0.2.0-1resolute_amd64.deb` e importó a `building`. |
+| `Crel_sync-packages-to-testing_resolute_amd64` | #6 | 2026-10-28 | `feat/composable-distro` | **SUCCESS** | Sincronización exitosa; `vendor-composablebin-downstream-bin-a` promovido a `http://192.168.30.202:8088/ubuntu/testing` con filtro `Package (% vendor-composablebin-*)`. |
+| `Cci__binary-import_ubuntu_resolute_amd64` | #3 | 2026-10-28 | `feat/composable-distro` | **SUCCESS** | **STAGE 4 COMPOSABLEBIN (DOWNSTREAM BINARY EXTENSION) 100% VALIDADA**: Sourcing automático de underlay `/opt/ros/composable/setup.sh` heredado de la distro base. Colcon compiló `upstream_a`, `upstream_b`, `upstream_c` y `downstream_bin_a` (4/4 packages finished). Tests de CTest/GoogleTest 100% green. |
+
 
 ---
 
