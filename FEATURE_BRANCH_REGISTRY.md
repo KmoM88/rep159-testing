@@ -22,8 +22,8 @@ Para mantener la máxima compatibilidad, trazabilidad y facilidad al enviar Pull
 ## 2. Matriz de Seguimiento de Features
 
 ```
-[FEAT-1: binary_rule] ──► [FEAT-2: install_rule] ──► [FEAT-3: buildfarm naming] ──► [FEAT-4: reps doc] ──► [FEAT-5: release pipeline & APT repo] ──► [FEAT-6: multi-tier topologies] ──► [FEAT-7: composable suite & ros_workspace]
-  (rosdistro/rosdep)       (distro/buildfarm)          (buildfarm common.py)        (submodules/reps)        (reprepro/docker & release jobs)         (extendable family A->B->C)              (bloom fork / ros_workspace deb / C*)
+[FEAT-1: binary_rule] ──► [FEAT-2: install_rule] ──► [FEAT-3: buildfarm naming] ──► [FEAT-4: reps doc] ──► [FEAT-5: release pipeline & APT repo] ──► [FEAT-6: multi-tier topologies] ──► [FEAT-7: composable suite & ros_workspace] ──► [FEAT-8: cache lifecycle] ──► [FEAT-9: bloom packaging]
+  (rosdistro/rosdep)       (distro/buildfarm)          (buildfarm common.py)        (submodules/reps)        (reprepro/docker & release jobs)         (extendable family A->B->C)              (bloom fork / ros_workspace deb / C*)    (rosdistro_build_cache)      (git-bloom-generate rosdebian)
 ```
 
 | ID | Feature / Componente | Repositorio | Rama de Desarrollo | Rama Base | Estado Local | Estado CI Jenkins |
@@ -35,6 +35,8 @@ Para mantener la máxima compatibilidad, trazabilidad y facilidad al enviar Pull
 | **FEAT-5** | Tubería de Release, Import y Sync (`reprepro` + SSH + Nginx) | `ros_buildfarm`<br>`ros_buildfarm_config`<br>`rep159-testing` | `test/rep159-release-pipeline`<br>`rep159`<br>`main` | `test/rep159-install-prefixes`<br>`master`<br>`main` | ✅ 100% (Repo activo en :8088 con GPG) | ✅ **SUCCESS** (`Usrc_uR` #10, `Ubin` #4, `Urel_sync` #4, `Bci` #4) |
 | **FEAT-6** | Encadenamiento Multi-Tier y Topologías Mixtas ($A \to B \to C$) | `rosdistro`<br>`ros_buildfarm`<br>`ros_buildfarm_config`<br>`rep159-rosdistro`<br>`downstream_bin_a-release` | `feature/rep159-install-rule`<br>`feat/binary-naming-rule`<br>`feat/stage3-binary-chained`<br>`feat/stage3-binary-chained`<br>`release/extendablebin/downstream_bin_a` | `master`<br>`master`<br>`feat/stage3-chained-extensions`<br>`feat/stage3-chained-extensions`<br>`upstream` | ✅ Opción A 100% (Local #3)<br>🔄 Opción B con fix `dd2825e` | ✅ Opción A 100% (Remoto #2)<br>⏳ Opción B en planificación |
 | **FEAT-7** | Stage 4: Suite `composable`, `ros_workspace` Sourcing & Bloom Fork | `bloom`<br>`ros_workspace`<br>`ros_workspace-release`<br>`upstream_{a,b,c}-release`<br>`rep159-rosdistro`<br>`ros_buildfarm_config` | `feat/rep159-rules-support`<br>`feat/composable-underlay-chaining`<br>`debian/vendor-composable/resolute/ros_workspace`<br>`debian/vendor-composable/resolute/upstream_{a,b,c}`<br>`feat/composable-distro`<br>`feat/composable-distro` | `master`<br>`main`<br>`debian/vendor-composable`<br>`debian/vendor-composable`<br>`master`<br>`master` | ✅ 100% (Local 5-step test) | ✅ **SUCCESS** (`Csrc` #5, `Cbin` #3, `Crel_sync` #5, `Cci` #3) |
+| **FEAT-8** | Stage 5: Ciclo de Vida de Cache (`rosdistro_build_cache` & Reconfig) | `ros_buildfarm`<br>`rep159-rosdistro`<br>`ros_buildfarm_config` | `feat/cache-job-rep159`<br>`feat/cache-lifecycle-test`<br>`feat/cache-lifecycle-test` | `master`<br>`master`<br>`master` | ⏳ En planificación | ⏳ En planificación |
+| **FEAT-9** | Stage 5: Generación Automatizada de Release con Bloom | `bloom`<br>`downstream_bin_a-release` | `feat/rep159-rules-support`<br>`debian/vendor-cachechild/resolute/downstream_bin_a` | `master`<br>`upstream` | ⏳ En planificación | ⏳ En planificación |
 
 ---
 
