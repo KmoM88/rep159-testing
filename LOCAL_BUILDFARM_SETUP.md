@@ -232,3 +232,24 @@ To maintain clean traceability and ensure experiments mirror what will eventuall
 4. **Minimal Submodule Invasiveness**:
    - Submodules remain as close to upstream as possible to ensure seamless transfer to `build.test.ros2.org`.
 
+---
+
+## 7. Docker Host Maintenance & Automated Pruning (`192.168.30.202`)
+
+To prevent continuous Docker builds from exhausting the root filesystem on the runner host (`192.168.30.202`), an automated cleanup script and cron schedule are configured:
+
+### 7.1 Cleanup Script (`/usr/local/bin/docker-cleanup.sh`)
+Executes:
+1. `docker container prune -f --filter "until=6h"`: removes stopped test containers older than 6 hours.
+2. `docker image prune -a -f --filter "until=12h"`: reclaims dangling and obsolete intermediate build layers while preserving actively running images and recent bases.
+3. `docker builder prune -f --filter "until=12h"`: cleans stale buildkit caches.
+4. Appends execution details and `df -h /` disk status to `/var/log/docker-cleanup.log` (bounded to 5,000 lines).
+
+### 7.2 Cron Schedule (`/etc/cron.d/docker-cleanup`)
+Runs every 6 hours (at minute 0 of hours 0, 6, 12, 18):
+```cron
+# Run docker cleanup every 6 hours
+0 */6 * * * root /usr/local/bin/docker-cleanup.sh >/dev/null 2>&1
+```
+
+
