@@ -255,3 +255,56 @@ The downstream overlay distribution `composablebin` extends `composable` via `bi
 2. **Distinct Binary Rules Across Distro Boundaries**: Root distro produced `vendor-composable-*` while child distro produced `vendor-composablebin-*`. Both coexisted in Reprepro and APT without namespace collisions.
 3. **Hermetic Docker CI**: Validated that `colcon build` and `colcon test` execute seamlessly with 100% tests passing in an isolated container environment.
 
+---
+
+## 8. Next Steps & Future Testing Roadmap
+
+### 8.1 Next Topological Step: Multi-Tier Chained Binary Extension (`composablechainedbin`)
+
+Following the successful validation of single-level overlay `composablebin`, the immediate next step in the topological roadmap is validating **2-level pure binary chaining**:
+- **Distribution**: `composablechainedbin`
+- **Extends**: `composablebin` via `extension_method: binary_import`
+- **Target Package**: `downstream_chain_a` (requires `downstream_bin_a` from `composablebin` and transitive dependency `upstream_c` from `composable`).
+- **Validation Objective**: Confirm that both `/opt/ros/composable/setup.sh` and `/opt/ros/composablebin/setup.sh` are correctly chained and sourced, allowing `downstream_chain_a` to build, link, and execute tests against both parent underlays without compile or link errors.
+
+Subsequent topological steps:
+- **`composablesrc`**: Source rebuild extension with `downstream_src_a`.
+- **`composablechainedmixed`**: Hybrid extension compiling `downstream_chain_a` from source against binary `downstream_bin_a` and source `upstream_c`.
+- **`composablediamond`**: Multi-parent diamond graph extending both `composablebin` and `composablesrc`.
+
+---
+
+### 8.2 Future Cache Lifecycle & Integrity Validation Suite
+
+While distribution cache generation (`rosdistro_build_cache`) and index publication have been executed throughout Stage 4, formal automated cache validation tests should be established to systematically test the cache lifecycle, format integrity, and resolution mechanics:
+
+```mermaid
+graph TD
+    subgraph CacheLifecycleSuite [Planned Cache Validation Test Suite]
+        T1["Test 1: Dynamic In-Memory Merge<br/>Validates get_cached_distribution() across multi-level chained distros"]
+        T2["Test 2: Preclean Verification on Disk<br/>Asserts leaf caches store only own repos, avoiding bloat"]
+        T3["Test 3: Rule Metadata Serialization<br/>Verifies binary_rule & install_rule survive cache round-trip"]
+        T4["Test 4: Invalidation & Missing Parent Fail-Fast<br/>Asserts fail-fast exceptions when upstream cache is broken/stale"]
+        T5["Test 5: Buildfarm Parity<br/>Compares job generation output using cache vs live Git repo"]
+    end
+```
+
+#### Detailed Test Specifications:
+1. **Dynamic In-Memory Merge Across Topologies**:
+   - Query `rosdistro.get_cached_distribution(index, 'composablebin')` and `composablechainedbin`.
+   - Assert in-memory `.repositories` contains both local packages (`downstream_bin_a`) and inherited upstream packages (`upstream_a,b,c`, `ros_workspace`).
+   - Validate that package metadata (version, tags, maintainers) matches the parent cache exactly without entry duplication.
+2. **Precleaned Disk Storage Verification**:
+   - Inspect raw `composablebin-cache.yaml.gz` and `composablechainedbin-cache.yaml.gz` on disk.
+   - Assert raw YAML contains strictly leaf packages (`downstream_bin_a` or `downstream_chain_a`), confirming `--preclean` eliminates redundant copies of upstream trees.
+3. **Custom Rule Metadata Round-Trip**:
+   - Assert `binary_rule` and `install_rule` remain fully intact in the cached distribution file.
+   - Validate that `rosdistro.get_binary_package_name()` produces identical output when evaluating raw `distribution.yaml` versus deserialized `<distro>-cache.yaml`.
+4. **Cache Invalidation & Missing Parent Handling**:
+   - Test cache behavior when a parent cache is intentionally corrupted or deleted.
+   - Confirm `rosdistro` raises explicit, informative `RuntimeError` rather than silently continuing with an incomplete dependency graph.
+5. **Buildfarm Job Generation Parity**:
+   - Run `generate_release_jobs.py` and `generate_ci_jobs.py` in two passes: once reading raw Git distribution files and once reading `<distro>-cache.yaml.gz`.
+   - Perform a structural diff between the resulting Jenkins XML definitions to verify 100% bit-for-bit parity.
+
+
