@@ -128,6 +128,48 @@ Para mantener la máxima compatibilidad, trazabilidad y facilidad al enviar Pull
   - `submodules/ros_buildfarm_config`: `feat/composable-distro`
 - **Verificación en Jenkins**: 5-step local pipeline 100% SUCCESS (`Csrc`, `Cbin`, `Crel_sync`, `Cci`).
 
+### FEAT-8: Stage 5 — Ciclo de Vida del Cache de Distribuciones y Jerarquías REP-159
+- **Problema**: `rosdistro_build_cache` se ejecuta en un contenedor (`rosdistro_cache_task.Dockerfile.em`) que upstream aprovisiona con paquetes APT estándar de Ubuntu Focal, careciendo de soporte para el formato 3 de ROSDistro (`extends`, `binary_rule`, `install_rule`). Además, no se había investigado ni validado operativamente cómo se construye, publica vía SSH, invalida y refresca el cache comprimido (`<distro>-cache.yaml.gz`) en distribuciones jerárquicas con herencia `extends: {type: binary_import}`.
+- **Solución implementada**:
+  - **Template Dockerfile (`feat/cache-job-rep159`)**: Se actualizó `rosdistro_cache_task.Dockerfile.em` para instalar `pip` y la versión de `rosdistro` con soporte REP-159 desde `rep159-testing/rosdistro@feature/rep159-install-rule`.
+  - **Asignación de Nodos (`rosdistro_cache_job.xml.em`)**: Se corrigió `assignedNode` de `built-in || master` a `building_repository` para ejecutar las tareas de Docker en el runner `ci-agent-amd64`.
+  - **Topología Mínima (`cachebase` $\to$ `cachechild`)**:
+    - `cachebase`: Distro raíz con `upstream_a`, `upstream_b`, `upstream_c` bajo `vendor-cachebase-@PKG@` y `/opt/ros/cachebase`.
+    - `cachechild`: Distro hija con `extends: cachebase (binary_import)`, alojando `downstream_bin_a` bajo `vendor-cachechild-@PKG@` y `/opt/ros/cachechild`.
+  - **Mecánica de Cache Validada**:
+    - Generación y publicación exitosa de `cachebase-cache.yaml.gz` y `cachechild-cache.yaml.gz` en Nginx vía SSH.
+    - `cachechild` resuelve el cache padre (`Load cache from cachebase-cache.yaml.gz`), procesa dependencias y ejecuta des-fusión/aislamiento (`- REMOVE upstream_a`, etc.) garantizando inmutabilidad del ABI padre.
+    - Invalidación probada: al bump de versión (0.1.0 $\to$ 0.1.1 en `upstream_a`), el log de build reporta `- updated manifest of package 'upstream_a' to version '0.1.1'`, regenera el cache y activa reconfiguraciones automáticas.
+- **Ramas y Componentes**:
+  - `submodules/ros_buildfarm`: `feat/cache-job-rep159`
+  - `submodules/rep159-rosdistro`: `feat/cache-lifecycle-test`
+  - `submodules/ros_buildfarm_config`: `feat/cache-lifecycle-test`
+- **Verificación en Jenkins**: `cachebase_rosdistro-cache` (Builds #7..#18) y `cachechild_rosdistro-cache` (Builds #4..#18) en **SUCCESS** 100%.
+
+---
+
+### FEAT-9: Stage 5 — Generación Automatizada de Empaquetado Debian con Bloom REP-159
+- **Problema**: Históricamente los archivos debian (`debian/control`, `debian/rules`) se generaban manualmente o se parcheaban con templates fijos. Bloom oficial no reconocía `binary_rule` ni `install_rule` ni inyectaba sourcing multi-underlay de distribuciones padre.
+- **Solución implementada**:
+  - **Bloom Fork (`rep159-testing/bloom`)**:
+    - Rama `feat/rep159-rules-support`.
+    - `bloom/generators/debian/generator.py`: Modificado para invocar `rosdistro.get_binary_package_name()` con la distribución destino, resolviendo los nombres debian (`Package:` y `Depends:`) acordes al regex `binary_rule`.
+    - Parche de `debian/rules`: Inyecta `-DCMAKE_INSTALL_PREFIX` y `PKG_CONFIG_PATH` dinámicos basados en `install_rule`.
+    - Chaining de Sourcing: Inyecta `if [ -f "/opt/ros/<parent>/setup.sh" ]; then . "/opt/ros/<parent>/setup.sh"; fi` en las reglas debhelper (`dh_auto_configure`, `dh_auto_build`, `dh_auto_test`, `dh_auto_install`).
+    - Soporte para Git Tags firmados (`tag.gpgsign=true`): Añadido flag `-m` en invocaciones a `git tag -f`.
+  - **Validación Práctica en `downstream_bin_a-release`**:
+    - Ejecutado `git-bloom-generate -y -d rosdebian cachechild --os-name ubuntu --distros resolute -p release/extendablebin`.
+    - Verificación exitosa en `debian/control`:
+      - `Package: vendor-cachechild-downstream-bin-a`
+      - `Depends: ..., vendor-cachebase-upstream-c, vendor-cachechild-ros-workspace`
+    - Verificación exitosa en `debian/rules`:
+      - `if [ -f "/opt/ros/cachebase/setup.sh" ]; then . "/opt/ros/cachebase/setup.sh"; fi`
+      - `-DCMAKE_INSTALL_PREFIX="/opt/ros/cachechild"`
+      - `-DCMAKE_PREFIX_PATH="/opt/ros/cachechild;/opt/ros/cachebase"`
+- **Ramas y Componentes**:
+  - `submodules/bloom`: `feat/rep159-rules-support`
+  - `submodules/downstream_bin_a-release`: `debian/cachechild/resolute/downstream_bin_a` (tag `debian/vendor-cachechild-downstream-bin-a_0.2.0-0_resolute`)
+
 ---
 
 ## 4. Registro de Ejecuciones en Jenkins (Buildfarm Local)
@@ -181,8 +223,8 @@ Para mantener la máxima compatibilidad, trazabilidad y facilidad al enviar Pull
 | `Cbin_uR64__downstream_bin_a__ubuntu_resolute_amd64__binary` | #1 | 2026-10-28 | `debian/vendor-composablebin/resolute/downstream_bin_a` | **SUCCESS** | **Stage 4 / Composablebin Binarydeb**: Instaló dependencia `vendor-composable-upstream-c` de APT, compiló con prefijo `/opt/ros/composablebin`, generó `vendor-composablebin-downstream-bin-a_0.2.0-1resolute_amd64.deb` e importó a `building`. |
 | `Crel_sync-packages-to-testing_resolute_amd64` | #6 | 2026-10-28 | `feat/composable-distro` | **SUCCESS** | Sincronización exitosa; `vendor-composablebin-downstream-bin-a` promovido a `http://192.168.30.202:8088/ubuntu/testing` con filtro `Package (% vendor-composablebin-*)`. |
 | `Cci__binary-import_ubuntu_resolute_amd64` | #4 | 2026-10-28 | `feat/composable-distro` | **SUCCESS** | **STAGE 4 COMPOSABLEBIN NATIVE UNDERLAY SOURCING 100% VALIDADA**: Instaló `vendor-composable-ros-workspace` desde `testing`. Invocó `. /opt/ros/composable/setup.sh` en todas las fases de colcon build y test. Compiló `downstream_bin_a` contra `vendor-composable-upstream-c`. Todos los tests (CTest/GoogleTest) 100% green. |
-
-
+| `cachebase_rosdistro-cache` | #7..#18 | 2026-10-28 | `feat/cache-lifecycle-test`<br>`feat/cache-job-rep159` | **SUCCESS** | **Stage 5 / FEAT-8**: Generó `cachebase-cache.yaml.gz`, transfirió por SSH a `.202` y validó detección de actualización de manifiestos (0.1.0 $\to$ 0.1.1). |
+| `cachechild_rosdistro-cache` | #4..#18 | 2026-10-28 | `feat/cache-lifecycle-test`<br>`feat/cache-job-rep159` | **SUCCESS** | **Stage 5 / FEAT-8**: Consultó cache padre `cachebase-cache.yaml.gz`, resolvió dependencias, ejecutó remoción de paquetes padre (`- REMOVE upstream_{a,b,c}`) y publicó `cachechild-cache.yaml.gz`. |
 
 ---
 
