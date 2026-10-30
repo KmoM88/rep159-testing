@@ -39,32 +39,47 @@ Stage 1 establishes the **Format 3 ROSDistro specification**, introduces declara
 
 ---
 
-## 3. Implementation Breakdown: Core Code vs. Testing Tweaks
+## 3. Implementation Breakdown: Core Code vs. Required Fixes vs. Pre-Release Overrides
 
-### Core Implementation (To be Merged Upstream)
+### Core Feature Implementation (To Be Merged Upstream)
 
-1. **`ros/rosdistro` (Branch: `feature/rep159-binary-naming-regex`)**:
-   - `DistributionFile`: Adds Format 3 parsing, `binary_rule` schema validation, and `get_binary_package_name(pkg_name)`.
+1. **`ros-infrastructure/rosdistro` (Branch: `feature/rep159-binary-naming-regex` @ `3d301d6` stacked on `rep159` @ `46a7580`; Org PR [`rosdistro#1`](https://github.com/rep159-testing/rosdistro/pull/1))**:
+   - `DistributionFile`: Adds Format 3 parsing, `extends:` DAG resolution, `binary_rule` schema validation, and `get_binary_package_name(pkg_name)`.
    - `ReleaseRepositorySpecification`: Adds repository-level `binary_rule` support.
    - Normalization: Automatically converts underscores to hyphens and interpolates context variables (`{DISTRO}`, `{PACKAGE}`, `{ORIGIN_DISTRO}`).
    - Reverse Lookup: Implements `get_package_name_from_binary(binary_name)`.
 
-2. **`ros-infrastructure/rosdep` (Branch: `rep159`)**:
-   - `gbpdistro_support.py`: Delegates binary package queries to `dist_file.get_binary_package_name(pkg)` rather than computing `ros-%s-%s`.
+2. **`ros-infrastructure/reprepro-updater` (Branch: `feat/package-prefix` @ `93ed2dc` off `master`/`refactor` `1e7aa5c`)**:
+   - `scripts/sync_ros_packages.py` & `src/reprepro_updater/helpers.py`: Adds `-p / --package-prefix` CLI option (defaulting to `ros-<rosdistro>-`, auto-appending `-`) for `UpdateElement` naming, `FilterFormula: Package (% <prefix>*)`, `_clear_ros_distro()`, and `run_cleanup()`.
+   - Zero `rosdistro` dependency; targets **`refactor`** upstream (which `ros_buildfarm` clones directly at sync job runtime).
 
-3. **`ros-infrastructure/reprepro-updater` (Branch: `feat/package-prefix`)**:
-   - Adds `--package-prefix` CLI option to allow selective synchronization of vendor-prefixed packages from `building` to `testing`.
+3. **`ros-infrastructure/rosdep` (Branch: `rep159` @ `3d52dad`)**:
+   - `src/rosdep2/gbpdistro_support.py` (`2d5a548`, `3d52dad`): Delegates binary package queries to `repo.release_repository.get_binary_package_name(pkg)` or `distro_file.get_binary_package_name(pkg)`, with fallback checking `extension_method == 'binary_import'`.
+   - `test/test_rosdep_gbpdistro_support.py` & `test/fake_rosdistro/` (`07b6647`): Format 3 extended distribution unit tests.
 
-4. **`ros-infrastructure/ros_buildfarm` (Branch: `feat/binary-naming-rule`)**:
-   - `common.py`: Updates `get_os_package_name()` and `get_os_package_name_prefix()` to take an optional `dist_file=dist_file` argument and query `dist_file.get_binary_package_name()`.
-   - Release jobs (`sourcedeb_job.py`, `binarydeb_job.py`, `create_binarydeb_task_generator.py`): Pass `dist_file=dist_file` and propagate `debian_package_name`.
+4. **`ros-infrastructure/ros_buildfarm` (Branch: `feat/binary-naming-rule` @ `4062a66`)**:
+   - `ros_buildfarm/common.py` (`857b025`): Updates `get_os_package_name()` and `get_os_package_name_prefix()` to accept optional `dist_file=dist_file` and query `dist_file.get_binary_package_name()`.
+   - Release & sync pipeline (`argument.py`, `release_job.py`, `sourcedeb_job.py`, `sourcerpm_job.py`, `binarydeb_job.py`, `binaryrpm_job.py`, `trigger_job.py`, `append_build_timestamp.py`, `build_binarydeb.py`, `check_sync_criteria.py`, `create_binarydeb_task_generator.py`, `binarypkg_task.Dockerfile.em`, `sync_packages_to_{testing,main}_job.xml.em` in commits `61b8d29`, `ceaaef7`, `c907db2`): Propagates `dist_file`, `--debian-package-name`, and `--package-prefix`.
 
-### Testing Tweaks & Local Workarounds (Test Harness Only — Do NOT Upstream)
+### Required Engineering Fixes Discovered During Validation
 
-1. **Direct Tarball Pip Overrides in Dockerfiles**:
-   - During local testing, `sourcepkg_task.Dockerfile.em` and `binarypkg_task.Dockerfile.em` injected pip installs of GitHub tarballs. In upstream production, `ros_buildfarm` will depend on released PyPI packages of `rosdistro` and `rosdep`.
-2. **Target Repository Hostname Overrides**:
-   - `release-build-local.yaml` was created to point `target_repository` to `192.168.30.202:8088`. Upstream configurations will point to standard `repo.ros2.org` endpoints.
+1. **Child Release Job Isolation in `ros_buildfarm` (`release_job.py`, commit `4062a66`)**:
+   - Skips packages in `ordered_pkg_tuples` not present in `dist_file.release_packages`, preventing a `binary_import` child distribution from generating duplicate `*src_*` / `*bin_*` jobs for inherited parent packages.
+2. **Renamed Package Subfolder & Assertion Lookup in `ros_buildfarm` (`binarydeb_job.py`, `binaryrpm_job.py`, `get_binarydeb.py`, commit `3397a12`)**:
+   - Fixes assertion variable formatting (`debian_package_name`) and workspace subfolder / `.src.rpm` lookup when `binary_rule` renames packages away from `ros-<distro>-<pkg>`.
+3. **Standalone Buildfarm Resilience Fixes (`wrapper/git.py` `ae8826b`; `jenkins.py` `199fd98`)**:
+   - Retries transient TLS/GnuTLS container git errors and gracefully skips Jenkins view creation on `403 Forbidden` (Wave 0 standalone PRs).
+4. **Pre-PR Cleanups Needed in `rosdep` (Post-Gate 1)**:
+   - Cut a clean branch from `master`, bump `rosdistro >= 1.2.0` in `setup.py` and `python3-rosdistro-modules (>= 1.2.0)` in `stdeb.cfg`, and add a `binary_rule` test case in `test/test_rosdep_gbpdistro_support.py`.
+
+### Temporary Pre-Release Overrides (Test Harness Only — Do NOT Upstream)
+
+1. **`rosdep` Fork Git URL in `setup.py` & `.github/workflows/ci.yaml`** (commits `a83d852`..`b436f33`):
+   - Hardcoded `rosdistro @ git+https://github.com/KmoM88/rosdistro.git@feature/rep-2015-v3-parser` and `ROSDEP_LOCAL_DEV`. Revert to standard `rosdistro >= 1.2.0` and `ros-infrastructure/ci/.github/workflows/pytest.yaml@main` once Gate 1 is published.
+2. **Direct Tarball `pip3 install` & Fork URLs in `ros_buildfarm`**:
+   - Tarball `pip3 install` blocks in `sourcepkg_task.Dockerfile.em`, `binarypkg_create_task.Dockerfile.em`, `binarypkg_task.Dockerfile.em`, and `release_check_sync_criteria_task.Dockerfile.em` (`1fd12c0`, `4b3072b`, `68369e9`, `efcbab3`), plus the `rep159-testing/reprepro-updater` URL in `sync_packages_to_{testing,main}_job.xml.em` (`c907db2`). Replace with `rosdistro >= 1.2.0` / `rosdep >= 0.27.0` APT dependencies and `ros-infrastructure/reprepro-updater -b refactor`.
+3. **Target Repository Hostname Overrides**:
+   - `release-build-local.yaml` pointing `target_repository` to `192.168.30.202:8088`.
 
 ---
 
@@ -89,22 +104,23 @@ Stage 1 establishes the **Format 3 ROSDistro specification**, introduces declara
 
 ---
 
-## 5. Upstream PR & Release Roadmap
+## 5. Release-Gated Upstream PR & Release Sequence
 
-1. **PR 1: `openrobotics/reps`**
+1. **Wave 0 — `openrobotics/reps` (Spec)**:
+   - *Live PR*: [`openrobotics/reps#35`](https://github.com/openrobotics/reps/pull/35) (`KmoM88:feature/rep-159-binary-name-templating` $\to$ `openrobotics:rosdistro_extension`, feeding [`openrobotics/reps#32`](https://github.com/openrobotics/reps/pull/32)).
    - *Title*: `rep-159: document design explorations, regex decision rationale, and binary renaming in binary_import`
-   - *Branch*: `feature/rep-2015-naming-and-install-rules` $\to$ `main`
-2. **PR 2: `ros/rosdistro`**
-   - *Title*: `feat(naming): add declarative regex-based binary package renaming engine (Format 3)`
-   - *Branch*: `feature/rep159-binary-naming-regex` $\to$ `master`
-   - *Release Target*: `rosdistro >= 1.0.0` on PyPI.
-3. **PR 3: `ros-infrastructure/rosdep`**
-   - *Title*: `feat(rep159): delegate debian package name queries to rosdistro binary_rule`
-   - *Branch*: `rep159` $\to$ `master`
-   - *Release Target*: `rosdep >= 0.23.0` on PyPI.
-4. **PR 4: `ros-infrastructure/reprepro-updater`**
-   - *Title*: `feat: add --package-prefix flag for vendor package filtering`
-   - *Branch*: `feat/package-prefix` $\to$ `master`
-5. **PR 5: `ros-infrastructure/ros_buildfarm`**
-   - *Title*: `feat(release): delegate binary package names to rosdistro binary_rule`
-   - *Branch*: `feat/binary-naming-rule` $\to$ `master`
+2. **Wave 0 — `ros-infrastructure/reprepro-updater` (Zero Release Prerequisite)**:
+   - *Title*: `feat: support custom --package-prefix for reprepro FilterFormula and cleanup`
+   - *Branch*: `feat/package-prefix` (`93ed2dc`) $\to$ **`refactor`** *(upstream sync jobs `git clone -b refactor` directly at runtime; no PyPI/APT package step)*.
+3. **Wave 0 — `ros-infrastructure/rosdistro`**:
+   - *Org PR*: [`rep159-testing/rosdistro#1`](https://github.com/rep159-testing/rosdistro/pull/1) (`feature/rep159-binary-naming-regex` $\to$ `rep159`); upstream target: `master`.
+   - *Title*: `feat(naming): add declarative regex-based binary package renaming engine`
+   - *Unblocks Release Gate 1*: Publish **`rosdistro >= 1.2.0`** (from `1.1.0`) to PyPI + OSRF `ros_bootstrap` APT (`python3-rosdistro-modules >= 1.2.0`).
+4. **Wave 1 — `ros-infrastructure/rosdep` (Blocked Until Gate 1 `rosdistro >= 1.2.0`)**:
+   - *Title*: `feat(rep159): delegate binary package name resolution to rosdistro binary_rule`
+   - *Branch*: Clean branch off `master` cherry-picking `2d5a548`, `07b6647`, `3d52dad` (dropping `KmoM88/rosdistro` git URL hacks in `setup.py`/`ci.yaml`, bumping `rosdistro >= 1.2.0` + `stdeb.cfg`).
+   - *Unblocks Release Gate 2*: Publish **`rosdep >= 0.27.0`** (from `0.26.0`) to PyPI + OSRF `ros_bootstrap` APT (`python3-rosdep-modules >= 0.27.0`).
+5. **Wave 3 — `ros-infrastructure/ros_buildfarm` (Blocked Until Gate 1 + Gate 2 + `reprepro-updater:refactor`)**:
+   - *Title*: `feat(release): delegate binary package names to rosdistro binary_rule and filter sync by prefix`
+   - *Core + Fix Commits*: `857b025`, `61b8d29`, `ceaaef7`, `c907db2`, `3397a12`, `4062a66` $\to$ `master` (excluding `*.Dockerfile.em` tarball `pip` hacks and reverting `reprepro-updater` URL back to `ros-infrastructure/reprepro-updater -b refactor`).
+   - *Unblocks Release Gate 4*: Publish **`ros_buildfarm >= 4.2.0`**.

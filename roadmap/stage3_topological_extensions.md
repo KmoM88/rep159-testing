@@ -28,24 +28,29 @@ Stage 3 validates these complex topological extensions across both pure CMake pa
 
 ---
 
-## 3. Implementation Breakdown: Core Code vs. Testing Tweaks
+## 3. Implementation Breakdown: Core Code vs. Required Fixes vs. Testing Tweaks
 
-### Core Implementation (To be Merged Upstream)
+### Core Feature Implementation & Required Fixes (To Be Merged Upstream)
 
-1. **`ros-infrastructure/ros_buildfarm` (Branch: `feat/binary-naming-rule` / `test/stage3-binary-chained`)**:
-   - **`build_and_install.py` (Commit `dd2825e`)**: Added fallback to `get_default_parent_result_spaces()` when `--parent-result-space` is passed empty, ensuring chained parent spaces are never silently dropped.
-   - **`workspace.py` (Commit `12982be`)**: Added dynamic export of `CMAKE_PREFIX_PATH` and `COLCON_PREFIX_PATH` when underlays lack `setup.sh`.
-   - **`workspace.py` (Commit `2a869d8`)**: Added multiarch `LD_LIBRARY_PATH` export (`lib` and `lib/<arch>`) so that binaries built against underlay shared libraries can locate them during unit testing (`ctest`).
+1. **`ros-infrastructure/ros_buildfarm` — CI Workspace Dependency Walk (`origin/rep159`, PR 3A)**:
+   - **`scripts/ci/create_workspace.py` & `test/test_rep159_create_workspace.py` (Commits `52b51d8`, `9736140`)**: Walks source-only repositories during dependency resolution and stops workspace source checkout traversal at `binary_import` parent boundaries (leaving parent binaries to be installed via `rosdep` from APT). *(Note: Currently lives on `origin/rep159` off `219d1a4`; must be cherry-picked alongside `feat/*` branches when opening Wave 3 PRs without rebasing active testbed branches).*
 
-2. **`ros/rosdistro` (Branch: `feature/rep159-install-rule`)**:
-   - Transitive topological graph walk: Recursively traverses multi-tier parent hierarchies ($C \to B \to A$) without circular dependency deadlocks.
+2. **`ros-infrastructure/ros_buildfarm` — Underlay & Pure-CMake Engineering Fixes (`feat/binary-naming-rule`, Folded into PR 3B)**:
+   - **`scripts/ci/build_and_install.py` (Commit `dd2825e`)**: Added fallback to `get_default_parent_result_spaces(args.rosdistro_name)` when `--parent-result-space` is `None`, ensuring chained parent spaces are never silently dropped.
+   - **`ros_buildfarm/workspace.py` (Commit `12982be`)**: Added dynamic export of `CMAKE_PREFIX_PATH`, `COLCON_PREFIX_PATH`, and `PATH` when underlays exist on disk without `setup.sh`.
+   - **`ros_buildfarm/workspace.py` (Commit `2a869d8`)**: Added multiarch `LD_LIBRARY_PATH` export (`lib`, `lib/x86_64-linux-gnu`, `lib/aarch64-linux-gnu`) so binaries built against pure-CMake underlay shared libraries locate `.so` targets during runtime `ctest` execution.
+
+3. **`ros-infrastructure/rosdistro` (Branch: `feature/rep159-install-rule` stacked on `rep159`)**:
+   - Transitive topological DAG walk & multi-parent diamond deduplication: Recursively traverses multi-tier parent hierarchies ($C \to B \to A$ and convergent diamonds) without circular dependency deadlocks or false collision errors.
 
 ### Testing Tweaks & Local Workarounds (Test Harness Only — Do NOT Upstream)
 
-1. **Agent Docker Layer Invalidation**:
+1. **Container Tarball `pip3 install` Commits** (`fc7b990`, `aa4d978` on `rep159`; `1fd12c0`..`4f4b059` on `feat/*`):
+   - Temporary pre-release overrides dropped once **Gate 1 (`rosdistro >= 1.2.0`)** and **Gate 2 (`rosdep >= 0.27.0`)** land in `ros_bootstrap` APT.
+2. **Agent Docker Layer Invalidation**:
    - During local iteration of Stage 3B, Docker layer caching on `ci-agent-amd64` reused intermediate build layers that lacked the updated environment variables. A manual `docker image prune -f` and `--no-cache` run resolved the issue.
-2. **Local Chained Distribution Files**:
-   - `extendablechainedbin`, `extendablechainedsrc`, and `extendablemixed` distribution specifications were created as test harness fixtures in `rep159-rosdistro`.
+3. **Local Chained Distribution Files**:
+   - `extendablechainedbin`, `extendablechainedsrc`, `extendablemixed`, and `extendablediamond` distribution specifications were created as test harness fixtures in `rep159-rosdistro`.
 
 ---
 
@@ -68,10 +73,14 @@ Stage 3 validates these complex topological extensions across both pure CMake pa
 
 ---
 
-## 5. Upstream PR & Release Roadmap
+## 5. Release-Gated Upstream PR & Release Sequence
 
-1. **PR 1: `ros-infrastructure/ros_buildfarm`**
-   - *Title*: `fix(underlays): ensure parent result spaces fallback and export CMake/LD paths for pure CMake underlays`
-   - *Branch*: Includes commits `dd2825e`, `12982be`, and `2a869d8`.
-   - *Target Base*: `master`
-   - *Release Target*: `ros_buildfarm >= 4.2.0`.
+1. **Wave 3 (PR 3A) — `ros-infrastructure/ros_buildfarm` (Blocked Until Gate 1 `rosdistro >= 1.2.0` & Gate 2 `rosdep >= 0.27.0`)**:
+   - *Title*: `feat(ci): traverse source-only repos and stop workspace walk at binary_import parent boundaries`
+   - *Source Commits*: `52b51d8`, `9736140` from `origin/rep159` (`scripts/ci/create_workspace.py`, `test/test_rep159_create_workspace.py`), excluding `[test only]` Dockerfile commits `fc7b990`, `aa4d978`.
+   - *Target Base*: `master`.
+2. **Wave 3 (PR 3B) — `ros-infrastructure/ros_buildfarm` (Folded with Stage 2 `install_rule` Underlays)**:
+   - *Title*: `feat(underlays): dynamically compute parent result spaces via install_rule and export CMake/LD paths for pure-CMake underlays`
+   - *Source Commits*: `006a4a1`, `80e1e0b`, `aa9f572` + Stage 3 engineering fixes `dd2825e`, `12982be`, `2a869d8` from `feat/binary-naming-rule`.
+   - *Target Base*: `master`.
+   - *Unblocks Release Gate 4*: **`ros_buildfarm >= 4.2.0`**.

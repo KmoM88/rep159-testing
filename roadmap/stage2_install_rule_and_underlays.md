@@ -78,13 +78,16 @@ Stage 2 introduces the **`install_rule`** specification in `rosdistro` and the *
 
 ---
 
-## 5. Upstream PR & Release Roadmap
+## 5. Release-Gated Upstream PR & Release Sequence
 
-1. **PR 1: `ros/rosdistro`**
-   - *Title*: `feat(install_rule): add configurable distribution and repository installation prefixes`
-   - *Branch*: `feature/rep159-install-rule` $\to$ `master`
-   - *Release Target*: Included in `rosdistro >= 1.0.0`.
-2. **PR 2: `ros-infrastructure/ros_buildfarm`**
-   - *Title*: `feat(underlays): dynamically compute parent result spaces via install_rule`
-   - *Branch*: `feat/install-prefixes` $\to$ `master`
-   - *Release Target*: Included in `ros_buildfarm >= 4.2.0`.
+1. **Wave 0 — `openrobotics/reps` (Spec Follow-Up)**:
+   - Add formal `install_rule` schema & resolution precedence section to `_posts/rep-0159:2026.md` on `openrobotics:rosdistro_extension` (building on [`openrobotics/reps#35`](https://github.com/openrobotics/reps/pull/35)).
+2. **Wave 0 — `ros-infrastructure/rosdistro`**:
+   - *Title*: `feat(rep159): support install_rule for custom installation prefixes and dynamic underlay resolution`
+   - *Branch*: `feature/rep159-install-rule` (`db021b9`, stacked on `feature/rep159-binary-naming-regex`) $\to$ `master` (org base: `rep159`).
+   - *Release Gate 1*: Must ship in **`rosdistro >= 1.2.0`** (PyPI + `ros_bootstrap` APT `python3-rosdistro-modules >= 1.2.0`) before Wave 3.
+3. **Wave 3 — `ros-infrastructure/ros_buildfarm` (PR 3B)**:
+   - *Prerequisite Gates*: **Gate 1 (`rosdistro >= 1.2.0`)** + **Gate 2 (`rosdep >= 0.27.0`)** published in `ros_bootstrap` APT & PyPI so temporary `create_workspace.Dockerfile.em` tarball `pip3 install` commits (`40231f3`, `4f4b059`) can be dropped.
+   - *Title*: `feat(underlays): dynamically compute parent result spaces via install_rule and support pure-CMake underlays`
+   - *Core + Fix Commits*: `006a4a1`, `80e1e0b`, `aa9f572` + Stage 3 fixes `dd2825e`, `12982be`, `2a869d8` $\to$ `master`.
+   - *Release Gate 4*: Ships in **`ros_buildfarm >= 4.2.0`**.

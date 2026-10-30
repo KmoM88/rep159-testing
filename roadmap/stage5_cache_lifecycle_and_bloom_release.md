@@ -30,25 +30,29 @@ Stage 5 validates both capabilities end-to-end on a dedicated minimal 2-tier dis
 
 ---
 
-## 3. Implementation Breakdown: Core Code vs. Testing Tweaks
+## 3. Implementation Breakdown: Core Code vs. Required Fixes vs. Pre-Release Overrides
 
-### Core Implementation (To be Merged Upstream)
+### Core Feature Implementation & Required Fixes (To Be Merged Upstream)
 
-1. **`ros-infrastructure/ros_buildfarm` (Branch: `feat/cache-job-rep159`)**:
-   - `rosdistro_cache_task.Dockerfile.em`: Updated to install REP-159 capable `rosdistro`.
-   - `rosdistro_cache_job.xml.em`: Configured to assign jobs to Docker-capable agents (`building_repository`).
+1. **`ros-infrastructure/rosdistro` (`rep159` + `feature/rep159-binary-naming-regex` + `feature/rep159-install-rule`)**:
+   - `DistributionCache` & `rosdistro_build_cache`: Serializes `extends`, `binary_rule`, and `install_rule` metadata, loads parent caches across distribution boundaries, and strips inherited parent packages (`- REMOVE <pkg>`) from child cache archives.
 
-2. **`ros-infrastructure/bloom` (Branch: `feat/rep159-rules-support`)**:
-   - `bloom/generators/debian/generator.py`: Fixed `git tag -f` call with `-m` flag (Commit `d6fdf9e`).
+2. **`ros-infrastructure/bloom` (`feat/rep159-rules-support`, Commit `d6fdf9e`)**:
+   - `bloom/generators/debian/generator.py` (line 869): Supplies `-m "<tag_name>"` to `git tag -f` so `git-bloom-generate` succeeds in environments with `tag.gpgSign=true` (zero dependency on `rosdistro`; ready in **Wave 0**).
 
-### Testing Tweaks & Local Workarounds (Test Harness Only — Do NOT Upstream)
+3. **`ros-infrastructure/ros_buildfarm` (`setup.py` & `stdeb.cfg` Dependency Pinning — Wave 3)**:
+   - Bumps `rosdistro >= 1.2.0` (`setup.py`) and `python3-rosdistro-modules (>= 1.2.0)` (`stdeb.cfg`).
+   - Because `rosdistro/stdeb.cfg` builds `Suite3: focal jammy noble resolute bookworm trixie`, publishing **Gate 1 (`rosdistro >= 1.2.0`)** to `ros_bootstrap` APT automatically provides Format-3-capable `python3-rosdistro` inside `rosdistro_cache_task.Dockerfile.em` (`FROM ubuntu:focal`) with **zero** Dockerfile `pip` overrides. *(Note: If OSRF removes `focal` from `ros_bootstrap` before Gate 1, updating `rosdistro_cache_task.Dockerfile.em` and `release_check_sync_criteria_task.Dockerfile.em` from `ubuntu:focal` to `ubuntu:noble`/`jammy` becomes a required upstream change).*
 
-1. **Reprepro `focal` Suite Export on Local Mirror**:
-   - The cache task container uses base image `ubuntu:focal`. The injected local APT repositories only had `resolute` configured. Adding `Codename: focal` and running `reprepro export focal` on the local mirror allowed container APT updates to pass cleanly.
-2. **Jenkins Groovy Script Approvals**:
-   - The Groovy post-build regex scanner used by `generate_rosdistro_cache_job.py` runs with `<sandbox>false</sandbox>`. On local Jenkins instances, the script signature was approved via `ScriptApproval.get().approveScript(hash)`.
-3. **SSH Target Configuration**:
-   - Jenkins SSH publisher configuration was mapped to `rosdistro_cache` pointing to `/var/repos/rep159-rosdistro/`.
+### Temporary Pre-Release Overrides & Local Workarounds (Do NOT Upstream)
+
+1. **Cache Task Tarball `pip3 install` & Agent Label Override (`feat/cache-job-rep159`, commits `8c1f978`, `6f62d7b`)**:
+   - `rosdistro_cache_task.Dockerfile.em`: Injected `pip3 install https://github.com/rep159-testing/rosdistro/archive/refs/heads/feature/rep159-install-rule.tar.gz` only because Gate 1 was not yet in `ros_bootstrap` APT.
+   - `rosdistro_cache_job.xml.em`: Changed `<assignedNode>built-in || master</assignedNode>` to `building_repository` only because the local Jenkins master container lacked a Docker CLI client.
+2. **Reprepro `focal` Suite Export on Local Mirror**:
+   - The cache task container uses base image `ubuntu:focal`. Adding `Codename: focal` and running `reprepro export focal` on the local mirror (`192.168.30.202:8088`) allowed container APT updates to pass cleanly.
+3. **Jenkins Groovy Script Approvals & SSH Target**:
+   - Approved the Groovy post-build regex scanner signature via `ScriptApproval` and mapped SSH publisher `rosdistro_cache` to `/var/repos/rep159-rosdistro/`.
 
 ---
 
@@ -109,12 +113,11 @@ Stage 5 validates both capabilities end-to-end on a dedicated minimal 2-tier dis
 
 ---
 
-## 5. Upstream PR & Release Roadmap
+## 5. Release-Gated Upstream PR & Release Sequence
 
-1. **PR 1: `ros-infrastructure/bloom`**
-   - *Title*: `fix(debian): add tag message in git tag to support environments with tag.gpgsign=true`
-   - *Branch*: Commit `d6fdf9e` on `feat/rep159-rules-support`.
-   - *Target Base*: `master`
-2. **PR 2: `ros-infrastructure/ros_buildfarm`**
-   - *Title*: `feat(cache): ensure rosdistro cache tasks utilize Format 3 parser and run on build agents`
-   - *Branch*: `feat/cache-job-rep159` $\to$ `master`
+1. **Wave 0 — `ros-infrastructure/bloom` (Zero Release Prerequisite)**:
+   - *Title*: `fix(debian): pass tag message in git tag -f to support tag.gpgSign=true`
+   - *Source Commit*: `d6fdf9e` on `feat/rep159-rules-support` $\to$ `master`.
+2. **Wave 3 — `ros-infrastructure/ros_buildfarm` (Blocked Until Gate 1 `rosdistro >= 1.2.0` in `ros_bootstrap` APT)**:
+   - *Mechanism*: Bump `rosdistro >= 1.2.0` in `setup.py` and `python3-rosdistro-modules (>= 1.2.0)` in `stdeb.cfg` (folded into Wave 3 `ros_buildfarm` release PRs), dropping the temporary `rosdistro_cache_task.Dockerfile.em` tarball `pip` override and `rosdistro_cache_job.xml.em` `assignedNode` override from `feat/cache-job-rep159`.
+   - *Contingency Fix*: If `focal` is dropped from `ros_bootstrap` APT builds prior to Gate 1, include a template base-image bump (`ubuntu:focal` $\to$ `ubuntu:noble`) in `rosdistro_cache_task.Dockerfile.em` and `release_check_sync_criteria_task.Dockerfile.em`.

@@ -31,7 +31,7 @@ REP-159 introduces a standardized specification allowing a ROS distribution to e
 The `rep159-testing` harness is self-contained and operates independently of official ROS releases, providing isolated testing for cache generation, dependency resolution, bloom releases, and buildfarm CI workflows.
 
 > [!NOTE]
-> **Packaging Scope**: Current validation across all topological configurations utilizes **pure CMake packages** (`<build_type>cmake</build_type>`). In this phase, underlays are chained cleanly via `ros_buildfarm` environment exports (`CMAKE_PREFIX_PATH`, `LD_LIBRARY_PATH`, `PATH`) rather than relying on prefix `setup.sh` shell hooks. Integration with `ros_workspace` and ament shell scripts is scheduled for Stage 4.
+> **Packaging Scope**: Stages 1–3 validate topological configurations using **pure CMake packages** (`<build_type>cmake</build_type>`), where underlays without `setup.sh` are chained automatically via `ros_buildfarm` environment fallbacks (`CMAKE_PREFIX_PATH`, `LD_LIBRARY_PATH`, `PATH`). Stages 4 and 5 extend validation to full **`ros_workspace` (`setup.sh` / `.dsv`) underlay chaining**, **`rosdistro_build_cache` hierarchy isolation**, and **automated `bloom` Debian generation**.
 
 ---
 
@@ -105,17 +105,17 @@ The workspace aggregates 25 submodule repositories categorized into four functio
 ### 1. Specification & Core Distribution Manifests
 | Repository | Description |
 |---|---|
-| [`reps`](https://github.com/rep159-testing/reps) | Formal REP-159 specification and binary name templating proposal documents. |
+| [`reps`](https://github.com/KmoM88/reps) | Formal REP-159 specification (`openrobotics/reps#32` & `#35`) and `binary_rule` / `install_rule` proposal documents. |
 | [`rep159-rosdistro`](https://github.com/rep159-testing/rep159-rosdistro) | Central rosdistro index, distribution definitions, cache generation scripts, and validation test suites. |
 
 ### 2. Infrastructure & Tooling Forks
-| Repository | Active Tracking Branch | Description |
+| Repository | Active Tracking Branch(es) | Description |
 |---|---|---|
-| [`rosdistro`](https://github.com/rep159-testing/rosdistro) | `feature/rep159-install-rule` | Format 3 distribution parsing, multi-index resolution, `binary_rule` regex evaluation, and `install_rule` prefix support. |
-| [`ros_buildfarm`](https://github.com/rep159-testing/ros_buildfarm) | `feat/binary-naming-rule` | CI and Release job templates supporting dynamic underlay sourcing, prefix isolation, and templated package names. |
+| [`rosdistro`](https://github.com/rep159-testing/rosdistro) | `feature/rep159-install-rule`<br>*(stacked on [`rosdistro#1`](https://github.com/rep159-testing/rosdistro/pull/1) / `rep159`)* | Format 3 distribution parsing, multi-index resolution, `binary_rule` regex evaluation, and `install_rule` prefix support. |
+| [`ros_buildfarm`](https://github.com/rep159-testing/ros_buildfarm) | `feat/binary-naming-rule` + `rep159` + `feat/cache-job-rep159` | CI, Release, and Cache job orchestration supporting dynamic underlay sourcing, pure-CMake fallbacks, child release isolation, and templated package names. |
 | [`rosdep`](https://github.com/rep159-testing/rosdep) | `rep159` | Package resolution delegating Debian binary names directly to `rosdistro.get_binary_package_name`. |
-| [`ros_buildfarm_config`](https://github.com/rep159-testing/ros_buildfarm_config) | `feat/composable-distro`<br>*(previous: `feat/stage3-diamond`)* | Cluster deployment configuration and job definitions for local and remote buildfarms. |
-| [`reprepro-updater`](https://github.com/rep159-testing/reprepro-updater) | `main` | APT repository management and cache synchronization scripts. |
+| [`ros_buildfarm_config`](https://github.com/rep159-testing/ros_buildfarm_config) | `feat/composable-distro`, `feat/cache-lifecycle-test`, `feat/stage3-diamond` | Cluster deployment configuration and job definitions for local and remote buildfarms. |
+| [`reprepro-updater`](https://github.com/rep159-testing/reprepro-updater) | `feat/package-prefix`<br>*(base: `master` / upstream `refactor`)* | APT repository management and prefix-filtered synchronization scripts (`--package-prefix`). |
 | [`bloom`](https://github.com/rep159-testing/bloom) | `feat/rep159-rules-support`<br>*(base: `rep159`)* | Release automation generating Debian packaging (`debian/rules`, `debian/control`) supporting `binary_rule`, `install_rule`, and chained underlays. |
 
 

@@ -35,27 +35,37 @@ Stage 4 establishes the **`composable` distribution suite**, integrates **`ros_w
 
 ---
 
-## 3. Implementation Breakdown: Core Code vs. Testing Tweaks
+## 3. Implementation Breakdown: Core Code vs. Required Fixes vs. Testing Tweaks
 
-### Core Implementation (To be Merged Upstream)
+### Core Feature Implementation (To Be Merged Upstream)
 
-1. **`ros2/ros_workspace` (Branch: `feat/composable-underlay-chaining`)**:
-   - Adds support for parameterized underlay prefixes in `CMakeLists.txt` and environment hook templates.
+1. **`ros2/ros_workspace` (`rep159-parent-chain` @ `12f93e9` & `feat/composable-underlay-chaining` @ `032d161`)**:
+   - Parameterizes `ROS_WORKSPACE_PARENT_PREFIX_PATH` / `PARENT_PREFIX_PATH` in `CMakeLists.txt` so extended distribution builds of `ros_workspace` register parent underlay prefixes into the `parent_prefix_path` ament resource index and locate `ament_package` across parent underlays.
 
-2. **`ros-infrastructure/bloom` (Branch: `feat/rep159-rules-support`)**:
-   - `bloom/generators/debian/generator.py`: Generates rules-compliant `debian/control` and `debian/rules`.
-   - `bloom/generators/debian/templates/rules.em`: Injects parent underlay setup sourcing loops.
+2. **`ros-infrastructure/bloom` (`feat/rep159-rules-support` @ `d6fdf9e` stacked on `rep159` @ `2877687`)**:
+   - `bloom/rosdistro_api.py`: Implements `get_binary_import_parents()`, `get_ros_workspace_dependencies()`, `get_binary_package_name()`, and `get_install_prefix()`.
+   - `bloom/generators/rosdebian.py`: Parameterizes `InstallationPrefix`, `ParentPrefixes`, and `rosify_package_name()` (`Package:` and `Depends:`) using `install_rule` and `binary_rule`.
+   - `bloom/generators/debian/templates/{ament_cmake,cmake}/rules.em`: Injects parent `<prefix>/setup.sh` sourcing loops, chains `CMAKE_PREFIX_PATH` & `PKG_CONFIG_PATH`, and passes `-DROS_WORKSPACE_PARENT_PREFIX_PATH=...`.
 
-3. **`ros-infrastructure/ros_buildfarm` (Branch: `feat/composable-distro`)**:
-   - Automatically detects `/opt/ros/<distro>/setup.sh` and prefers native sourcing over synthetic path exports.
+3. **`ros-infrastructure/ros_buildfarm` (`feat/binary-naming-rule` @ `4062a66`)**:
+   - `ros_buildfarm/workspace.py`: Automatically sources `<prefix>/setup.sh` when present on disk (`vendor-composable-ros-workspace`) while retaining pure-CMake environment exports as a fallback.
+
+### Required Engineering Fixes Before Creating Upstream PRs
+
+1. **`ros_workspace` Branch Reconciliation (`12f93e9` + `032d161`)**:
+   - Combine `rep159-parent-chain` (`12f93e9` — multi-prefix search for `ament_package` across `ROS_WORKSPACE_PARENT_PREFIX_PATH` and preserving default `SKIP_PARENT_PREFIX_PATH` when no parent prefix is passed) with `feat/composable-underlay-chaining` (`032d161` — `PARENT_PREFIX_PATH` alias and explicit `ament_index_register_resource("parent_prefix_path" ...)`).
+2. **`bloom` Regex Dictionary `install_rule` Fix (`bloom/rosdistro_api.py:get_install_prefix()`)**:
+   - Lines 269–270 currently call `dist_file.install_rule.replace('{distro}', distro)`, which fails with `AttributeError` (silently falling back to `/opt/ros/<distro>`) when `install_rule` is a regex `dict` (`{'search': ..., 'replace': ...}`). Update `get_install_prefix()` to delegate directly to `dist_file.get_install_prefix()`.
+3. **`bloom` Version Pins (Post-Gates 1 & 2)**:
+   - Bump `rosdistro >= 1.2.0` and `rosdep >= 0.27.0` in `setup.py` and `stdeb.cfg`.
 
 ### Testing Tweaks & Local Workarounds (Test Harness Only — Do NOT Upstream)
 
 1. **Local Python Environment Overwrite**:
-   - Installing bloom via `pip install -e submodules/bloom` pulled `rosdistro` from git, overwriting the local editable `submodules/rosdistro` with a branch that lacked `binary_rule`.
-   - *Fix for testing*: Explicitly re-installed the local fork: `pip install -e submodules/rosdistro`.
-2. **Dedicated Suite Prefix `C*`**:
-   - Jenkins jobs were named with prefix `C*` (`Cci`, `Csrc`, `Cbin`, `Crel_sync`) to clearly isolate Stage 4 runs from earlier test topologies.
+   - Installing bloom via `pip install -e submodules/bloom` pulled `rosdistro` from PyPI/git, overwriting the local editable `submodules/rosdistro` before Gate 1 existed.
+   - *Fix for testing*: Explicitly re-installed the local fork (`pip install -e submodules/rosdistro`). Solved permanently once Gate 1 (`rosdistro >= 1.2.0`) is published to PyPI.
+2. **Dedicated Suite Prefix `C*` & `*-local.yaml` Configs**:
+   - Jenkins jobs were named with prefix `C*` (`Cci`, `Csrc`, `Cbin`, `Crel_sync`) using `composable/*-local.yaml` pointing to the local mirror (`192.168.30.202:8088`).
 
 ---
 
@@ -78,12 +88,13 @@ Stage 4 establishes the **`composable` distribution suite**, integrates **`ros_w
 
 ---
 
-## 5. Upstream PR & Release Roadmap
+## 5. Release-Gated Upstream PR & Release Sequence
 
-1. **PR 1: `ros2/ros_workspace`**
-   - *Title*: `feat: support parameterized parent underlays in environment hooks`
-   - *Branch*: `feat/composable-underlay-chaining` $\to$ `main`
-2. **PR 2: `ros-infrastructure/bloom`**
-   - *Title*: `feat(debian): support REP-159 binary_rule, install_rule, and parent underlay sourcing`
-   - *Branch*: `feat/rep159-rules-support` $\to$ `master`
-   - *Release Target*: `bloom >= 0.15.0`.
+1. **Wave 1 — `ros2/ros_workspace` (Independent CMake PR; Packaging Child `.deb` Requires Gate 3)**:
+   - *Title*: `feat: support parent underlay prefix chaining and parent ament_package discovery for REP-159`
+   - *Source Branches*: Reconciled `rep159-parent-chain` (`12f93e9`) + `feat/composable-underlay-chaining` (`032d161`) $\to$ `main`.
+   - *Unblocks Release Gate 2B*: **`ros_workspace >= 1.0.4`**.
+2. **Wave 2 — `ros-infrastructure/bloom` (Blocked Until Gate 1 `rosdistro >= 1.2.0` + Gate 2 `rosdep >= 0.27.0`)**:
+   - *Title*: `feat(debian): support REP-159 binary_rule, install_rule, and parent underlay chaining`
+   - *Source Branches*: `rep159` (`0189046`..`2877687`) + `feat/rep159-rules-support` (`1f62809`, `d6fdf9e`) + `get_install_prefix()` dict delegation fix + `setup.py`/`stdeb.cfg` dependency bumps $\to$ `master` (org base: `rep159`).
+   - *Unblocks Release Gate 3*: **`bloom >= 0.15.0`** (PyPI + `ros_bootstrap` APT).
