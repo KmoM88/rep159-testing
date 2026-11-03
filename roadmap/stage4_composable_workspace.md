@@ -2,6 +2,11 @@
 
 ## 1. Executive Summary & Problem Statement
 
+> [!IMPORTANT]
+> **Distribution Suite Shift (`extendable` $\to$ `composable`)**:
+> - **Stages 1–3 (`extendable` family, Jenkins jobs `E*`)**: Validated pure graph traversal, custom binary naming (`binary_rule`), and installation prefixes (`install_rule`) using pure CMake packages with buildfarm-injected environment fallbacks (`CMAKE_PREFIX_PATH`, `LD_LIBRARY_PATH`).
+> - **Stage 4 (`composable` family, Jenkins jobs `C*`)**: Validates the native ROS 2 runtime stack by packaging `ros_workspace` (`/opt/ros/<distro>/setup.sh`, `.dsv` hooks, `AMENT_PREFIX_PATH`), verifying recursive bash underlay chaining, and automating Debian packaging via an enhanced `bloom` fork.
+
 In Stages 1 through 3, topological validation relied on pure CMake packages and environment variable injection by `ros_buildfarm` (`CMAKE_PREFIX_PATH`, `LD_LIBRARY_PATH`).
 However, a standard ROS 2 distribution requires two critical elements:
 1. **Native Shell Environment (`ros_workspace`)**: ROS 2 packages rely on `/opt/ros/<distro>/setup.sh`, which parses `.dsv` environment hooks, sets up `AMENT_PREFIX_PATH`, and recursively sources parent distribution underlays.

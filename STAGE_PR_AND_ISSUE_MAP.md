@@ -733,6 +733,11 @@ Finished: SUCCESS
 
 For complete operational and architectural specifications, see **[STAGE4_COMPOSABLE_WORKSPACE_PLAN.md](STAGE4_COMPOSABLE_WORKSPACE_PLAN.md)**.
 
+> [!IMPORTANT]
+> **Distribution Suite Transition (`extendable` $\to$ `composable`)**:
+> - **Stages 1–3 (`extendable` family, Jenkins jobs `E*`)**: Validated core REP-159 graph resolution, binary naming regex, dynamic install prefixes, and buildfarm underlay fallbacks using isolated pure CMake packages without ROS shell environment files.
+> - **Stage 4 (`composable` family, Jenkins jobs `C*`)**: Introduces full **ROS 2 native environment sourcing** (`ros_workspace`, `/opt/ros/<distro>/setup.sh`, `.dsv` hooks), verifies recursive bash underlay chaining, and integrates automated Debian packaging generation via an enhanced `bloom` fork.
+
 #### Problem Statement
 1. In Stages 1–3, testing used pure CMake packages (`<build_type>cmake</build_type>`), bypassing prefix environment scripts (`setup.sh`, `local_setup.sh`, `.dsv`).
 2. Production ROS 2 distributions depend on `ros_workspace` to establish shell hooks and underlay chaining. In standard `ros_workspace`, `SKIP_PARENT_PREFIX_PATH` is enabled for Debian builds, preventing downstream Debian packages from discovering parent underlays.

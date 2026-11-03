@@ -60,7 +60,19 @@ flowchart TD
 
 ---
 
-## 2. Release-Gated Upstream PR & Publication Sequence
+## 2. Distribution Suite Scope Across Validation Stages
+
+The validation campaign is divided into two distinct distribution families across the testing stages:
+
+| Distribution Suite | Stage Scope | Jenkins Job Prefix | Build System & Environment | Verification Objectives |
+|---|---|:---:|---|---|
+| **`extendable` Family**<br>(`extendable`, `extendablesrc`, `extendablebin`, `extendablechain`, `extendablechainedsrc`, `extendablechainedbin`, `extendablemixed`, `extendablediamond`) | **Stages 1–3** | **`E*`** (`Eci`, `Esrc`, `Ebin`, `Erel`) | **Pure CMake** (`<build_type>cmake</build_type>`). Underlays injected via buildfarm environment exports (`CMAKE_PREFIX_PATH`, `LD_LIBRARY_PATH`). | Validates core REP-159 algorithms in isolation without ROS shell scripts: APT package naming (`binary_rule`), custom prefix installation (`install_rule`), recursive DAG traversal, workspace checkout boundary pruning, and multi-tier chaining. |
+| **`composable` Family**<br>(`composable`, `composablebin`, `composablesrc`, etc.) | **Stage 4** | **`C*`** (`Cci`, `Csrc`, `Cbin`, `Crel`) | **Native ROS 2 Environment** (`ros_workspace`, `setup.sh`, `.dsv` hooks, `AMENT_PREFIX_PATH`) + Automated **`bloom`** packaging generator. | Validates complete ROS 2 runtime lifecycle: recursive bash setup sourcing of parent underlays, package-level environment hooks, and automated Debian packaging respecting `binary_rule` and `install_rule`. |
+| **`cachebase` / `cachechild` Family** | **Stage 5** | **`misc_rosdistro-cache`** | Distribution cache generation (`rosdistro_build_cache`). | Validates cache inheritance across Format 3 hierarchies, boundary package stripping (`- REMOVE`), and cache invalidation. |
+
+---
+
+## 3. Release-Gated Upstream PR & Publication Sequence
 
 | Wave / Gate | Target Upstream Repo | Org Fork Branch (`rep159-testing` / `KmoM88`) | Upstream Target Base | Live PR / Status | Prerequisite Release Gate | Resulting Publication / Gate Unblocked |
 |:---:|---|---|:---:|---|---|---|
@@ -77,7 +89,7 @@ flowchart TD
 
 ---
 
-## 3. Separation Beyond `rosdistro`: Core Implementation vs. Required Fixes vs. Pre-Release Overrides
+## 4. Separation Beyond `rosdistro`: Core Implementation vs. Required Fixes vs. Pre-Release Overrides
 
 To ensure clean upstream Pull Requests, every repository beyond `rosdistro` is decomposed below into three strict categories:
 - **(A) Core Feature Implementation**: New REP-159 capabilities that belong in upstream feature PRs.
@@ -184,7 +196,7 @@ To ensure clean upstream Pull Requests, every repository beyond `rosdistro` is d
 
 ---
 
-## 4. Stage-by-Stage Documentation Index
+## 5. Stage-by-Stage Documentation Index
 
 Each validation stage is documented in its dedicated file with design rationale, core vs. fix vs. harness separation, empirical validation evidence, and release-gated PR mapping:
 

@@ -130,7 +130,7 @@ flowchart TD
 ## Thematic Block 2: Advanced Topological Validations (Pure CMake Scope)
 
 > [!NOTE]
-> **Scope**: Pure CMake packages (`<build_type>cmake</build_type>`). In this block, underlays are chained via buildfarm environment exports (`CMAKE_PREFIX_PATH`, `LD_LIBRARY_PATH`, `PATH`) rather than relying on prefix `setup.sh` shell scripts.
+> **Scope & Distribution Suite (`extendable*`)**: Validates pure CMake packages (`<build_type>cmake</build_type>`) across the **`extendable` distribution suite** (`extendable`, `extendablesrc`, `extendablebin`, `extendablechain`, `extendablechainedsrc`, `extendablechainedbin`, `extendablemixed`, `extendablediamond` — Jenkins job prefix **`E*`**). In this block, underlays are chained via buildfarm environment variable exports (`CMAKE_PREFIX_PATH`, `LD_LIBRARY_PATH`, `PATH`) rather than relying on prefix `setup.sh` shell scripts, isolating pure graph and packaging algorithms from ROS shell complexities.
 
 ### Topology 1: Single-Tier Binary Import
 
@@ -292,6 +292,11 @@ Validates multi-parent inheritance where a child distribution declares multiple 
 ---
 
 ## Thematic Block 3: Composable Suite & Native `ros_workspace` Integration
+
+> [!IMPORTANT]
+> **Distribution Suite Shift (`extendable*` $\to$ `composable*`)**:
+> - **Thematic Blocks 1 & 2 (`extendable` Suite, Jenkins Jobs `E*`)**: Evaluated core REP-159 algorithms (binary naming regex, install rules, DAG resolution, workspace checkout pruning) using pure CMake test packages without ROS shell environment files. Underlays were injected by buildfarm environment variable exports (`CMAKE_PREFIX_PATH`, `LD_LIBRARY_PATH`).
+> - **Thematic Block 3 (`composable` Suite, Jenkins Jobs `C*`)**: Advances to full **ROS 2 native environment sourcing** (`ros_workspace`, `/opt/ros/<distro>/setup.sh`, `.dsv` hooks) and automated Debian release generation via **`bloom`**, testing standard ROS 2 package lifecycles where child setups recursively source parent underlays.
 
 > [!NOTE]
 > **Execution Status Notice**: Because the public ROS 2 testfarm (`build.test.ros2.org`) is currently offline/unavailable, all release pipeline and CI runs for the `composable` distribution suite have been validated and confirmed 100% green on a local replica buildfarm cluster. Once the public testfarm is restored, these exact job configurations can be triggered directly.
