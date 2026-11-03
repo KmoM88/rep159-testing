@@ -591,6 +591,7 @@ Finished: SUCCESS
    - `rosdistro` strictly rejects package redefinitions in `distribution.yaml` under `binary_import` to preserve ABI contracts.
    - For hybrid builds, the parent repository is inherited cleanly, and the source rebuild is requested in the CI configuration (`repository_names: [downstream_chain_a, upstream_c]`).
    - `rosdep`'s `--ignore-src` flag skips the binary version, allowing `colcon` to compile the local source overlay seamlessly.
+   - *Governance Consideration*: While empirically verified, hybrid source rebuilding of an upstream ancestor above an intermediate `binary_import` underlay poses dual-linking and ODR risks if the source ABI drifts from the pre-built `.deb`. In production governance, declaring `binary_import` should strictly enforce binary resolution across all upstream ancestors; any ancestor source modification should mandate a pure `source_rebuild` cascade instead.
 2. **Multi-Parent Diamond DAG Traversal**:
    - `rosdistro` merges multiple parents in `extends:`, deduplicating common root packages (`upstream_a`, `upstream_b`, `upstream_c`).
    - `ros_buildfarm`'s `get_binary_import_underlays()` recursively collects unique binary result spaces in topological order (`/opt/ros/extendable:/opt/ros/extendablebin`).

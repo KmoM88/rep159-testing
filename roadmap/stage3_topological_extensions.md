@@ -21,10 +21,11 @@ Stage 3 validates these complex topological extensions across both pure CMake pa
   - `LD_LIBRARY_PATH` (including multiarch `/lib/x86_64-linux-gnu`)
 * **Rationale**: Enables buildfarms to support non-ament pure CMake repositories (Gazebo, system utilities) as first-class citizens in underlay chains.
 
-### Decision 2: ABI Immutability Guardrails
+### Decision 2: ABI Immutability Guardrails & Hybrid Override Caveat
 * **Problem**: In an initial hybrid topology test (`extendablemixed`), `upstream_c` was re-declared under `binary_import` while also present in the source workspace.
 * **Result**: `rosdep` and `colcon` encountered ambiguous dependency graphs, violating REP-159's core invariant that a downstream distribution cannot redefine or mutate an upstream distribution's ABI.
 * **Adopted Solution**: Enforced clean distribution inheritance where downstream distributions declare only new or explicitly overridden packages, while `colcon build --ignore-src` handles the local workspace shadowing cleanly.
+* **Governance Caveat (Enforcing Binary Upstream)**: Even though `rosdep --ignore-src` and local workspace overlays make it technically possible to build an upstream package from source in a chain starting with `binary_import`, **this may not be desirable production behavior**. If a downstream package links against a new source-built upstream while an intermediate `.deb` package in the underlay was linked against the original binary upstream, subtle ABI drift and One Definition Rule (ODR) violations can occur. In production distribution engineering, any `binary_import` boundary should strictly mandate binary resolution for all upstream ancestors, forcing a pure `source_rebuild` cascade whenever an ancestor package needs source patching.
 
 ---
 

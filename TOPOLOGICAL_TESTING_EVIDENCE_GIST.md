@@ -237,6 +237,13 @@ Validates developer workflows where pre-built binary dependencies are installed 
 - APT installs pre-built `ros-extendablebin-downstream-bin-a`.
 - `downstream_chain_a` links against workspace source-built `upstream_c` and binary underlay `/opt/ros/extendablebin/lib/libdownstream_bin_a.so`.
 
+> [!WARNING]
+> **Architectural Governance & ABI Drift Consideration (Enforcing Binary Upstream)**:
+> While this topology empirically proved that a local workspace can check out and compile an upstream ancestor from source (`upstream_c`) alongside an intermediate pre-built binary underlay (`downstream_bin_a`) using `rosdep --ignore-src` and CMake/Colcon overlay linking, **this may not be a desirable or recommended production behavior**:
+> 1. **Risk of ABI Drift & Dual-Linking**: The intermediate binary package `downstream_bin_a.deb` was compiled and linked against the canonical binary release of `upstream_c.deb`. If the leaf workspace overrides `upstream_c` from source with modified struct layouts, signatures, or state, `downstream_bin_a.so` in the underlay remains linked against the original binary ABI while `downstream_chain_a` links against the new source version. This creates potential One Definition Rule (ODR) violations and subtle memory corruption bugs.
+> 2. **Strict Binary Upstream Enforcement**: From an architectural and release-engineering standpoint, if an extension hierarchy declares `binary_import`, **everything above that boundary should strictly enforce binary resolution**. Even though compiling an upstream source in chains that begin with a `binary_import` is technically feasible at the workspace level, distribution governance should generally disallow mutating upstream dependencies across binary boundaries.
+> 3. **Production Recommendation**: When an upstream ancestor requires modification or patching, distributions should establish a pure `source_rebuild` chain from that ancestor downwards, preserving hermetic end-to-end ABI consistency.
+
 #### Repository & Branch Matrix
 * **`ros_buildfarm_config`**: [`feat/stage3-mixed`](https://github.com/rep159-testing/ros_buildfarm_config/tree/feat/stage3-mixed)
 * **`rep159-rosdistro`**: [`feat/stage3-mixed`](https://github.com/rep159-testing/rep159-rosdistro/tree/feat/stage3-mixed)
