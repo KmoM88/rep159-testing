@@ -275,6 +275,11 @@ Validates multi-parent inheritance where a child distribution declares multiple 
 - APT installs pre-built `ros-extendablebin-downstream-bin-a`.
 - Colcon compiles `downstream_src_a` and `downstream_chain_a` in the same workspace and passes 100% of unit test suites.
 
+> [!NOTE]
+> **Architectural Consideration: CI Scope & Pruning Unused Sources in Convergent DAGs**:
+> In this diamond topology, the leaf distribution `extendablediamond` links its target package `downstream_chain_a` exclusively against the binary underlay `downstream_bin_a` from the left (`binary_import`) branch. However, because the right branch declared `source_rebuild`, `downstream_src_a` was also checked out, compiled, and tested in the CI container even though it is not consumed anywhere by `downstream_chain_a`.
+> * **Governance & Default Behavior Consideration**: In production distribution maintenance, if a leaf distribution resolves its final runtime dependencies strictly from binary packages, building and testing unreferenced source packages from parallel `source_rebuild` branches may introduce unnecessary build overhead and compute cost. Future default behaviors or CI policies could consider transitive dependency pruning (e.g., pruning source checkout and build steps to only packages required by the distribution's released targets, using `--packages-up-to` or dependency-graph filtering) unless full-suite regression testing is explicitly desired.
+
 #### Repository & Branch Matrix
 * **`ros_buildfarm_config`**: [`feat/stage3-diamond`](https://github.com/rep159-testing/ros_buildfarm_config/tree/feat/stage3-diamond)
 * **`rep159-rosdistro`**: [`feat/stage3-diamond`](https://github.com/rep159-testing/rep159-rosdistro/tree/feat/stage3-diamond)

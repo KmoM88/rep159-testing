@@ -27,6 +27,11 @@ Stage 3 validates these complex topological extensions across both pure CMake pa
 * **Adopted Solution**: Enforced clean distribution inheritance where downstream distributions declare only new or explicitly overridden packages, while `colcon build --ignore-src` handles the local workspace shadowing cleanly.
 * **Governance Caveat (Enforcing Binary Upstream)**: Even though `rosdep --ignore-src` and local workspace overlays make it technically possible to build an upstream package from source in a chain starting with `binary_import`, **this may not be desirable production behavior**. If a downstream package links against a new source-built upstream while an intermediate `.deb` package in the underlay was linked against the original binary upstream, subtle ABI drift and One Definition Rule (ODR) violations can occur. In production distribution engineering, any `binary_import` boundary should strictly mandate binary resolution for all upstream ancestors, forcing a pure `source_rebuild` cascade whenever an ancestor package needs source patching.
 
+### Decision 3: Multi-Parent Diamond & CI Scope for Unused Sources
+* **Context**: In multi-parent convergent diamond topologies (e.g. `extendablediamond` extending `extendablebin` via `binary_import` and `extendablesrc` via `source_rebuild`), the leaf target package (`downstream_chain_a`) links exclusively against binary packages from the binary underlay branch.
+* **Observation**: In the CI workspace, `downstream_src_a` from the parallel `source_rebuild` branch was checked out, compiled, and tested even though it is not part of the runtime or build-time dependency chain for `downstream_chain_a`.
+* **Governance & Default Behavior Consideration**: In production distributions, running full builds and test suites on unreferenced source packages when the distribution's final leaf artifacts link against pre-installed binaries adds unnecessary CI compute cost. Future default behaviors or build policies should consider dependency-graph pruning (e.g. via `--packages-up-to` or target-based source filtering) unless explicit workspace-wide regression testing is intended.
+
 ---
 
 ## 3. Implementation Breakdown: Core Code vs. Required Fixes vs. Testing Tweaks

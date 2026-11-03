@@ -595,6 +595,7 @@ Finished: SUCCESS
 2. **Multi-Parent Diamond DAG Traversal**:
    - `rosdistro` merges multiple parents in `extends:`, deduplicating common root packages (`upstream_a`, `upstream_b`, `upstream_c`).
    - `ros_buildfarm`'s `get_binary_import_underlays()` recursively collects unique binary result spaces in topological order (`/opt/ros/extendable:/opt/ros/extendablebin`).
+   - *CI Scope & Unreferenced Source Pruning*: In convergent DAGs where the leaf distribution target (`downstream_chain_a`) links strictly against binary underlays (`downstream_bin_a` from APT), parallel `source_rebuild` branches (`downstream_src_a`) are still compiled and tested by default in the workspace. In production CI pipelines, distributions may wish to specify default behavior or enable dependency-graph pruning (e.g. `--packages-up-to` or dependency graph filtering) to avoid building and testing unreferenced sources that are not consumed by the target packages.
 
 #### Distribution & Package Topology
 
