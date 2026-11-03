@@ -60,7 +60,7 @@ flowchart TD
         direction TB
         REPS["openrobotics/reps#35: binary_rule & install_rule specs"]
         REPREPRO["reprepro-updater: feat/package-prefix (targets refactor)"]
-        ROSDISTRO["rosdistro PR: Format 3 parser & binary_rule regex"]
+        ROSDISTRO["rosdistro PRs: binary_rule & feat/rep159-install-rule"]
     end
 
     subgraph Gate1 ["Release Gate 1"]
@@ -76,14 +76,17 @@ flowchart TD
     end
 
     subgraph Wave3 ["Wave 3: Buildfarm Orchestration (Requires Gates 1 & 2)"]
-        BUILDFARM["ros_buildfarm PR: feat/rep159-binary-naming (clean off master)"]
+        direction TB
+        BF1["ros_buildfarm: feat/rep159-binary-naming (Release Jobs)"]
+        BF2["ros_buildfarm: feat/rep159-workspace-walk (PR 3A)"]
+        BF3["ros_buildfarm: feat/rep159-underlays (PR 3B)"]
     end
 
     ROSDISTRO --> G1
     G1 --> ROSDEP --> G2
-    G1 --> BUILDFARM
-    G2 --> BUILDFARM
-    REPREPRO --> BUILDFARM
+    G1 --> Wave3
+    G2 --> Wave3
+    REPREPRO --> Wave3
 ```
 
 * Comprehensive cross-repository tracking, Gantt milestone schedule, and issue links across all 5 stages are maintained in [`STAGE_PR_AND_ISSUE_MAP.md`](https://github.com/KmoM88/rep159-testing/blob/main/STAGE_PR_AND_ISSUE_MAP.md).
@@ -93,10 +96,10 @@ flowchart TD
 | Repository | Branch / Track | Purpose |
 |---|---|---|
 | **`reps`** | [`feature/rep-159-binary-name-templating`](https://github.com/KmoM88/reps/tree/feature/rep-159-binary-name-templating) ([`openrobotics/reps#35`](https://github.com/openrobotics/reps/pull/35))<br>[`feature/rep-159-install-rule`](https://github.com/KmoM88/reps/tree/feature/rep-159-install-rule) (Stacked) | REP-159 specification updates: `binary_rule` regex engine, canonical lowercase variables, and optional `install_rule` directive |
-| **`rosdistro`** | [`feature/rep159-binary-naming-regex`](https://github.com/rep159-testing/rosdistro/tree/feature/rep159-binary-naming-regex) ([`rep159-testing/rosdistro#1`](https://github.com/rep159-testing/rosdistro/pull/1))<br>[`feature/rep159-install-rule`](https://github.com/rep159-testing/rosdistro/tree/feature/rep159-install-rule) (Stacked) | Format 3 parser, `extends` DAG, `binary_rule` regex engine, and `install_rule` prefixes |
+| **`rosdistro`** | [`feature/rep159-binary-naming-regex`](https://github.com/rep159-testing/rosdistro/tree/feature/rep159-binary-naming-regex) ([`rep159-testing/rosdistro#1`](https://github.com/rep159-testing/rosdistro/pull/1))<br>[`feat/rep159-install-rule`](https://github.com/rep159-testing/rosdistro/tree/feat/rep159-install-rule) (Stacked PR-Ready) | Format 3 parser, `extends` DAG, `binary_rule` regex engine, and `install_rule` prefixes |
 | **`rosdep`** | [`rep159`](https://github.com/rep159-testing/rosdep/tree/rep159) (Org Testbed)<br>[`feat/rep159-binary-lookup`](https://github.com/rep159-testing/rosdep/tree/feat/rep159-binary-lookup) (PR-Ready) | Delegates OS binary package name lookups to `rosdistro.get_binary_package_name()`. `rep159` includes testbed CI overrides; `feat/rep159-binary-lookup` is the clean, unencumbered branch targeting upstream `ros-infrastructure/rosdep:master` once Gate 1 (`rosdistro >= 1.2.0`) is released. |
-| **`reprepro-updater`** | [`feat/package-prefix`](https://github.com/rep159-testing/reprepro-updater/tree/feat/package-prefix) | Selective APT suite promotion & cleanup via `--package-prefix` |
-| **`ros_buildfarm`** | [`feat/binary-naming-rule`](https://github.com/rep159-testing/ros_buildfarm/tree/feat/binary-naming-rule) (Org Testbed)<br>[`feat/rep159-binary-naming`](https://github.com/rep159-testing/ros_buildfarm/tree/feat/rep159-binary-naming) (PR-Ready) | Core release job generation, packaging delegation, and template propagation. `feat/binary-naming-rule` includes testbed Dockerfile pip overrides; `feat/rep159-binary-naming` is the clean Stage 1 PR branch targeting `ros-infrastructure/ros_buildfarm:master`. |
+| **`reprepro-updater`** | [`feat/package-prefix`](https://github.com/rep159-testing/reprepro-updater/tree/feat/package-prefix) | Selective APT suite promotion & cleanup via `--package-prefix` (targets upstream `refactor` directly) |
+| **`ros_buildfarm`** | **Testbed:** [`feat/binary-naming-rule`](https://github.com/rep159-testing/ros_buildfarm/tree/feat/binary-naming-rule), [`rep159`](https://github.com/rep159-testing/ros_buildfarm/tree/rep159)<br>**PR-Ready (off `master`):**<br>• [`feat/rep159-binary-naming`](https://github.com/rep159-testing/ros_buildfarm/tree/feat/rep159-binary-naming) (Release jobs & naming)<br>• [`feat/rep159-workspace-walk`](https://github.com/rep159-testing/ros_buildfarm/tree/feat/rep159-workspace-walk) (PR 3A: CI walk boundary)<br>• [`feat/rep159-underlays`](https://github.com/rep159-testing/ros_buildfarm/tree/feat/rep159-underlays) (PR 3B: Dynamic underlays & pure-CMake env) | Core release job generation, workspace checkout boundaries, dynamic underlay injection, and pure-CMake environment fallbacks. PR-ready branches are completely free of Dockerfile pip hacks and target `ros-infrastructure/ros_buildfarm:master`. |
 | **`rep159-rosdistro`** | [`feat/extendable-distro`](https://github.com/rep159-testing/rep159-rosdistro/tree/feat/extendable-distro) | Root `extendable` distribution file defining `binary_rule` and `install_rule` |
 | **`ros_buildfarm_config`** | [`feat/extendable-distro`](https://github.com/rep159-testing/ros_buildfarm_config/tree/feat/extendable-distro) | Release and sync build files with target repository definitions |
 | **`upstream_a-release`** | [`debian/vendor-extendable/resolute/upstream_a`](https://github.com/rep159-testing/upstream_a-release/tree/debian/vendor-extendable/resolute/upstream_a) | Debian release track for `upstream_a` (`vendor-extendable-upstream-a`) |
@@ -146,7 +149,9 @@ Validates single-tier binary consumption where leaf packages build against paren
 #### Repository & Branch Matrix
 * **`ros_buildfarm_config`**: [`feat/stage3-chained-extensions`](https://github.com/rep159-testing/ros_buildfarm_config/tree/feat/stage3-chained-extensions)
 * **`rep159-rosdistro`**: [`feat/extendable-install-rule`](https://github.com/rep159-testing/rep159-rosdistro/tree/feat/extendable-install-rule)
-* **`ros_buildfarm`**: [`feat/binary-naming-rule`](https://github.com/rep159-testing/ros_buildfarm/tree/feat/binary-naming-rule)
+* **`ros_buildfarm`**: [`feat/binary-naming-rule`](https://github.com/rep159-testing/ros_buildfarm/tree/feat/binary-naming-rule) (Testbed) / [`feat/rep159-underlays`](https://github.com/rep159-testing/ros_buildfarm/tree/feat/rep159-underlays) (PR-Ready)
+* **`rosdistro`**: [`feat/rep159-install-rule`](https://github.com/rep159-testing/rosdistro/tree/feat/rep159-install-rule) (Stacked PR-Ready)
+* **`rosdep`**: [`feat/rep159-binary-lookup`](https://github.com/rep159-testing/rosdep/tree/feat/rep159-binary-lookup) (PR-Ready)
 * **Source Repositories**: `downstream_bin_a` (`main`)
 
 #### Executed Jobs & Configuration References

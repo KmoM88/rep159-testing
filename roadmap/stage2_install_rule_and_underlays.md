@@ -40,15 +40,19 @@ Stage 2 introduces the **`install_rule`** specification in `rosdistro` and the *
 
 ### Core Implementation (To be Merged Upstream)
 
-1. **`ros/rosdistro` (Branch: `feature/rep159-install-rule`)**:
+1. **`ros/rosdistro` (Branch: `feat/rep159-install-rule`, commit `4916cae`)**:
+   - Stacked cleanly on `feature/rep159-binary-naming-regex` (`bfde799`).
    - `DistributionFile`: Adds `install_rule` parsing and `get_distribution_install_prefix()`.
    - `ReleaseRepositorySpecification`: Adds repository-level `install_rule` support.
    - Context evaluation: Replaces `{distro}` and `{package}` placeholders.
+   - Verification: 91/91 unit tests passing.
 
-2. **`ros-infrastructure/ros_buildfarm` (Branch: `feat/install-prefixes`)**:
-   - `common.py`: Implements `get_distribution_install_prefix(dist_file)` and `get_binary_import_underlays(dist_file, rosdistro_name)`.
+2. **`ros-infrastructure/ros_buildfarm` (Branch: `feat/rep159-underlays`, commit `902ccb1`, PR 3B)**:
+   - Clean PR-ready branch cut directly off `origin/master` (zero Dockerfile pip hacks).
+   - `common.py`: Implements `get_distribution_install_prefix(dist_file)` and recursive `get_binary_import_underlays(dist_file, rosdistro_name)`.
    - `release_job.py` and `ci_job.py`: Export `ROS_BUILDFARM_PARENT_RESULT_SPACES`.
-   - `ci_task.Dockerfile.em`: Passes parent result space variables to the build environment.
+   - `workspace.py`: Dynamic environment export (`CMAKE_PREFIX_PATH`, `COLCON_PREFIX_PATH`, multiarch `LD_LIBRARY_PATH`) for pure-CMake underlays lacking `setup.sh`.
+   - Verification: 10/10 underlay tests + flake8 passing 100% green.
 
 ### Testing Tweaks & Local Workarounds (Test Harness Only — Do NOT Upstream)
 
@@ -84,10 +88,10 @@ Stage 2 introduces the **`install_rule`** specification in `rosdistro` and the *
    - Add formal `install_rule` schema & resolution precedence section to `_posts/rep-0159:2026.md` on `openrobotics:rosdistro_extension` (building on [`openrobotics/reps#35`](https://github.com/openrobotics/reps/pull/35)).
 2. **Wave 0 — `ros-infrastructure/rosdistro`**:
    - *Title*: `feat(rep159): support install_rule for custom installation prefixes and dynamic underlay resolution`
-   - *Branch*: `feature/rep159-install-rule` (`db021b9`, stacked on `feature/rep159-binary-naming-regex`) $\to$ `master` (org base: `rep159`).
+   - *Branch*: `feat/rep159-install-rule` (`4916cae`, stacked on `feature/rep159-binary-naming-regex` @ `bfde799`) $\to$ `master` (org base: `rep159`).
    - *Release Gate 1*: Must ship in **`rosdistro >= 1.2.0`** (PyPI + `ros_bootstrap` APT `python3-rosdistro-modules >= 1.2.0`) before Wave 3.
 3. **Wave 3 — `ros-infrastructure/ros_buildfarm` (PR 3B)**:
    - *Prerequisite Gates*: **Gate 1 (`rosdistro >= 1.2.0`)** + **Gate 2 (`rosdep >= 0.27.0`)** published in `ros_bootstrap` APT & PyPI so temporary `create_workspace.Dockerfile.em` tarball `pip3 install` commits (`40231f3`, `4f4b059`) can be dropped.
    - *Title*: `feat(underlays): dynamically compute parent result spaces via install_rule and support pure-CMake underlays`
-   - *Core + Fix Commits*: `006a4a1`, `80e1e0b`, `aa9f572` + Stage 3 fixes `dd2825e`, `12982be`, `2a869d8` $\to$ `master`.
+   - *Branch*: `feat/rep159-underlays` (`902ccb1`, clean off `origin/master`) $\to$ `master`.
    - *Release Gate 4*: Ships in **`ros_buildfarm >= 4.2.0`**.

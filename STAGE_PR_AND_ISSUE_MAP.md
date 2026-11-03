@@ -178,7 +178,7 @@ flowchart TD
 | **M0** | APT Sync | [`rep159-testing/reprepro-updater`](https://github.com/rep159-testing/reprepro-updater):<br>`feat/package-prefix` (`93ed2dc`) | `ros-infrastructure/reprepro-updater:refactor` | None | PR with `--package-prefix` flag | Selective vendor package promotion in repo sync | **READY** (0 deps) |
 | **M0** | Resilience Fixes | Standalone PRs:<br>`ros_buildfarm` `ae8826b` (TLS retry), `199fd98` (Jenkins 403);<br>`bloom` `d6fdf9e` (gpgSign `-m`) | Respective `master` | None | Clean bugfix PRs | Stabilizes Jenkins jobs and bloom tagging | **READY** |
 | **M1** | Core Parser & Regex | [`rep159-testing/rosdistro`](https://github.com/rep159-testing/rosdistro):<br>`feature/rep159-binary-naming-regex` (`bfde799`) | `ros-infrastructure/rosdistro:master` | M0 Specs | PR [`rep159-testing/rosdistro#1`](https://github.com/rep159-testing/rosdistro/pull/1) | Format 3, `extends`, and `binary_rule` regex engine | **OPEN** |
-| **M1** | Install Prefixes | [`rep159-testing/rosdistro`](https://github.com/rep159-testing/rosdistro):<br>`feature/rep159-install-rule` (`db021b9`) | Stacked on `rosdistro#1` | `rosdistro#1` | Stacked PR implementing `install_rule` prefix resolution | Custom `/opt/*` prefix resolution | **STAGED** |
+| **M1** | Install Prefixes | [`rep159-testing/rosdistro`](https://github.com/rep159-testing/rosdistro):<br>`feat/rep159-install-rule` (`4916cae`) | Stacked on `rosdistro#1` | `rosdistro#1` | Stacked PR implementing `install_rule` prefix resolution, rebased on lowercase variables | Custom `/opt/*` prefix resolution | **READY** (Stacked on PR #1, 91/91 tests pass) |
 | **G1** | **RELEASE GATE 1** | **`ros-infrastructure/rosdistro`** | Tag `1.2.0` | M1 Merge | **PyPI release `rosdistro >= 1.2.0`**<br>**OSRF `ros_bootstrap` APT: `python3-rosdistro-modules >= 1.2.0`** | **Unblocks M2 (`rosdep`), M3 (`bloom`), and M4 (`ros_buildfarm`)** | **HOLD ON M1** |
 | **M2** | Client Package Resolution | [`rep159-testing/rosdep`](https://github.com/rep159-testing/rosdep):<br>`feat/rep159-binary-lookup` (`5661779`) | `ros-infrastructure/rosdep:master` | **GATE 1 (`rosdistro >= 1.2.0` on PyPI)** | Clean PR off `master`, Format 3 tests, zero CI git hacks | Dynamic binary package lookup via `rosdistro.get_binary_package_name()` | **PR-READY** (Local branch created & tested) |
 | **M2** | Workspace Underlays | [`rep159-testing/ros_workspace`](https://github.com/rep159-testing/ros_workspace):<br>`rep159-parent-chain` (`12f93e9`) + `feat/composable-underlay-chaining` (`032d161`) | `ros2/ros_workspace:main` | None (CMake) | Reconciled PR supporting `ROS_WORKSPACE_PARENT_PREFIX_PATH` | Multi-parent environment sourcing and package discovery | **READY** |
@@ -186,7 +186,7 @@ flowchart TD
 | **G2B** | **RELEASE GATE 2B** | **`ros2/ros_workspace`** | Tag `1.0.4` | M2 Merge | Release `ros_workspace >= 1.0.4` in ROS 2 distributions | Runtime underlay chaining in binary packages | **HOLD ON M2** |
 | **M3** | Release Packaging Generator | [`rep159-testing/bloom`](https://github.com/rep159-testing/bloom):<br>`feat/rep159-rules-support` (`d6fdf9e` on `rep159`) | `ros-infrastructure/bloom:master` | **GATE 1 + GATE 2** | PR parameterizing `debian/rules` (`install_rule`) and `debian/control` (`binary_rule`) | Automated bloom release generation for extended distributions | **STAGED** |
 | **G3** | **RELEASE GATE 3** | **`ros-infrastructure/bloom`** | Tag `0.15.0` | M3 Merge | **PyPI release `bloom >= 0.15.0`**<br>**OSRF `ros_bootstrap` APT: `python3-bloom >= 0.15.0`** | Downstream release repositories bloom-generated cleanly | **HOLD ON M3** |
-| **M4** | Buildfarm Chroot Pipelines | [`rep159-testing/ros_buildfarm`](https://github.com/rep159-testing/ros_buildfarm):<br>`feat/rep159-binary-naming` (`9b02768`, Stage 1 PR-ready) + PRs 3A/3B | `ros-infrastructure/ros_buildfarm:master` | **GATE 1 + GATE 2 (APT) + `reprepro-updater:refactor`** | Clean PRs combining release jobs (zero Dockerfile pip hacks), `create_workspace.py` walk, and install prefixes | Hermetic source/binary package generation in Docker/chroot | **PR-READY (Stage 1) / STAGED** |
+| **M4** | Buildfarm Orchestration | [`rep159-testing/ros_buildfarm`](https://github.com/rep159-testing/ros_buildfarm):<br>• `feat/rep159-binary-naming` (`9b02768`, Stage 1)<br>• `feat/rep159-workspace-walk` (`486b579`, PR 3A)<br>• `feat/rep159-underlays` (`902ccb1`, PR 3B) | `ros-infrastructure/ros_buildfarm:master` | **GATE 1 + GATE 2 (APT) + `reprepro-updater:refactor`** | Three clean, decoupled PRs off `master` (zero Dockerfile pip hacks): release naming, workspace walk boundary, dynamic underlays & pure-CMake environment fallbacks | Hermetic CI and packaging in Docker/chroot | **PR-READY (All 3 PR branches cut & tested)** |
 | **G4** | **RELEASE GATE 4** | **`ros-infrastructure/ros_buildfarm`** | Tag `4.2.0` | M4 Merge | **PyPI release `ros_buildfarm >= 4.2.0`**<br>**OSRF `ros_bootstrap` APT: `python3-ros-buildfarm >= 4.2.0`** | Official ROS buildfarm deployment | **HOLD ON M4** |
 | **M5** | Production Rollout | [`rep159-testing/ros_buildfarm_config`](https://github.com/rep159-testing/ros_buildfarm_config) & `ros/rosdistro` index | `ros2/ros_buildfarm_config:ros2` & `ros/rosdistro:master` | **GATES 1, 2, 3, 4** | Extended distribution entries in production buildfarm | End-to-end multi-tier release builds in production | **READY** |
 
@@ -197,12 +197,12 @@ flowchart TD
 | Repository | Fork URL | Active Feature Branch(es) | Org Base / Upstream Base | Stages | Release Wave / Gate Prerequisite | Live PRs & Status |
 |:---|:---|:---|:---:|:---:|:---|:---|
 | **`reps`** | [KmoM88/reps](https://github.com/KmoM88/reps) | `feature/rep-159-binary-name-templating` (`1c8d50a`)<br>`feature/rep-159-install-rule` (`02070f9`, stacked) | `rosdistro_extension` (feeds [`reps#32`](https://github.com/openrobotics/reps/pull/32)) | 1 – 4 | **Wave 0** (None) | [`openrobotics/reps#31`](https://github.com/openrobotics/reps/pull/31) (Merged)<br>[`openrobotics/reps#35`](https://github.com/openrobotics/reps/pull/35) (**OPEN**; lowercase `{distro}`, `{package}`)<br>`install_rule` stacked ready |
-| **`rosdistro`** | [rep159-testing/rosdistro](https://github.com/rep159-testing/rosdistro) | `feature/rep159-binary-naming-regex` (`bfde799`)<br>`feature/rep159-install-rule` (`db021b9`, stacked)<br>*(collab: `rep159-child-ros-workspace`)* | **`rep159`** / `master` | 1, 2, 3, 5 | **Wave 0** $\to$ **Unblocks Gate 1 (`>= 1.2.0`)** | [`rep159-testing/rosdistro#1`](https://github.com/rep159-testing/rosdistro/pull/1) (**OPEN**; lowercase vars aligned)<br>`install-rule` stacked ready |
+| **`rosdistro`** | [rep159-testing/rosdistro](https://github.com/rep159-testing/rosdistro) | `feature/rep159-binary-naming-regex` (`bfde799`)<br>`feat/rep159-install-rule` (`4916cae`, stacked)<br>*(collab: `rep159-child-ros-workspace`)* | **`rep159`** / `master` | 1, 2, 3, 5 | **Wave 0** $\to$ **Unblocks Gate 1 (`>= 1.2.0`)** | [`rep159-testing/rosdistro#1`](https://github.com/rep159-testing/rosdistro/pull/1) (**OPEN**; lowercase vars aligned)<br>`feat/rep159-install-rule` pushed & ready |
 | **`reprepro-updater`** | [rep159-testing/reprepro-updater](https://github.com/rep159-testing/reprepro-updater) | `feat/package-prefix` (`93ed2dc`) | `master` / **`refactor`** | 1, 2, 4 | **Wave 0** (None — runtime `git clone -b refactor`) | Ready to PR upstream (0 fork deps) |
 | **`rosdep`** | [rep159-testing/rosdep](https://github.com/rep159-testing/rosdep) | `rep159` (`3d52dad`, org testbed)<br>`feat/rep159-binary-lookup` (`5661779`, PR-ready) | *(already on `rep159`)* / `master` | 1, 2, 3 | **Wave 1** (Blocked on **Gate 1 `rosdistro >= 1.2.0`**) | `rep159` contains CI git overrides for testbed.<br>`feat/rep159-binary-lookup` cut clean off `master` with safe fallbacks and Format 3 tests, zero CI hacks; ready to open once Gate 1 is published |
 | **`ros_workspace`** | [rep159-testing/ros_workspace](https://github.com/rep159-testing/ros_workspace) | `rep159-parent-chain` (`12f93e9`) & `feat/composable-underlay-chaining` (`032d161`) | `main` / `main` | 4 | **Wave 1** (CMake independent) | Needs reconciliation of `12f93e9` + `032d161` |
 | **`bloom`** | [rep159-testing/bloom](https://github.com/rep159-testing/bloom) | `feat/rep159-rules-support` (`d6fdf9e`, stacked on `rep159` `2877687`) | **`rep159`** / `master` | 4, 5 | **Wave 0** (`d6fdf9e` gpgSign fix)<br>**Wave 2** (Blocked on **Gates 1 & 2**) | Needs `get_install_prefix()` dict delegation fix + version bumps |
-| **`ros_buildfarm`** | [rep159-testing/ros_buildfarm](https://github.com/rep159-testing/ros_buildfarm) | `rep159` (`9736140`, testbed)<br>`feat/binary-naming-rule` (`4062a66`, testbed)<br>`feat/rep159-binary-naming` (`9b02768`, Stage 1 PR-ready)<br>`feat/install-prefixes` (`4f4b059`)<br>`feat/cache-job-rep159` (`6f62d7b`) | **`rep159`** & `master` / `master` | 1 – 5 | **Wave 0** (`ae8826b` git TLS, `199fd98` Jenkins 403)<br>**Wave 3** (Blocked on **Gates 1 & 2** + `reprepro:refactor`) | `feat/rep159-binary-naming` cut clean off `master` for Stage 1 (0 pip hacks, upstream reprepro URL, child isolation, 6/6 tests passing) |
+| **`ros_buildfarm`** | [rep159-testing/ros_buildfarm](https://github.com/rep159-testing/ros_buildfarm) | **Testbed:** `rep159` (`9736140`), `feat/binary-naming-rule` (`4062a66`), `feat/install-prefixes` (`4f4b059`), `feat/cache-job-rep159` (`6f62d7b`)<br>**Clean PR-Ready (off `master`):**<br>• `feat/rep159-binary-naming` (`9b02768`, Stage 1)<br>• `feat/rep159-workspace-walk` (`486b579`, PR 3A)<br>• `feat/rep159-underlays` (`902ccb1`, PR 3B) | **`rep159`** & `master` / `master` | 1 – 5 | **Wave 0** (`ae8826b` git TLS, `199fd98` Jenkins 403)<br>**Wave 3** (Blocked on **Gates 1 & 2** + `reprepro:refactor`) | All 3 PR-ready branches cut clean off `master` (0 Dockerfile pip hacks, 0 fork dependencies, 100% test coverage) |
 | **`ros_buildfarm_config`** | [rep159-testing/ros_buildfarm_config](https://github.com/rep159-testing/ros_buildfarm_config) | `feat/composable-distro`, `feat/cache-lifecycle-test`, `feat/stage3-diamond` | **`rep159`** / `ros2` | 1 – 5 | **Wave 4** (Testbed harness / post-Gate 4) | Validated locally & on `build.test.ros2.org` |
 | **`rep159-rosdistro`** | [rep159-testing/rep159-rosdistro](https://github.com/rep159-testing/rep159-rosdistro) | `feat/composable-distro`, `feat/cache-lifecycle-test`, `feat/stage3-diamond` | `main` | 1 – 5 | Testbed distribution fixtures | [`rep159-rosdistro#19`](https://github.com/rep159-testing/rep159-rosdistro/pull/19) (**OPEN**) |
 
@@ -358,9 +358,9 @@ flowchart TD
 ```
 
 #### Interlinked Issues & PRs
-* **`rosdistro`**: `[rosdistro#ISSUE-INSTALL-RULE]` ➔ `[rosdistro#PR-INSTALL-RULE]` (Target: `rep159`)
-* **`ros_buildfarm`**: `[buildfarm#ISSUE-DYNAMIC-UNDERLAYS]` ➔ `[buildfarm#PR-DYNAMIC-UNDERLAYS]` (Target: `rep159`)
-  - *Blocked by*: `[rosdistro#PR-INSTALL-RULE]`
+* **`rosdistro`**: `[rosdistro#ISSUE-INSTALL-RULE]` ➔ `[rosdistro#PR-INSTALL-RULE]` (Target: `master` via clean stacked branch `feat/rep159-install-rule`, commit `4916cae`)
+* **`ros_buildfarm`**: `[buildfarm#ISSUE-DYNAMIC-UNDERLAYS]` ➔ `[buildfarm#PR-DYNAMIC-UNDERLAYS]` (Target: `master` via clean branch `feat/rep159-underlays`, commit `902ccb1`, Wave 3 PR 3B)
+  - *Blocked by*: `[rosdistro#PR-INSTALL-RULE]` (Release Gate 1 `rosdistro >= 1.2.0`)
 * **`ros_buildfarm_config`**: `[config#ISSUE-INSTALL-RULE-TARGETS]` ➔ `[config#PR-INSTALL-RULE-TARGETS]` (Target: `rep159`)
 
 #### Testfarm Validation Evidence (`build.test.ros2.org`)
@@ -443,8 +443,8 @@ flowchart TD
 ```
 
 #### Interlinked Issues & PRs
-* **`rosdistro`**: `[rosdistro#ISSUE-RECURSIVE-ANCESTORS]` ➔ `[rosdistro#PR-RECURSIVE-ANCESTORS]` (Target: `rep159`)
-* **`ros_buildfarm`**: `[buildfarm#ISSUE-MULTI-TIER-CLONE]` ➔ `[buildfarm#PR-MULTI-TIER-CLONE]` (Target: `rep159`)
+* **`rosdistro`**: `[rosdistro#ISSUE-RECURSIVE-ANCESTORS]` ➔ `[rosdistro#PR-RECURSIVE-ANCESTORS]` (Target: `master` via `feature/rep159-binary-naming-regex`)
+* **`ros_buildfarm`**: `[buildfarm#ISSUE-MULTI-TIER-CLONE]` ➔ `[buildfarm#PR-MULTI-TIER-CLONE]` (Target: `master` via clean branch `feat/rep159-workspace-walk`, commit `486b579`, Wave 3 PR 3A)
 * **`rep159-rosdistro`**: `[distro-data#PR-STAGE3A-CHAIN]` (Target: `main`)
 
 #### Testfarm Validation Evidence (`build.test.ros2.org`)
@@ -542,8 +542,8 @@ flowchart TD
 ```
 
 #### Interlinked Issues & PRs
-* **`ros_buildfarm`**: `[buildfarm#ISSUE-UNDERLAY-FALLBACK-NO-SETUP-SH]` ➔ `[buildfarm#PR-UNDERLAY-FALLBACK-NO-SETUP-SH]` (Target: `rep159`)
-  - *Fixes*: Automatic environment export for pure CMake underlays.
+* **`ros_buildfarm`**: `[buildfarm#ISSUE-UNDERLAY-FALLBACK-NO-SETUP-SH]` ➔ `[buildfarm#PR-UNDERLAY-FALLBACK-NO-SETUP-SH]` (Target: `master` via clean branch `feat/rep159-underlays`, commit `902ccb1`, Wave 3 PR 3B)
+  - *Fixes*: Automatic environment export for pure CMake underlays and parent result space computation.
 * **`rep159-rosdistro`**: `[distro-data#PR-STAGE3B-BINARY-CHAIN]` (Target: `main`)
 * **`downstream_bin_a-release`**: `[downstream-bin-a#PR-RELEASE-EXTENDABLEBIN]` (Target: `master`)
 
