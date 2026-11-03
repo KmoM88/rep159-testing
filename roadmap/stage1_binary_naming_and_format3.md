@@ -69,8 +69,20 @@ Stage 1 establishes the **Format 3 ROSDistro specification**, introduces declara
    - Fixes assertion variable formatting (`debian_package_name`) and workspace subfolder / `.src.rpm` lookup when `binary_rule` renames packages away from `ros-<distro>-<pkg>`.
 3. **Standalone Buildfarm Resilience Fixes (`wrapper/git.py` `ae8826b`; `jenkins.py` `199fd98`)**:
    - Retries transient TLS/GnuTLS container git errors and gracefully skips Jenkins view creation on `403 Forbidden` (Wave 0 standalone PRs).
-4. **Pre-PR Cleanups Needed in `rosdep` (Post-Gate 1)**:
-   - Cut a clean branch from `master`, bump `rosdistro >= 1.2.0` in `setup.py` and `python3-rosdistro-modules (>= 1.2.0)` in `stdeb.cfg`, and add a `binary_rule` test case in `test/test_rosdep_gbpdistro_support.py`.
+4. **Clean PR-Ready Branch Prepared in `rosdep` (`feat/rep159-binary-lookup` @ `5661779`)**:
+   - Branched directly from `origin/master`, implementing `gbpdistro_support.py` delegation to `rosdistro.get_binary_package_name(pkg)` with safe fallbacks.
+   - Adds Format 3 test fixtures (`base`, `derived_binary`, `derived_source`, `derived_naming`) and unit tests in `test/test_rosdep_gbpdistro_support.py` (including `binary_rule` regex substitution verification).
+   - Leaves `setup.py` (`rosdistro >= 0.7.5`) and `stdeb.cfg` untouched without speculative version bumps; pinning will occur once the official release version is published upstream.
+   - Completely eliminates testbed CI hacks (`setup.py` git URLs and `.github/workflows/ci.yaml` manual pytest step are untouched from upstream `master`).
+   - Staged and ready to open as an upstream PR against `ros-infrastructure/rosdep:master` once Release Gate 1 (`rosdistro >= 1.2.0`) is published to PyPI.
+5. **Clean PR-Ready Branch Prepared in `ros_buildfarm` (`feat/rep159-binary-naming` @ `9b02768`)**:
+   - Branched directly from `origin/master`, isolating the 6 core Stage 1 binary naming and sync commits (`a1f57c6`, `27628c1`, `f380425`, `0547082`, `b5305a0`, `9b02768`).
+   - Propagates `dist_file`, `debian_package_name`, and `--package-prefix` across common, release, sourcedeb, binarydeb, and sync jobs.
+   - Includes child release job isolation (`4062a66` / `9b02768`), skipping cached packages not in current distro `release_packages`.
+   - Completely strips all Dockerfile `pip3 install` overrides (will use native APT dependencies from Gates 1 & 2).
+   - In sync job templates, retains the canonical upstream repository URL (`ros-infrastructure/reprepro-updater.git`) and branch (`refactor`).
+   - Leaves `setup.py` and `stdeb.cfg` untouched without speculative version bumps.
+   - 6/6 unit tests in `test/test_binary_naming_rule.py` passing 100% green.
 
 ### Temporary Pre-Release Overrides (Test Harness Only — Do NOT Upstream)
 
@@ -104,7 +116,30 @@ Stage 1 establishes the **Format 3 ROSDistro specification**, introduces declara
 
 ---
 
-## 5. Release-Gated Upstream PR & Release Sequence
+## 5. Known Limitations & Edge Cases in Reprepro Synchronization (--package-prefix)
+
+While `reprepro-updater --package-prefix` successfully validates vendor prefixing for typical rules (`search: '^'`, `replace: 'vendor-{distro}-'`), the current implementation relies on a heuristic in `ros_buildfarm.common.get_os_package_name_prefix()` with known edge cases:
+
+1. **Non-Anchor Regexes (`search != '^'`)**:
+   - If a distribution declares a pattern like `search: '^ros2-(.*)$'`, the strict check `rule.get('search') == '^'` evaluates to `False`.
+   - `ros_buildfarm` falls back to the default `ros-{distro}-` prefix, causing reprepro sync to miss the renamed packages.
+2. **Per-Repository Overrides (e.g. Gazebo / `libgz-*`)**:
+   - `get_os_package_name_prefix()` evaluates only the global distribution-level rule (`dist_file.binary_rule`).
+   - If a repository specifies an exact override (e.g., `gz_cmake` -> `libgz-cmake5-dev`), reprepro's glob filter (`Package (% <prefix>*)`) will skip it during promotion from `building` to `testing`.
+3. **Native Packages Without Prefixes (`replace: ''`)**:
+   - For standalone distros that strip prefixes (`replace: ''`), `get_os_package_name_prefix()` returns an empty string.
+   - In `sync_ros_packages.py`, an empty string is falsy and falls back to `ros-%s-`, breaking un-prefixed package synchronization.
+4. **Missing `{origin_distro}` Interpolation**:
+   - `get_os_package_name_prefix()` currently interpolates `{distro}` and `{DISTRO}`, but does not interpolate `{origin_distro}`.
+
+### Future Architectural Resolution
+For a fully generalized upstream implementation:
+* **Package List Filter**: Instead of a single glob prefix filter, `ros_buildfarm` can construct an explicit `FilterFormula` containing all evaluated binary names (`Package (= pkg1) | Package (= pkg2) ...`) from `dist_file.release_packages`.
+* **Multi-Prefix Support**: Alternatively, `reprepro-updater` can accept multiple `--package-prefix` arguments derived from the unique prefixes of all packages in the distribution.
+
+---
+
+## 6. Release-Gated Upstream PR & Release Sequence
 
 1. **Wave 0 — `openrobotics/reps` (Spec)**:
    - *Live PR*: [`openrobotics/reps#35`](https://github.com/openrobotics/reps/pull/35) (`KmoM88:feature/rep-159-binary-name-templating` $\to$ `openrobotics:rosdistro_extension`, feeding [`openrobotics/reps#32`](https://github.com/openrobotics/reps/pull/32)).

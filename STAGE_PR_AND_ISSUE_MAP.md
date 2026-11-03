@@ -47,17 +47,162 @@ flowchart TD
     BUILDFARM --> CONFIG
 ```
 
+### Phased Milestone & Release-Gate Progression Timeline (Milestone Schedule & Gantt)
+
+To ensure smooth upstream integration without breaking existing CI or buildfarm chroot containers, the entire REP-159 upstreaming effort is structured as a **strictly ordered sequence of Milestones and Release Gates**. Downstream Pull Requests cannot be opened or merged until their foundational packages have cleared their respective Release Gates on PyPI and the OSRF `ros_bootstrap` APT repository.
+
+#### High-Level Milestone Sequence
+
+```mermaid
+flowchart TD
+    subgraph M0 ["Milestone 0: Specification Alignment & Standalone Pre-requisites"]
+        direction TB
+        M0_REPS["openrobotics/reps#35: binary_rule & install_rule specs"]
+        M0_REPREPRO["reprepro-updater:refactor: --package-prefix flag"]
+        M0_FIXES["Standalone Fixes: git.py TLS retry, jenkins.py 403 skip, bloom gpgSign"]
+    end
+
+    subgraph M1 ["Milestone 1: Distribution Engine & First Release Gate"]
+        direction TB
+        M1_PR["rosdistro PR: Format 3 extends, binary_rule, install_rule"]
+        M1_MERGE["rosdistro Review & Merge into master"]
+        G1{{"RELEASE GATE 1: rosdistro >= 1.2.0 (PyPI + ros_bootstrap APT)"}}
+        M1_PR --> M1_MERGE --> G1
+    end
+
+    subgraph M2 ["Milestone 2: Client Package Resolution & Workspace Underlays"]
+        direction TB
+        M2_ROSDEP_PR["rosdep PR: feat/rep159-binary-lookup (clean off master)"]
+        M2_WS_PR["ros_workspace PR: ROS_WORKSPACE_PARENT_PREFIX_PATH"]
+        M2_MERGE["Review & Merge into rosdep:master and ros_workspace:main"]
+        G2{{"RELEASE GATE 2: rosdep >= 0.27.0 (PyPI + ros_bootstrap APT)"}}
+        G2B{{"RELEASE GATE 2B: ros_workspace >= 1.0.4"}}
+        M2_ROSDEP_PR --> M2_MERGE --> G2
+        M2_WS_PR --> M2_MERGE --> G2B
+    end
+
+    subgraph M3 ["Milestone 3: Packaging & Release Automation"]
+        direction TB
+        M3_BLOOM_PR["bloom PR: rules install_rule & control binary_rule"]
+        M3_MERGE["Review & Merge into bloom:master"]
+        G3{{"RELEASE GATE 3: bloom >= 0.15.0 (PyPI + ros_bootstrap APT)"}}
+        M3_BLOOM_PR --> M3_MERGE --> G3
+    end
+
+    subgraph M4 ["Milestone 4: Buildfarm Pipeline Orchestration"]
+        direction TB
+        M4_BF_PR["ros_buildfarm PRs: Release jobs, install prefixes, cache tasks (no pip hacks)"]
+        M4_MERGE["Review & Merge into ros_buildfarm:master"]
+        G4{{"RELEASE GATE 4: ros_buildfarm >= 4.2.0 (PyPI + ros_bootstrap APT)"}}
+        M4_BF_PR --> M4_MERGE --> G4
+    end
+
+    subgraph M5 ["Milestone 5: Production Deployment & Extended Distros"]
+        direction TB
+        M5_CONFIG["ros_buildfarm_config: Production extended distribution definitions"]
+        M5_ACTIVE["End-to-End Release Pipeline Active in Production Buildfarm"]
+        M5_CONFIG --> M5_ACTIVE
+    end
+
+    M0_REPS --> M1_PR
+    G1 --> M2_ROSDEP_PR
+    G1 --> M3_BLOOM_PR
+    G2 --> M3_BLOOM_PR
+    G1 --> M4_BF_PR
+    G2 --> M4_BF_PR
+    M0_REPREPRO --> M4_BF_PR
+    M0_FIXES -.-> M4_BF_PR
+    G2B -.-> M3_BLOOM_PR
+    G3 --> M5_CONFIG
+    G4 --> M5_CONFIG
+```
+
+#### Detailed Stage 1 & 2 Milestone Lifecycle (rosdistro ➔ rosdep Hand-Off)
+
+The handoff between `rosdistro` and `rosdep` represents the primary gatekeeper for the entire pipeline. Upstream `rosdep` CI relies directly on PyPI's `rosdistro`. Therefore, `rosdep`'s upstream PR is held until Release Gate 1 is published, avoiding any temporary git/pip overrides in upstream pull requests.
+
+```mermaid
+flowchart TD
+    subgraph S1_PRE ["Phase 1A: Specification Alignment"]
+        direction TB
+        REPS_35["openrobotics/reps#35<br/>Standardize on lowercase {distro}, {package}, {origin_distro}"]
+        REPS_STACK["openrobotics/reps (Stacked branch)<br/>Optional install_rule directive & multi-prefix specification"]
+        REPS_35 --> REPS_STACK
+    end
+
+    subgraph S1_ROSDISTRO ["Phase 1B: rosdistro Engine & Release Gate 1"]
+        direction TB
+        RD_PR1["rep159-testing/rosdistro#1<br/>Format 3 extends + binary_rule regex engine"]
+        RD_STACK["feature/rep159-install-rule<br/>Stacked PR for install_rule prefix resolver"]
+        RD_REVIEW["Upstream Code Review & CI Verification"]
+        RD_MERGE["Merge into ros-infrastructure/rosdistro:master"]
+        GATE1{{"RELEASE GATE 1<br/>Tag rosdistro 1.2.0<br/>Publish to PyPI + ros_bootstrap APT"}}
+
+        RD_PR1 --> RD_STACK --> RD_REVIEW --> RD_MERGE --> GATE1
+    end
+
+    subgraph S1_ROSDEP ["Phase 1C: rosdep Delegation & Release Gate 2"]
+        direction TB
+        RDEP_PREP["Branch feat/rep159-binary-lookup (clean off origin/master)<br/>Drop CI git URLs and pip hacks<br/>Safe fallback resolution in gbpdistro_support<br/>Add binary_rule unit tests"]
+        RDEP_PR["Open PR on ros-infrastructure/rosdep:master<br/>Delegates get_binary_package_name to rosdistro"]
+        RDEP_CI["Upstream CI on GitHub Actions<br/>Pulls official rosdistro 1.2.0 from PyPI"]
+        RDEP_MERGE["Upstream Code Review & Merge into rosdep:master"]
+        GATE2{{"RELEASE GATE 2<br/>Tag rosdep 0.27.0<br/>Publish to PyPI + ros_bootstrap APT"}}
+
+        GATE1 -.->|"Unblocks clean upstream CI"| RDEP_PREP
+        RDEP_PREP --> RDEP_PR --> RDEP_CI --> RDEP_MERGE --> GATE2
+    end
+
+    subgraph S1_DOWNSTREAM ["Phase 1D: Downstream Packaging & Buildfarm Unblocking"]
+        direction TB
+        BLOOM_UNBLOCKED["bloom: Packaging with renamed binaries & install prefixes"]
+        BF_UNBLOCKED["ros_buildfarm: Chroot builds with native APT python3-rosdistro & python3-rosdep"]
+        REPREPRO_SYNC["reprepro-updater: Sync vendor-* packages to testing/main"]
+
+        GATE1 --> BLOOM_UNBLOCKED
+        GATE2 --> BLOOM_UNBLOCKED
+        GATE1 --> BF_UNBLOCKED
+        GATE2 --> BF_UNBLOCKED
+        BF_UNBLOCKED --> REPREPRO_SYNC
+    end
+
+    S1_PRE --> S1_ROSDISTRO
+```
+
+#### Phased Milestone Progression Schedule (Order-of-Operations)
+
+| Milestone | Stage / Area | Repository & Branch | Upstream Target | Input Blocking Gate | Published Output Deliverable | Downstream Actions Unblocked | Status / Artifacts |
+|:---:|:---|:---|:---|:---|:---|:---|:---:|
+| **M0** | Specification | [`KmoM88/reps`](https://github.com/KmoM88/reps):<br>`feature/rep-159-binary-name-templating` (`1c8d50a`) | `openrobotics/reps:rosdistro_extension` | None | Spec PR [`openrobotics/reps#35`](https://github.com/openrobotics/reps/pull/35) | Formal basis for `rosdistro` Format 3 parser | **OPEN** |
+| **M0** | Specification | [`KmoM88/reps`](https://github.com/KmoM88/reps):<br>`feature/rep-159-install-rule` (`02070f9`) | Stacked on `reps#35` | `reps#35` | Spec extension documenting `install_rule` | Formal basis for custom installation prefixes | **STAGED** |
+| **M0** | APT Sync | [`rep159-testing/reprepro-updater`](https://github.com/rep159-testing/reprepro-updater):<br>`feat/package-prefix` (`93ed2dc`) | `ros-infrastructure/reprepro-updater:refactor` | None | PR with `--package-prefix` flag | Selective vendor package promotion in repo sync | **READY** (0 deps) |
+| **M0** | Resilience Fixes | Standalone PRs:<br>`ros_buildfarm` `ae8826b` (TLS retry), `199fd98` (Jenkins 403);<br>`bloom` `d6fdf9e` (gpgSign `-m`) | Respective `master` | None | Clean bugfix PRs | Stabilizes Jenkins jobs and bloom tagging | **READY** |
+| **M1** | Core Parser & Regex | [`rep159-testing/rosdistro`](https://github.com/rep159-testing/rosdistro):<br>`feature/rep159-binary-naming-regex` (`bfde799`) | `ros-infrastructure/rosdistro:master` | M0 Specs | PR [`rep159-testing/rosdistro#1`](https://github.com/rep159-testing/rosdistro/pull/1) | Format 3, `extends`, and `binary_rule` regex engine | **OPEN** |
+| **M1** | Install Prefixes | [`rep159-testing/rosdistro`](https://github.com/rep159-testing/rosdistro):<br>`feature/rep159-install-rule` (`db021b9`) | Stacked on `rosdistro#1` | `rosdistro#1` | Stacked PR implementing `install_rule` prefix resolution | Custom `/opt/*` prefix resolution | **STAGED** |
+| **G1** | **RELEASE GATE 1** | **`ros-infrastructure/rosdistro`** | Tag `1.2.0` | M1 Merge | **PyPI release `rosdistro >= 1.2.0`**<br>**OSRF `ros_bootstrap` APT: `python3-rosdistro-modules >= 1.2.0`** | **Unblocks M2 (`rosdep`), M3 (`bloom`), and M4 (`ros_buildfarm`)** | **HOLD ON M1** |
+| **M2** | Client Package Resolution | [`rep159-testing/rosdep`](https://github.com/rep159-testing/rosdep):<br>`feat/rep159-binary-lookup` (`5661779`) | `ros-infrastructure/rosdep:master` | **GATE 1 (`rosdistro >= 1.2.0` on PyPI)** | Clean PR off `master`, Format 3 tests, zero CI git hacks | Dynamic binary package lookup via `rosdistro.get_binary_package_name()` | **PR-READY** (Local branch created & tested) |
+| **M2** | Workspace Underlays | [`rep159-testing/ros_workspace`](https://github.com/rep159-testing/ros_workspace):<br>`rep159-parent-chain` (`12f93e9`) + `feat/composable-underlay-chaining` (`032d161`) | `ros2/ros_workspace:main` | None (CMake) | Reconciled PR supporting `ROS_WORKSPACE_PARENT_PREFIX_PATH` | Multi-parent environment sourcing and package discovery | **READY** |
+| **G2** | **RELEASE GATE 2** | **`ros-infrastructure/rosdep`** | Tag `0.27.0` | M2 Merge | **PyPI release `rosdep >= 0.27.0`**<br>**OSRF `ros_bootstrap` APT: `python3-rosdep-modules >= 0.27.0`** | **Unblocks hermetic chroot builds in M3 & M4 without pip hacks** | **HOLD ON M2** |
+| **G2B** | **RELEASE GATE 2B** | **`ros2/ros_workspace`** | Tag `1.0.4` | M2 Merge | Release `ros_workspace >= 1.0.4` in ROS 2 distributions | Runtime underlay chaining in binary packages | **HOLD ON M2** |
+| **M3** | Release Packaging Generator | [`rep159-testing/bloom`](https://github.com/rep159-testing/bloom):<br>`feat/rep159-rules-support` (`d6fdf9e` on `rep159`) | `ros-infrastructure/bloom:master` | **GATE 1 + GATE 2** | PR parameterizing `debian/rules` (`install_rule`) and `debian/control` (`binary_rule`) | Automated bloom release generation for extended distributions | **STAGED** |
+| **G3** | **RELEASE GATE 3** | **`ros-infrastructure/bloom`** | Tag `0.15.0` | M3 Merge | **PyPI release `bloom >= 0.15.0`**<br>**OSRF `ros_bootstrap` APT: `python3-bloom >= 0.15.0`** | Downstream release repositories bloom-generated cleanly | **HOLD ON M3** |
+| **M4** | Buildfarm Chroot Pipelines | [`rep159-testing/ros_buildfarm`](https://github.com/rep159-testing/ros_buildfarm):<br>`feat/rep159-binary-naming` (`9b02768`, Stage 1 PR-ready) + PRs 3A/3B | `ros-infrastructure/ros_buildfarm:master` | **GATE 1 + GATE 2 (APT) + `reprepro-updater:refactor`** | Clean PRs combining release jobs (zero Dockerfile pip hacks), `create_workspace.py` walk, and install prefixes | Hermetic source/binary package generation in Docker/chroot | **PR-READY (Stage 1) / STAGED** |
+| **G4** | **RELEASE GATE 4** | **`ros-infrastructure/ros_buildfarm`** | Tag `4.2.0` | M4 Merge | **PyPI release `ros_buildfarm >= 4.2.0`**<br>**OSRF `ros_bootstrap` APT: `python3-ros-buildfarm >= 4.2.0`** | Official ROS buildfarm deployment | **HOLD ON M4** |
+| **M5** | Production Rollout | [`rep159-testing/ros_buildfarm_config`](https://github.com/rep159-testing/ros_buildfarm_config) & `ros/rosdistro` index | `ros2/ros_buildfarm_config:ros2` & `ros/rosdistro:master` | **GATES 1, 2, 3, 4** | Extended distribution entries in production buildfarm | End-to-end multi-tier release builds in production | **READY** |
+
+---
+
 ### Repository, Branch, Release Gate & Live PR Reference
 
 | Repository | Fork URL | Active Feature Branch(es) | Org Base / Upstream Base | Stages | Release Wave / Gate Prerequisite | Live PRs & Status |
 |:---|:---|:---|:---:|:---:|:---|:---|
-| **`reps`** | [KmoM88/reps](https://github.com/KmoM88/reps) | `feature/rep-159-binary-name-templating` (`83e4a3f`) | `rosdistro_extension` (feeds [`reps#32`](https://github.com/openrobotics/reps/pull/32)) | 1 – 4 | **Wave 0** (None) | [`openrobotics/reps#31`](https://github.com/openrobotics/reps/pull/31) (Merged)<br>[`openrobotics/reps#35`](https://github.com/openrobotics/reps/pull/35) (**OPEN**; add `install_rule` section) |
-| **`rosdistro`** | [rep159-testing/rosdistro](https://github.com/rep159-testing/rosdistro) | `feature/rep159-binary-naming-regex` (`3d301d6`)<br>`feature/rep159-install-rule` (`db021b9`)<br>*(collab: `rep159-child-ros-workspace`)* | **`rep159`** / `master` | 1, 2, 3, 5 | **Wave 0** $\to$ **Unblocks Gate 1 (`>= 1.2.0`)** | [`rep159-testing/rosdistro#1`](https://github.com/rep159-testing/rosdistro/pull/1) (**OPEN**)<br>`install-rule` stacked ready |
-| **`reprepro-updater`** | [rep159-testing/reprepro-updater](https://github.com/rep159-testing/reprepro-updater) | `feat/package-prefix` (`93ed2dc`) | `master` / **`refactor`** | 1, 2, 4 | **Wave 0** (None — runtime `git clone -b refactor`) | Ready (0 fork deps) |
-| **`rosdep`** | [rep159-testing/rosdep](https://github.com/rep159-testing/rosdep) | `rep159` (`3d52dad`) | *(already on `rep159`)* / `master` | 1, 2, 3 | **Wave 1** (Blocked on **Gate 1 `rosdistro >= 1.2.0`**) | Needs clean branch off `master` dropping `KmoM88/rosdistro` URL hacks |
+| **`reps`** | [KmoM88/reps](https://github.com/KmoM88/reps) | `feature/rep-159-binary-name-templating` (`1c8d50a`)<br>`feature/rep-159-install-rule` (`02070f9`, stacked) | `rosdistro_extension` (feeds [`reps#32`](https://github.com/openrobotics/reps/pull/32)) | 1 – 4 | **Wave 0** (None) | [`openrobotics/reps#31`](https://github.com/openrobotics/reps/pull/31) (Merged)<br>[`openrobotics/reps#35`](https://github.com/openrobotics/reps/pull/35) (**OPEN**; lowercase `{distro}`, `{package}`)<br>`install_rule` stacked ready |
+| **`rosdistro`** | [rep159-testing/rosdistro](https://github.com/rep159-testing/rosdistro) | `feature/rep159-binary-naming-regex` (`bfde799`)<br>`feature/rep159-install-rule` (`db021b9`, stacked)<br>*(collab: `rep159-child-ros-workspace`)* | **`rep159`** / `master` | 1, 2, 3, 5 | **Wave 0** $\to$ **Unblocks Gate 1 (`>= 1.2.0`)** | [`rep159-testing/rosdistro#1`](https://github.com/rep159-testing/rosdistro/pull/1) (**OPEN**; lowercase vars aligned)<br>`install-rule` stacked ready |
+| **`reprepro-updater`** | [rep159-testing/reprepro-updater](https://github.com/rep159-testing/reprepro-updater) | `feat/package-prefix` (`93ed2dc`) | `master` / **`refactor`** | 1, 2, 4 | **Wave 0** (None — runtime `git clone -b refactor`) | Ready to PR upstream (0 fork deps) |
+| **`rosdep`** | [rep159-testing/rosdep](https://github.com/rep159-testing/rosdep) | `rep159` (`3d52dad`, org testbed)<br>`feat/rep159-binary-lookup` (`5661779`, PR-ready) | *(already on `rep159`)* / `master` | 1, 2, 3 | **Wave 1** (Blocked on **Gate 1 `rosdistro >= 1.2.0`**) | `rep159` contains CI git overrides for testbed.<br>`feat/rep159-binary-lookup` cut clean off `master` with safe fallbacks and Format 3 tests, zero CI hacks; ready to open once Gate 1 is published |
 | **`ros_workspace`** | [rep159-testing/ros_workspace](https://github.com/rep159-testing/ros_workspace) | `rep159-parent-chain` (`12f93e9`) & `feat/composable-underlay-chaining` (`032d161`) | `main` / `main` | 4 | **Wave 1** (CMake independent) | Needs reconciliation of `12f93e9` + `032d161` |
 | **`bloom`** | [rep159-testing/bloom](https://github.com/rep159-testing/bloom) | `feat/rep159-rules-support` (`d6fdf9e`, stacked on `rep159` `2877687`) | **`rep159`** / `master` | 4, 5 | **Wave 0** (`d6fdf9e` gpgSign fix)<br>**Wave 2** (Blocked on **Gates 1 & 2**) | Needs `get_install_prefix()` dict delegation fix + version bumps |
-| **`ros_buildfarm`** | [rep159-testing/ros_buildfarm](https://github.com/rep159-testing/ros_buildfarm) | `rep159` (`9736140`)<br>`feat/install-prefixes` (`4f4b059`)<br>`feat/binary-naming-rule` (`4062a66`)<br>`feat/cache-job-rep159` (`6f62d7b`) | **`rep159`** & `master` / `master` | 1 – 5 | **Wave 0** (`ae8826b` git TLS, `199fd98` Jenkins 403)<br>**Wave 3** (Blocked on **Gates 1 & 2** + `reprepro`) | Combine `rep159` + `feat/*` & drop `*.Dockerfile.em` tarball overrides post-Gates 1 & 2 |
+| **`ros_buildfarm`** | [rep159-testing/ros_buildfarm](https://github.com/rep159-testing/ros_buildfarm) | `rep159` (`9736140`, testbed)<br>`feat/binary-naming-rule` (`4062a66`, testbed)<br>`feat/rep159-binary-naming` (`9b02768`, Stage 1 PR-ready)<br>`feat/install-prefixes` (`4f4b059`)<br>`feat/cache-job-rep159` (`6f62d7b`) | **`rep159`** & `master` / `master` | 1 – 5 | **Wave 0** (`ae8826b` git TLS, `199fd98` Jenkins 403)<br>**Wave 3** (Blocked on **Gates 1 & 2** + `reprepro:refactor`) | `feat/rep159-binary-naming` cut clean off `master` for Stage 1 (0 pip hacks, upstream reprepro URL, child isolation, 6/6 tests passing) |
 | **`ros_buildfarm_config`** | [rep159-testing/ros_buildfarm_config](https://github.com/rep159-testing/ros_buildfarm_config) | `feat/composable-distro`, `feat/cache-lifecycle-test`, `feat/stage3-diamond` | **`rep159`** / `ros2` | 1 – 5 | **Wave 4** (Testbed harness / post-Gate 4) | Validated locally & on `build.test.ros2.org` |
 | **`rep159-rosdistro`** | [rep159-testing/rep159-rosdistro](https://github.com/rep159-testing/rep159-rosdistro) | `feat/composable-distro`, `feat/cache-lifecycle-test`, `feat/stage3-diamond` | `main` | 1 – 5 | Testbed distribution fixtures | [`rep159-rosdistro#19`](https://github.com/rep159-testing/rep159-rosdistro/pull/19) (**OPEN**) |
 
@@ -75,7 +220,7 @@ flowchart TD
 #### Solution & Architectural Design
 1. **`rep159-testing/rosdistro` (Target: `rep159`)**:
    - Added support for Format 3 distribution files with `extends:` block.
-   - Introduced `binary_rule:` regex substitution engine (`search: '^'`, `replace: 'vendor-{DISTRO}-'`).
+   - Introduced `binary_rule:` regex substitution engine (`search: '^'`, `replace: 'vendor-{distro}-'`).
    - Implemented `DistributionFile.get_binary_package_name(pkg_name)` to rewrite package names dynamically.
 2. **`rep159-testing/rosdep` (Target: `rep159`)**:
    - Updated `gbpdistro_support.py` to delegate binary package name queries to `dist_file.get_binary_package_name(pkg)`.
@@ -118,14 +263,16 @@ flowchart TD
 ```
 
 #### Interlinked Issues & PRs
-* **`reps`**: `[reps#ISSUE-REP159]` ➔ `[reps#PR-REP159]` (Target: `main`)
-* **`rosdistro`**: `[rosdistro#ISSUE-NAMING-ENGINE]` ➔ `[rosdistro#PR-NAMING-ENGINE]` (Target: `rep159`)
+* **`reps`**: `[reps#ISSUE-REP159]` ➔ `[reps#PR-REP159]` ([`openrobotics/reps#35`](https://github.com/openrobotics/reps/pull/35), target: `rosdistro_extension`; stacked branch: `feature/rep-159-install-rule`)
+* **`rosdistro`**: `[rosdistro#ISSUE-NAMING-ENGINE]` ➔ `[rosdistro#PR-NAMING-ENGINE]` ([`rep159-testing/rosdistro#1`](https://github.com/rep159-testing/rosdistro/pull/1), target: `master` via `feature/rep159-binary-naming-regex`; stacked branch: `feature/rep159-install-rule`)
   - *Blocked by*: `[reps#PR-REP159]`
-* **`rosdep`**: `[rosdep#ISSUE-BINARY-LOOKUP]` ➔ `[rosdep#PR-BINARY-LOOKUP]` (Target: `rep159`)
-  - *Blocked by*: `[rosdistro#PR-NAMING-ENGINE]`
-* **`reprepro-updater`**: `[reprepro#ISSUE-PACKAGE-PREFIX]` ➔ `[reprepro#PR-PACKAGE-PREFIX]` (Target: `master`)
-* **`ros_buildfarm`**: `[buildfarm#ISSUE-RELEASE-NAMING]` ➔ `[buildfarm#PR-RELEASE-NAMING]` (Target: `rep159`)
-  - *Blocked by*: `[rosdistro#PR-NAMING-ENGINE]`, `[rosdep#PR-BINARY-LOOKUP]`, `[reprepro#PR-PACKAGE-PREFIX]`
+* **`rosdep`**: `[rosdep#ISSUE-BINARY-LOOKUP]` ➔ `[rosdep#PR-BINARY-LOOKUP]` (Target: `master` via `rep159-testing/rosdep:feat/rep159-binary-lookup`)
+  - *Blocked by*: Release Gate 1 (`rosdistro >= 1.2.0` on PyPI)
+  - *Testbed Branch*: `rep159-testing/rosdep:rep159` (contains temporary CI git overrides for full buildfarm testbed harness)
+  - *PR-Ready Branch*: `rep159-testing/rosdep:feat/rep159-binary-lookup` (clean branch cut off `origin/master`, clean `gbpdistro_support.py` delegation, Format 3 tests, zero CI overrides; deferring dependency bump until official release)
+* **`reprepro-updater`**: `[reprepro#ISSUE-PACKAGE-PREFIX]` ➔ `[reprepro#PR-PACKAGE-PREFIX]` (Target: upstream `refactor` via `feat/package-prefix`)
+* **`ros_buildfarm`**: `[buildfarm#ISSUE-RELEASE-NAMING]` ➔ `[buildfarm#PR-RELEASE-NAMING]` (Target: `master` via combined `feat/binary-naming-rule` + `rep159`)
+  - *Blocked by*: `[rosdistro#PR-NAMING-ENGINE]`, `[rosdep#PR-BINARY-LOOKUP]` (Release Gates 1 & 2), `[reprepro#PR-PACKAGE-PREFIX]`
 
 #### Testfarm Validation Evidence (`build.test.ros2.org`)
 * [Eci__nightly-release_ubuntu_resolute_amd64](https://build.test.ros2.org/job/Eci__nightly-release_ubuntu_resolute_amd64/): **SUCCESS** — Baseline CI on `extendable` distribution under Ubuntu Resolute.
@@ -641,7 +788,7 @@ When opening PRs within `rep159-testing` forks or upstream Open Robotics reposit
 - **Specification**: openrobotics/reps#32 / openrobotics/reps#35 (Merged baseline: openrobotics/reps#31)
 - **Core Parser & Rules**: rep159-testing/rosdistro#1 (+ stacked `feature/rep159-install-rule`)
 - **Repository Sync (Wave 0)**: rep159-testing/reprepro-updater (`feat/package-prefix` -> upstream `refactor`)
-- **Dependency Resolution (Wave 1)**: rep159-testing/rosdep (`rep159` @ `3d52dad`)
+- **Dependency Resolution (Wave 1)**: rep159-testing/rosdep (`feat/rep159-binary-lookup` -> upstream `master`; testbed: `rep159` @ `3d52dad`)
 - **Workspace Chaining (Wave 1)**: rep159-testing/ros_workspace (`rep159-parent-chain` + `feat/composable-underlay-chaining`)
 - **Packaging Generator (Wave 2)**: rep159-testing/bloom (`feat/rep159-rules-support` on `rep159`)
 - **Buildfarm Orchestrator (Wave 3)**: rep159-testing/ros_buildfarm (`rep159` + `feat/binary-naming-rule`)
