@@ -61,32 +61,54 @@ flowchart TD
         REPS["openrobotics/reps#35: binary_rule & install_rule specs"]
         REPREPRO["reprepro-updater: feat/package-prefix (targets refactor)"]
         ROSDISTRO["rosdistro PRs: binary_rule & feat/rep159-install-rule"]
+        BF_STANDALONE["ros_buildfarm: Standalone TLS & Jenkins 403 fixes"]
     end
 
     subgraph Gate1 ["Release Gate 1"]
         G1{{"rosdistro >= 1.2.0 (PyPI + ros_bootstrap APT)"}}
     end
 
-    subgraph Wave1 ["Wave 1: Client Resolution (Requires Gate 1)"]
+    subgraph Wave1 ["Wave 1: Client Resolution & Workspace Chaining"]
+        direction TB
         ROSDEP["rosdep PR: feat/rep159-binary-lookup (clean off master)"]
+        WORKSPACE["ros_workspace: feat/rep159-parent-chaining (clean off main)"]
     end
 
-    subgraph Gate2 ["Release Gate 2"]
+    subgraph Gate2 ["Release Gate 2 & 2B"]
         G2{{"rosdep >= 0.27.0 (PyPI + ros_bootstrap APT)"}}
+        G2B{{"ros_workspace >= 1.0.4 (ROS 2 distros)"}}
+    end
+
+    subgraph Wave2 ["Wave 2: Packaging Generator (Requires Gates 1 & 2)"]
+        BLOOM["bloom: feat/rep159-rules-support (clean off master)"]
+    end
+
+    subgraph Gate3 ["Release Gate 3"]
+        G3{{"bloom >= 0.15.0 (PyPI + ros_bootstrap APT)"}}
     end
 
     subgraph Wave3 ["Wave 3: Buildfarm Orchestration (Requires Gates 1 & 2)"]
         direction TB
-        BF1["ros_buildfarm: feat/rep159-binary-naming (Release Jobs)"]
+        BF1["ros_buildfarm: feat/rep159-binary-naming (PR 3C)"]
         BF2["ros_buildfarm: feat/rep159-workspace-walk (PR 3A)"]
         BF3["ros_buildfarm: feat/rep159-underlays (PR 3B)"]
     end
 
+    subgraph Gate4 ["Release Gate 4"]
+        G4{{"ros_buildfarm >= 4.2.0 (PyPI + ros_bootstrap APT)"}}
+    end
+
     ROSDISTRO --> G1
     G1 --> ROSDEP --> G2
+    WORKSPACE --> G2B
+    G1 --> BLOOM
+    G2 --> BLOOM
+    BLOOM --> G3
     G1 --> Wave3
     G2 --> Wave3
     REPREPRO --> Wave3
+    BF_STANDALONE -.-> Wave3
+    Wave3 --> G4
 ```
 
 * Comprehensive cross-repository tracking, Gantt milestone schedule, and issue links across all 5 stages are maintained in [`STAGE_PR_AND_ISSUE_MAP.md`](https://github.com/KmoM88/rep159-testing/blob/main/STAGE_PR_AND_ISSUE_MAP.md).

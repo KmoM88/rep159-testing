@@ -37,7 +37,7 @@ To maintain maximum traceability, testbed stability, and clean upstream Pull Req
 | **FEAT-6** | Multi-Tier Chaining & Hybrid Topologies ($A \to B \to C$ & Diamond) | `rosdistro`<br>`ros_buildfarm`<br>`ros_buildfarm_config`<br>`rep159-rosdistro`<br>`downstream_bin_a-release` | `feature/rep159-install-rule` (`db021b9`)<br>`feat/binary-naming-rule` (`4062a66`) + `rep159` (`9736140`)<br>`feat/stage3-diamond`<br>`feat/stage3-diamond`<br>`release/extendablebin/downstream_bin_a` | `feature/rep159-binary-naming-regex`<br>`master`<br>`feat/stage3-mixed`<br>`feat/stage3-mixed`<br>`upstream` | Gated on Gates 1 & 2 | ✅ Option A: 100% (#3)<br>✅ Option B: 100% (#13)<br>✅ Mixed: 100% (#2) | ✅ Option A: 100% (Remote #2)<br>✅ Option B: 100% (Remote #7)<br>✅ Mixed/Diamond: 100% (#1) |
 | **FEAT-7** | Stage 4: `composable` Suite, `ros_workspace` Sourcing & Bloom | `bloom`<br>`ros_workspace`<br>`ros_workspace-release`<br>`upstream_{a,b,c}-release`<br>`rep159-rosdistro`<br>`ros_buildfarm_config` | **`feat/rep159-rules-support`** (`45fb575`)<br>**`feat/rep159-parent-chaining`** (`1805a69`)<br>`debian/vendor-composable/resolute/ros_workspace`<br>`debian/vendor-composable/resolute/upstream_{a,b,c}`<br>`feat/composable-distro`<br>`feat/composable-distro` | `rep159` (`2877687`)<br>**`main`** (`db49f0a`)<br>`debian/vendor-composable`<br>`debian/vendor-composable`<br>`main`<br>`rep159` | `ros_workspace`: **Clean PR Ready** (`feat/rep159-parent-chaining`)<br>`bloom`: **Clean PR Ready** (`feat/rep159-rules-support`) | ✅ 100% (5-step local pipeline) | ✅ **SUCCESS** (`Csrc` #5, `Cbin` #3, `Crel_sync` #5, `Cci` #3, #4) |
 | **FEAT-8** | Stage 5: Cache Lifecycle & Hierarchy (`rosdistro_build_cache`) | `ros_buildfarm`<br>`rep159-rosdistro`<br>`ros_buildfarm_config` | `feat/cache-job-rep159` (`6f62d7b`)<br>`feat/cache-lifecycle-test`<br>`feat/cache-lifecycle-test` | `master` (`7daa2b1`)<br>`main`<br>`rep159` | Replaced upstream by Gate 1 APT (`python3-rosdistro >= 1.2.0`) | ✅ 100% Local Validation | ✅ **SUCCESS** (`cachebase` #18, `cachechild` #18) |
-| **FEAT-9** | Stage 5: Automated Debian Packaging with REP-159 Bloom Fork | `bloom`<br>`downstream_bin_a-release` | `feat/rep159-rules-support` (`d6fdf9e`)<br>`debian/cachechild/resolute/downstream_bin_a` | `rep159` (`2877687`)<br>`upstream` | Wave 0 (`d6fdf9e` gpgSign fix)<br>Wave 2 (`bloom >= 0.15.0`) | ✅ 100% Generated & Verified | ✅ Pushed branch & tag to origin |
+| **FEAT-9** | Stage 5: Automated Debian Packaging with REP-159 Bloom Fork | `bloom`<br>`downstream_bin_a-release` | `feat/rep159-rules-support` (`45fb575`)<br>`debian/cachechild/resolute/downstream_bin_a` | `rep159` (`2877687`)<br>`upstream` | Wave 0 (`d6fdf9e` gpgSign fix)<br>Wave 2 (`bloom >= 0.15.0`) | ✅ 100% Generated & Verified | ✅ Pushed branch & tag to origin |
 
 ---
 
@@ -152,12 +152,13 @@ To maintain maximum traceability, testbed stability, and clean upstream Pull Req
 ### FEAT-7: Stage 4 — Composable Suite, `ros_workspace` Sourcing & Bloom Integration
 - **Problem**: Stages 1 through 3 relied on pure CMake packages, requiring fallback path injection (`CMAKE_PREFIX_PATH`, `LD_LIBRARY_PATH`). A production ROS 2 distribution requires `ros_workspace` to generate `/opt/ros/<distro>/setup.sh`, chain underlays via `.dsv` environment hooks, and have Bloom honor `binary_rule` and `install_rule`.
 - **Solution**:
-  - **Bloom Fork (`rep159-testing/bloom`)**: Branch `feat/rep159-rules-support` (`d6fdf9e`, stacked on `rep159` @ `2877687`) enables dynamic package and dependency naming from `rosdistro.get_binary_package_name()`, generates `install_rule` prefixes and `ParentPrefixes` sourcing in `debian/rules`. *(Pre-PR fix noted: delegate `get_install_prefix()` to `dist_file.get_install_prefix()` for regex dict `install_rule` support).*
-  - **Underlay Chaining in `ros_workspace`**: Branches `rep159-parent-chain` (`12f93e9`) and `feat/composable-underlay-chaining` (`032d161`) chain parent underlay paths into the `composable` / `composablebin` environment *(to be reconciled into a single upstream PR preserving parent `ament_package` discovery and root `SKIP_PARENT_PREFIX_PATH` default)*.
+  - **Bloom Fork (`rep159-testing/bloom`)**: Branch `feat/rep159-rules-support` (`45fb575`, cut off `origin/master`) enables dynamic package and dependency naming from `rosdistro.get_binary_package_name()`, generates `install_rule` prefixes and `ParentPrefixes` sourcing in `debian/rules`, includes `d6fdf9e` for GPG signing, and delegates `get_install_prefix()` to `dist_file.get_install_prefix()` for regex dict rules. Passes 26/26 unit tests 100% green.
+  - **Underlay Chaining in `ros_workspace`**: Branch `feat/rep159-parent-chaining` (`1805a69`, cut off `origin/main` `db49f0a`) reconciles parent loop search across `ROS_WORKSPACE_PARENT_PREFIX_PATH` (`12f93e9`), preserves root `SKIP_PARENT_PREFIX_PATH` default, and registers the `parent_prefix_path` ament resource index (`032d161`). Clean `CMakeLists.txt` PR ready, 0 hacks.
   - **Hermetic Release & CI**: Packaged and installed `vendor-composable-ros-workspace_1.0.4-1resolute` into `/opt/ros/composable`, and validated `Cci__nightly-release` and `Cci__binary-import` executing `. /opt/ros/composable/setup.sh && colcon build` natively.
 - **Published GitHub Branches**:
-  - `submodules/bloom`: `feat/rep159-rules-support` (`d6fdf9e`, base `rep159` @ `2877687`)
-  - `submodules/ros_workspace`: `feat/composable-underlay-chaining` (`032d161`) & `rep159-parent-chain` (`12f93e9`)
+  - `submodules/bloom`: `feat/rep159-rules-support` (`45fb575`, clean PR-ready on `master`)
+  - `submodules/ros_workspace`: `feat/rep159-parent-chaining` (`1805a69`, clean PR-ready on `main`)
+  - `submodules/ros_buildfarm`: `feat/rep159-binary-naming` (`9b02768`, PR 3C clean off `master`)
   - `submodules/ros_workspace-release`: `debian/vendor-composable/resolute/ros_workspace`
   - `submodules/upstream_{a,b,c}-release`: `debian/vendor-composable/resolute/upstream_{a,b,c}`
   - `submodules/downstream_bin_a-release`: `debian/vendor-composablebin/resolute/downstream_bin_a`
@@ -195,7 +196,7 @@ To maintain maximum traceability, testbed stability, and clean upstream Pull Req
     - `debian/control`: Generated `Package: vendor-cachechild-downstream-bin-a` with `Depends: ..., vendor-cachebase-upstream-c, vendor-cachechild-ros-workspace`.
     - `debian/rules`: Sourced `. /opt/ros/cachebase/setup.sh`, set `-DCMAKE_INSTALL_PREFIX="/opt/ros/cachechild"`, and chained `PKG_CONFIG_PATH`.
 - **Published GitHub Branches**:
-  - `submodules/bloom`: `feat/rep159-rules-support` (`d6fdf9e`)
+  - `submodules/bloom`: `feat/rep159-rules-support` (`45fb575`)
   - `submodules/downstream_bin_a-release`: `debian/cachechild/resolute/downstream_bin_a` (tag `debian/vendor-cachechild-downstream-bin-a_0.2.0-0_resolute`)
 
 ---
