@@ -11,7 +11,7 @@ This document establishes the empirical validation evidence, architectural model
 ```mermaid
 graph LR
     subgraph Spec [Distribution Metadata: Format 3]
-        BR["binary_rule: vendor-{DISTRO}-@PKG@"]
+        BR["binary_rule: vendor-{distro}-{package}"]
         IR["install_rule: /opt/ros/{distro}"]
     end
 
@@ -45,9 +45,48 @@ graph LR
    - ROS distributions and repositories declare parameterized install locations (e.g., `/opt/ros/{distro}` or `/opt/vendor/{distro}`).
    - Release jobs pass `CMAKE_INSTALL_PREFIX` to build processes, ensuring binaries install into their declared hierarchy.
 
-3. **Reprepro Package Filter Synchronization**:
-   - `reprepro-updater` filters incoming packages using `--package-prefix vendor-<distro>-*`.
-   - Prevents binary collisions and ensures that only vendor-specific packages are promoted from `building` to `testing`.
+3. **Reprepro Package Filter Synchronization & Ingestion Invariants**:
+   - `reprepro-updater` filters incoming packages using `--package-prefix <prefix>`.
+   - Prevents binary collisions and ensures only vendor-specific packages matching the declared naming prefix are promoted from `building` to `testing`.
+   - In shared flat APT pools, prefix isolation guarantees that downstream packages do not accidentally overwrite or shadow packages from parallel vendor stacks.
+
+### Stage 1 Upstream PR Architecture & Release Gating
+
+Upstreaming Stage 1 features follows a release-gated dependency progression across Open Robotics repositories to prevent broken dependencies during Debian packaging and CI:
+
+```mermaid
+flowchart TD
+    subgraph Wave0 ["Wave 0: Unencumbered Baseline PRs"]
+        direction TB
+        REPS["openrobotics/reps#35: binary_rule & install_rule specs"]
+        REPREPRO["reprepro-updater: feat/package-prefix (targets refactor)"]
+        ROSDISTRO["rosdistro PR: Format 3 parser & binary_rule regex"]
+    end
+
+    subgraph Gate1 ["Release Gate 1"]
+        G1{{"rosdistro >= 1.2.0 (PyPI + ros_bootstrap APT)"}}
+    end
+
+    subgraph Wave1 ["Wave 1: Client Resolution (Requires Gate 1)"]
+        ROSDEP["rosdep PR: feat/rep159-binary-lookup (clean off master)"]
+    end
+
+    subgraph Gate2 ["Release Gate 2"]
+        G2{{"rosdep >= 0.27.0 (PyPI + ros_bootstrap APT)"}}
+    end
+
+    subgraph Wave3 ["Wave 3: Buildfarm Orchestration (Requires Gates 1 & 2)"]
+        BUILDFARM["ros_buildfarm PR: feat/rep159-binary-naming (clean off master)"]
+    end
+
+    ROSDISTRO --> G1
+    G1 --> ROSDEP --> G2
+    G1 --> BUILDFARM
+    G2 --> BUILDFARM
+    REPREPRO --> BUILDFARM
+```
+
+* Comprehensive cross-repository tracking, Gantt milestone schedule, and issue links across all 5 stages are maintained in [`STAGE_PR_AND_ISSUE_MAP.md`](https://github.com/KmoM88/rep159-testing/blob/main/STAGE_PR_AND_ISSUE_MAP.md).
 
 ### Repository & Branch Matrix
 
