@@ -42,25 +42,30 @@ Stage 4 establishes the **`composable` distribution suite**, integrates **`ros_w
 
 ## 3. Implementation Breakdown: Core Code vs. Required Fixes vs. Testing Tweaks
 
-### Core Feature Implementation (To Be Merged Upstream)
+### Core Feature Implementation & PR-Ready Branches (To Be Merged Upstream)
 
-1. **`ros2/ros_workspace` (`rep159-parent-chain` @ `12f93e9` & `feat/composable-underlay-chaining` @ `032d161`)**:
-   - Parameterizes `ROS_WORKSPACE_PARENT_PREFIX_PATH` / `PARENT_PREFIX_PATH` in `CMakeLists.txt` so extended distribution builds of `ros_workspace` register parent underlay prefixes into the `parent_prefix_path` ament resource index and locate `ament_package` across parent underlays.
+1. **`ros2/ros_workspace` (Branch: `feat/rep159-parent-chaining` @ `1805a69`)**:
+   - Reconciled `rep159-parent-chain` (`12f93e9`) and `feat/composable-underlay-chaining` (`032d161`) into a single, clean branch cut directly off `origin/main` (`db49f0a`).
+   - Parameterizes `ROS_WORKSPACE_PARENT_PREFIX_PATH` / `PARENT_PREFIX_PATH` in `CMakeLists.txt`, iterates over parent prefixes to discover `ament_package`, and registers parent underlay prefixes into the `parent_prefix_path` ament resource index. Zero hacks.
 
-2. **`ros-infrastructure/bloom` (`feat/rep159-rules-support` @ `d6fdf9e` stacked on `rep159` @ `2877687`)**:
-   - `bloom/rosdistro_api.py`: Implements `get_binary_import_parents()`, `get_ros_workspace_dependencies()`, `get_binary_package_name()`, and `get_install_prefix()`.
+2. **`ros-infrastructure/bloom` (Branch: `feat/rep159-rules-support` @ `45fb575`)**:
+   - Clean PR branch stacked on `origin/master`.
+   - `bloom/rosdistro_api.py`: Implements `get_binary_import_parents()`, `get_ros_workspace_dependencies()`, `get_binary_package_name()`, and `get_install_prefix()` (delegating directly to `dist_file.get_install_prefix()` to support regex dict rules).
    - `bloom/generators/rosdebian.py`: Parameterizes `InstallationPrefix`, `ParentPrefixes`, and `rosify_package_name()` (`Package:` and `Depends:`) using `install_rule` and `binary_rule`.
    - `bloom/generators/debian/templates/{ament_cmake,cmake}/rules.em`: Injects parent `<prefix>/setup.sh` sourcing loops, chains `CMAKE_PREFIX_PATH` & `PKG_CONFIG_PATH`, and passes `-DROS_WORKSPACE_PARENT_PREFIX_PATH=...`.
+   - `bloom/generators/debian/generator.py`: Supplies `-m` message to `git tag -f` for environments with `tag.gpgSign=true`. 26/26 unit tests passing.
 
-3. **`ros-infrastructure/ros_buildfarm` (`feat/binary-naming-rule` @ `4062a66`)**:
-   - `ros_buildfarm/workspace.py`: Automatically sources `<prefix>/setup.sh` when present on disk (`vendor-composable-ros-workspace`) while retaining pure-CMake environment exports as a fallback.
+3. **`ros-infrastructure/ros_buildfarm` (Branch: `feat/rep159-binary-naming` @ `9b02768` — PR 3C)**:
+   - Clean PR branch cut directly off `origin/master` (`7daa2b1`).
+   - Propagates `binary_rule` naming to `sourcedeb`, `binarydeb`, passes `--package-prefix` to `reprepro-updater` in sync jobs, and isolates child release jobs (`release_job.py` `9b02768`).
+   - `ros_buildfarm/workspace.py`: Automatically sources `<prefix>/setup.sh` when present on disk (`vendor-composable-ros-workspace`) while retaining pure-CMake environment exports as a fallback. 6/6 unit tests and flake8 passing with 0 errors, zero Dockerfile tarball hacks.
 
-### Required Engineering Fixes Before Creating Upstream PRs
+### Resolved Engineering Fixes Before Creating Upstream PRs
 
 1. **`ros_workspace` Branch Reconciliation (`12f93e9` + `032d161`)**:
-   - Combine `rep159-parent-chain` (`12f93e9` — multi-prefix search for `ament_package` across `ROS_WORKSPACE_PARENT_PREFIX_PATH` and preserving default `SKIP_PARENT_PREFIX_PATH` when no parent prefix is passed) with `feat/composable-underlay-chaining` (`032d161` — `PARENT_PREFIX_PATH` alias and explicit `ament_index_register_resource("parent_prefix_path" ...)`).
+   - **Resolved in `feat/rep159-parent-chaining` (`1805a69`)**: Combined `12f93e9`'s multi-prefix search for `ament_package` across `ROS_WORKSPACE_PARENT_PREFIX_PATH` and preserving default `SKIP_PARENT_PREFIX_PATH` when no parent prefix is passed with `032d161`'s `PARENT_PREFIX_PATH` alias and explicit `ament_index_register_resource("parent_prefix_path" ...)`.
 2. **`bloom` Regex Dictionary `install_rule` Fix (`bloom/rosdistro_api.py:get_install_prefix()`)**:
-   - Lines 269–270 currently call `dist_file.install_rule.replace('{distro}', distro)`, which fails with `AttributeError` (silently falling back to `/opt/ros/<distro>`) when `install_rule` is a regex `dict` (`{'search': ..., 'replace': ...}`). Update `get_install_prefix()` to delegate directly to `dist_file.get_install_prefix()`.
+   - **Resolved in `feat/rep159-rules-support` (`45fb575`)**: Updated `get_install_prefix()` to delegate directly to `dist_file.get_install_prefix()`, fully supporting regex dict rules without `AttributeError`.
 3. **`bloom` Version Pins (Post-Gates 1 & 2)**:
    - Bump `rosdistro >= 1.2.0` and `rosdep >= 0.27.0` in `setup.py` and `stdeb.cfg`.
 
@@ -97,9 +102,16 @@ Stage 4 establishes the **`composable` distribution suite**, integrates **`ros_w
 
 1. **Wave 1 — `ros2/ros_workspace` (Independent CMake PR; Packaging Child `.deb` Requires Gate 3)**:
    - *Title*: `feat: support parent underlay prefix chaining and parent ament_package discovery for REP-159`
-   - *Source Branches*: Reconciled `rep159-parent-chain` (`12f93e9`) + `feat/composable-underlay-chaining` (`032d161`) $\to$ `main`.
+   - *Branch*: `feat/rep159-parent-chaining` (commit `1805a69` cut directly off `origin/main` `db49f0a`).
+   - *Target Base*: `main`.
    - *Unblocks Release Gate 2B*: **`ros_workspace >= 1.0.4`**.
 2. **Wave 2 — `ros-infrastructure/bloom` (Blocked Until Gate 1 `rosdistro >= 1.2.0` + Gate 2 `rosdep >= 0.27.0`)**:
    - *Title*: `feat(debian): support REP-159 binary_rule, install_rule, and parent underlay chaining`
-   - *Source Branches*: `rep159` (`0189046`..`2877687`) + `feat/rep159-rules-support` (`1f62809`, `d6fdf9e`) + `get_install_prefix()` dict delegation fix + `setup.py`/`stdeb.cfg` dependency bumps $\to$ `master` (org base: `rep159`).
+   - *Branch*: `feat/rep159-rules-support` (commits `0189046`..`45fb575` on top of `origin/master`).
+   - *Target Base*: `master` (org base: `rep159`).
    - *Unblocks Release Gate 3*: **`bloom >= 0.15.0`** (PyPI + `ros_bootstrap` APT).
+3. **Wave 3 (PR 3C) — `ros-infrastructure/ros_buildfarm` (Blocked on Gates 1 & 2 + reprepro-updater)**:
+   - *Title*: `feat(release): delegate binary package naming, isolate child release jobs, and pass sync prefix`
+   - *Branch*: `feat/rep159-binary-naming` (commits `a1f57c6`..`9b02768` cut directly off `origin/master`).
+   - *Target Base*: `master`.
+   - *Unblocks Release Gate 4*: **`ros_buildfarm >= 4.2.0`**.

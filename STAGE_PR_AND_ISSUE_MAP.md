@@ -751,17 +751,21 @@ For complete operational and architectural specifications, see **[STAGE4_COMPOSA
    - Isolated namespace with jobs prefix **`C*`** (`Cci`, `Csrc`, `Cbin`, `Crel`).
    - Declares `binary_rule` (`vendor-composable-*`) and custom `install_rule`.
    - Includes `ros_workspace`, `ament_package`, `ament_cmake_core`, and application packages.
-2. **`ros_workspace` Underlay Chaining (`rep159-parent-chain` @ `12f93e9` & `feat/composable-underlay-chaining` @ `032d161`)**:
-   - Enables parent prefix discovery (`ROS_WORKSPACE_PARENT_PREFIX_PATH` / `PARENT_PREFIX_PATH`) and parent `ament_package` discovery so sourcing `/opt/ros/composablebin/setup.sh` automatically inherits `/opt/ros/composable/setup.sh` without mutating standalone root Debian builds *(branches to be reconciled in Wave 1)*.
-3. **Dedicated Bloom Fork (`rep159-testing/bloom`)**:
-   - Branch: `feat/rep159-rules-support` (`d6fdf9e`, stacked on `rep159` @ `2877687`).
-   - Parameterizes `debian/rules` with `install_rule` and `ParentPrefixes` sourcing loops, and `debian/control` with `binary_rule` *(Wave 2, gated on `rosdistro >= 1.2.0` + `rosdep >= 0.27.0` and fixing `get_install_prefix()` dict delegation)*.
-4. **`ros_buildfarm` (`feat/binary-naming-rule` @ `4062a66`)**:
-   - Sources `/opt/ros/<distro>/setup.sh` natively when present while retaining pure-CMake environment fallbacks, and skips inherited parent packages when generating child release jobs (`release_job.py` `4062a66`).
+2. **`ros_workspace` Underlay Chaining (`feat/rep159-parent-chaining` @ `1805a69`)**:
+   - Reconciles `12f93e9` and `032d161` into a single, clean PR branch cut directly off `origin/main` (`db49f0a`).
+   - Enables parent prefix discovery (`ROS_WORKSPACE_PARENT_PREFIX_PATH` / `PARENT_PREFIX_PATH`), parent `ament_package` multi-prefix discovery, and registers `ament_index_register_resource("parent_prefix_path" ...)` so sourcing `/opt/ros/composablebin/setup.sh` automatically inherits `/opt/ros/composable/setup.sh` without mutating standalone root Debian builds (0 hacks).
+3. **Dedicated Bloom Fork (`rep159-testing/bloom` — `feat/rep159-rules-support` @ `45fb575`)**:
+   - Clean PR branch stacked on `origin/master`.
+   - Parameterizes `debian/rules` with `install_rule` and `ParentPrefixes` sourcing loops, and `debian/control` with `binary_rule`.
+   - Applied `d6fdf9e` (`git tag -f -m`) for GPG-signed environments and `45fb575` (delegating `get_install_prefix()` directly to `dist_file.get_install_prefix()` for regex dict rules). 26/26 unit tests passing.
+4. **`ros_buildfarm` (`feat/rep159-binary-naming` @ `9b02768` — PR 3C)**:
+   - Clean PR branch cut directly off `origin/master` (`7daa2b1`).
+   - Propagates `binary_rule` naming to `sourcedeb`, `binarydeb`, passes `--package-prefix` to `reprepro-updater` in sync jobs, and isolates child release jobs (`release_job.py` `9b02768`). 6/6 unit tests and flake8 100% green with zero Dockerfile tarball hacks.
 
 #### Interlinked Issues & Release-Gated PRs
-* **`ros_workspace` (Wave 1)**: `[workspace#ISSUE-CHAINING]` ➔ `[workspace#PR-CHAINING]` (Target: `main` — reconciles `12f93e9` + `032d161`)
-* **`bloom` (Wave 2 — Blocked on Gates 1 & 2)**: `[bloom#ISSUE-RULES]` ➔ `[bloom#PR-RULES]` (Org Target: `rep159`; Upstream Target: `master`)
+* **`ros_workspace` (Wave 1)**: `[workspace#ISSUE-CHAINING]` ➔ `[workspace#PR-CHAINING]` (Branch: `feat/rep159-parent-chaining`, Target: `main`)
+* **`bloom` (Wave 2 — Blocked on Gates 1 & 2)**: `[bloom#ISSUE-RULES]` ➔ `[bloom#PR-RULES]` (Branch: `feat/rep159-rules-support`, Target: `master`)
+* **`ros_buildfarm` (Wave 3 — PR 3C)**: `[buildfarm#ISSUE-RELEASE-NAMING]` ➔ `[buildfarm#PR-RELEASE-NAMING]` (Branch: `feat/rep159-binary-naming`, Target: `master`)
 * **`rep159-rosdistro`**: `[distro-data#PR-STAGE4-COMPOSABLE]` (`feat/composable-distro`, Target: `main`)
 * **`ros_buildfarm_config`**: `[config#PR-STAGE4-COMPOSABLE]` (`feat/composable-distro`, Target: `rep159`)
 

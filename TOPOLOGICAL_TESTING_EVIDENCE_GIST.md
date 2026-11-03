@@ -345,8 +345,9 @@ graph TD
 
 | Repository | Branch / Track | Purpose |
 |---|---|---|
-| **`bloom`** | [`feat/rep159-rules-support`](https://github.com/rep159-testing/bloom/tree/feat/rep159-rules-support) | Packaging generator honoring `binary_rule` and `install_rule` |
-| **`ros_workspace`** | [`feat/composable-underlay-chaining`](https://github.com/rep159-testing/ros_workspace/tree/feat/composable-underlay-chaining) | Underlay chaining configuration for `/opt/ros/composable` |
+| **`bloom`** | [`feat/rep159-rules-support`](https://github.com/rep159-testing/bloom/tree/feat/rep159-rules-support) | Packaging generator honoring `binary_rule` and `install_rule` (commit `45fb575`) |
+| **`ros_workspace`** | [`feat/rep159-parent-chaining`](https://github.com/rep159-testing/ros_workspace/tree/feat/rep159-parent-chaining) | Reconciled underlay chaining configuration for `/opt/ros/composable` (commit `1805a69`) |
+| **`ros_buildfarm`** | [`feat/rep159-binary-naming`](https://github.com/rep159-testing/ros_buildfarm/tree/feat/rep159-binary-naming) | PR 3C release naming delegation, child release job isolation, and sync prefix (commit `9b02768`) |
 | **`ros_workspace-release`** | [`debian/vendor-composable/resolute/ros_workspace`](https://github.com/rep159-testing/ros_workspace-release/tree/debian/vendor-composable/resolute/ros_workspace) | Release track and tag `debian/vendor-composable-ros-workspace_1.0.4-1_resolute` |
 | **`upstream_{a,b,c}-release`** | [`debian/vendor-composable/resolute/upstream_{a,b,c}`](https://github.com/rep159-testing/upstream_a-release/tree/debian/vendor-composable/resolute/upstream_a) | Release tracks and tags `debian/vendor-composable-upstream-{a,b,c}_0.1.0-1_resolute` |
 | **`downstream_bin_a-release`** | [`debian/vendor-composablebin/resolute/downstream_bin_a`](https://github.com/rep159-testing/downstream_bin_a-release/tree/debian/vendor-composablebin/resolute/downstream_bin_a) | Release track and tag `debian/vendor-composablebin-downstream-bin-a_0.2.0-1_resolute` |
