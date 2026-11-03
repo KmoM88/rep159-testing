@@ -111,6 +111,47 @@ flowchart TD
     Wave3 --> G4
 ```
 
+#### Phased Release-Gate Progression Timeline (Gantt Schedule)
+
+```mermaid
+gantt
+    title REP-159 Phased Upstreaming & Release-Gate Progression Timeline
+    dateFormat YYYY-MM-DD
+    axisFormat %b %Y
+
+    section Wave 0 (Specs & Standalone)
+    reps#35 (binary_rule lowercase spec)    :done, m0_reps, 2026-01-01, 2026-02-15
+    reps (install_rule spec extension)      :done, m0_reps_inst, 2026-01-15, 2026-02-28
+    reprepro-updater (--package-prefix)     :done, m0_reprepro, 2026-02-01, 2026-03-01
+    Standalone fixes (TLS, 403, gpgSign)    :done, m0_fixes, 2026-02-01, 2026-03-01
+
+    section Milestone 1 (rosdistro)
+    rosdistro Format 3 & binary_rule (#1)   :active, m1_rd_pr, 2026-02-15, 2026-03-20
+    rosdistro feat/rep159-install-rule      :active, m1_inst_pr, 2026-02-25, 2026-03-25
+    RELEASE GATE 1 (rosdistro >= 1.2.0)     :milestone, m1_gate, 2026-03-25, 0d
+
+    section Milestone 2 (rosdep & ros_workspace)
+    rosdep feat/rep159-binary-lookup        :active, m2_rdep, after m1_gate, 30d
+    RELEASE GATE 2 (rosdep >= 0.27.0)       :milestone, m2_gate, after m2_rdep, 0d
+    ros_workspace feat/rep159-parent-chain  :active, m2_ws, 2026-03-01, 2026-03-31
+    RELEASE GATE 2B (ros_workspace >= 1.0.4):milestone, m2b_gate, after m2_ws, 0d
+
+    section Milestone 3 (bloom)
+    bloom feat/rep159-rules-support         :active, m3_bloom, after m2_gate, 30d
+    RELEASE GATE 3 (bloom >= 0.15.0)        :milestone, m3_gate, after m3_bloom, 0d
+
+    section Milestone 4 (ros_buildfarm)
+    ros_buildfarm PR 3A (workspace-walk)    :active, m4_3a, after m2_gate, 20d
+    ros_buildfarm PR 3B (dynamic underlays) :active, m4_3b, after m4_3a, 20d
+    ros_buildfarm PR 3C (binary-naming)     :active, m4_3c, after m4_3b, 20d
+    ros_buildfarm PR 5 (cache-job-rep159)   :active, m4_cache, after m4_3c, 15d
+    RELEASE GATE 4 (ros_buildfarm >= 4.2.0) :milestone, m4_gate, after m4_cache, 0d
+
+    section Milestone 5 (Production Deployment)
+    ros_buildfarm_config production distros :active, m5_config, after m4_gate, 30d
+    Full End-to-End Production Active       :milestone, m5_active, after m5_config, 0d
+```
+
 * Comprehensive cross-repository tracking, Gantt milestone schedule, and issue links across all 5 stages are maintained in [`STAGE_PR_AND_ISSUE_MAP.md`](https://github.com/KmoM88/rep159-testing/blob/main/STAGE_PR_AND_ISSUE_MAP.md).
 
 ### Repository & Branch Matrix
