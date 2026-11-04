@@ -1,0 +1,29 @@
+%YAML 1.1
+# ROSDistro Format 3: Downstream ROS 2 Distribution extending Gazebo Harmonic via binary_import
+---
+type: distribution
+version: 3
+extends:
+- distro_name: gz_harmonic
+  extension_method: binary_import
+  install_rule: /opt/gazebo/harmonic
+install_rule: /opt/ros/{distro}
+binary_rule:
+  search: '^'
+  replace: 'ros-{distro}-'
+release_platforms:
+  ubuntu:
+  - noble
+repositories:
+  ros_gz_math_demo:
+    release:
+      tags:
+        release: release/{distro}/{package}/{version}
+      url: https://github.com/rep159-testing/ros_gz_math_demo-release.git
+      version: 0.1.0-1
+      packages:
+      - ros_gz_math_demo
+    source:
+      type: git
+      url: https://github.com/rep159-testing/ros_gz_math_demo.git
+      version: main

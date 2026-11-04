@@ -1,0 +1,37 @@
+%YAML 1.1
+# ROSDistro Format 3: Gazebo Harmonic Core Distribution
+---
+type: distribution
+version: 3
+install_rule: /opt/gazebo/harmonic
+binary_rule:
+  search: '^(.*)$'
+  replace: 'lib{package}-dev'
+release_platforms:
+  ubuntu:
+  - noble
+repositories:
+  gz_cmake3:
+    release:
+      tags:
+        release: '{package}_{version}'
+      url: https://github.com/gazebosim/gz-cmake.git
+      version: 3.5.4
+      packages:
+      - gz-cmake3
+  gz_utils2:
+    release:
+      tags:
+        release: '{package}_{version}'
+      url: https://github.com/gazebosim/gz-utils.git
+      version: 2.2.1
+      packages:
+      - gz-utils2
+  gz_math7:
+    release:
+      tags:
+        release: '{package}_{version}'
+      url: https://github.com/gazebosim/gz-math.git
+      version: 7.5.0
+      packages:
+      - gz-math7

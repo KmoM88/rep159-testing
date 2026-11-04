@@ -1,0 +1,16 @@
+%YAML 1.1
+# ROS Buildfarm Index: Real-World Gazebo Harmonic + ROS Downstream Underlay Topology
+---
+distributions:
+  gz_harmonic:
+    ci_builds:
+      nightly-release: gz_harmonic/ci-nightly-release-local.yaml
+    release_builds:
+      default: gz_harmonic/release-build-local.yaml
+    notification_emails:
+    - federico.rossi@creativa77.com.ar
+  ros_downstream:
+    ci_builds:
+      binary-import: ros_downstream/ci-nightly-release-local.yaml
+    notification_emails:
+    - federico.rossi@creativa77.com.ar

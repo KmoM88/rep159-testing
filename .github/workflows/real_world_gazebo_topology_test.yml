@@ -1,0 +1,45 @@
+name: Real-World Gazebo Harmonic + ROS 2 Topology Test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  validate-metadata:
+    name: Verify Distribution Metadata (REP-159)
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout Repository with Submodules
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Python Dependencies
+        run: |
+          pip install --upgrade pip pyyaml pytest
+
+      - name: Run Metadata Validation Suite
+        run: |
+          python3 tests/real_world_gazebo/validate_metadata.py
+
+  docker-topology-test:
+    name: Build & Run Gazebo Harmonic + ROS 2 in Docker
+    runs-on: ubuntu-24.04
+    needs: [validate-metadata]
+    steps:
+      - name: Checkout Repository with Submodules
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Run Hermetic Docker Test Harness
+        run: |
+          ./tests/real_world_gazebo/run_docker_test.sh

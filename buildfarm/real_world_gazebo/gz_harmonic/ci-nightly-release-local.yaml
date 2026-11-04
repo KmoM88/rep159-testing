@@ -1,0 +1,23 @@
+%YAML 1.1
+# Gazebo Harmonic Core CI Job configuration
+---
+build_tool: colcon
+build_tool_args: '--cmake-args -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=OFF --no-warn-unused-cli'
+jenkins_job_label: ci-agent
+jenkins_job_priority: 200
+jenkins_job_timeout: 60
+package_dependencies: true
+package_names:
+- gz-cmake3
+- gz-utils2
+- gz-math7
+urls:
+- http://repos.ros.org/repos/ros_bootstrap
+- http://192.168.30.202:8088/ubuntu/building
+- http://192.168.30.202:8088/ubuntu/testing
+targets:
+  ubuntu:
+    noble:
+      amd64:
+type: ci-build
+version: 1

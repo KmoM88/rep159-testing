@@ -1,0 +1,22 @@
+%YAML 1.1
+# Gazebo Harmonic Core Release Build configuration (sourcedeb, binarydeb)
+---
+jenkins_job_label: ci-agent
+jenkins_job_priority: 150
+jenkins_job_timeout: 60
+package_names:
+- gz-cmake3
+- gz-utils2
+- gz-math7
+sync:
+  package_count: 3
+targets:
+  ubuntu:
+    noble:
+      amd64:
+urls:
+- http://repos.ros.org/repos/ros_bootstrap
+- http://192.168.30.202:8088/ubuntu/building
+- http://192.168.30.202:8088/ubuntu/testing
+type: release-build
+version: 2

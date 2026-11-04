@@ -170,5 +170,6 @@ git submodule update --remote --merge
 
 To run tests or launch buildfarm jobs, consult **[EXECUTION_EXTENDABLE.md](EXECUTION_EXTENDABLE.md)** for detailed procedures:
 - **Local Validation**: Run local Docker test containers or manual `colcon` builds against underlays.
+- **Real-World Gazebo + ROS 2 Topology Testing**: Consult **[REAL_WORLD_GAZEBO_BUILDFARM_GUIDE.md](REAL_WORLD_GAZEBO_BUILDFARM_GUIDE.md)** for running the real-world Gazebo Harmonic core (`gz-cmake3`, `gz-utils2`, `gz-math7`) $\to$ ROS 2 downstream topology test in local Docker and on the Jenkins buildfarm.
 - **Cluster Deployment**: Deploy configuration to the local repository server (`192.168.30.202`) and generate jobs on Jenkins (`192.168.30.206`).
 - **Remote Testfarm**: Execute CI and Release pipelines on `build.test.ros2.org`.

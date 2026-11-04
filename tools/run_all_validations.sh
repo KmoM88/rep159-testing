@@ -13,7 +13,7 @@ Usage: ./tools/run_all_validations.sh [OPTIONS]
 
 Options:
   -v, --verbose      Run tests in verbose mode (shows detailed pytest outputs)
-  -s, --suite <1-7>  Run only a specific validation suite:
+  -s, --suite <1-8>  Run only a specific validation suite:
                        1: Rosdistro Format 3 & ABI Guardrails
                        2: Rosdep Binary Naming & Extension Resolution
                        3: Ros_Buildfarm Boundary Walk & Underlays
@@ -21,6 +21,7 @@ Options:
                        5: Rep159-Rosdistro Workspace Resolution
                        6: Binary Package Renaming Engine (Regex)
                        7: Custom Installation Prefixes & Underlays (Regex)
+                       8: Real-World Gazebo + ROS Metadata Resolution
   -h, --help         Show this help message and exit
 
 Examples:
@@ -106,6 +107,9 @@ run_test 6 "Binary Package Renaming Engine (Regex)" \
 
 run_test 7 "Custom Installation Prefixes & Underlays (Regex)" \
   "$REPO_ROOT/.venv/bin/python $REPO_ROOT/tools/validate_install_prefixes.py"
+
+run_test 8 "Real-World Gazebo + ROS Metadata Resolution" \
+  "$REPO_ROOT/.venv/bin/python $REPO_ROOT/tests/real_world_gazebo/validate_metadata.py"
 
 echo ""
 if [ "$FAILURES" -eq 0 ]; then
