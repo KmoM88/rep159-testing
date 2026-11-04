@@ -50,110 +50,6 @@ graph LR
    - Prevents binary collisions and ensures only vendor-specific packages matching the declared naming prefix are promoted from `building` to `testing`.
    - In shared flat APT pools, prefix isolation guarantees that downstream packages do not accidentally overwrite or shadow packages from parallel vendor stacks.
 
-### Stage 1 Upstream PR Architecture & Release Gating
-
-Upstreaming Stage 1 features follows a release-gated dependency progression across Open Robotics repositories to prevent broken dependencies during Debian packaging and CI:
-
-```mermaid
-flowchart TD
-    subgraph Wave0 ["Wave 0: Unencumbered Baseline PRs"]
-        direction TB
-        REPS["openrobotics/reps#35: binary_rule & install_rule specs"]
-        REPREPRO["reprepro-updater: feat/package-prefix (targets refactor)"]
-        ROSDISTRO["rosdistro PRs: binary_rule & feat/rep159-install-rule"]
-        BF_STANDALONE["ros_buildfarm: Standalone TLS & Jenkins 403 fixes"]
-    end
-
-    subgraph Gate1 ["Release Gate 1"]
-        G1{{"rosdistro >= 1.2.0 (PyPI + ros_bootstrap APT)"}}
-    end
-
-    subgraph Wave1 ["Wave 1: Client Resolution & Workspace Chaining"]
-        direction TB
-        ROSDEP["rosdep PR: feat/rep159-binary-lookup (clean off master)"]
-        WORKSPACE["ros_workspace: feat/rep159-parent-chaining (clean off main)"]
-    end
-
-    subgraph Gate2 ["Release Gate 2 & 2B"]
-        G2{{"rosdep >= 0.27.0 (PyPI + ros_bootstrap APT)"}}
-        G2B{{"ros_workspace >= 1.0.4 (ROS 2 distros)"}}
-    end
-
-    subgraph Wave2 ["Wave 2: Packaging Generator (Requires Gates 1 & 2)"]
-        BLOOM["bloom: feat/rep159-rules-support (clean off master)"]
-    end
-
-    subgraph Gate3 ["Release Gate 3"]
-        G3{{"bloom >= 0.15.0 (PyPI + ros_bootstrap APT)"}}
-    end
-
-    subgraph Wave3 ["Wave 3: Buildfarm Orchestration (Requires Gates 1 & 2)"]
-        direction TB
-        BF1["ros_buildfarm: feat/rep159-binary-naming (PR 3C)"]
-        BF2["ros_buildfarm: feat/rep159-workspace-walk (PR 3A)"]
-        BF3["ros_buildfarm: feat/rep159-underlays (PR 3B)"]
-    end
-
-    subgraph Gate4 ["Release Gate 4"]
-        G4{{"ros_buildfarm >= 4.2.0 (PyPI + ros_bootstrap APT)"}}
-    end
-
-    ROSDISTRO --> G1
-    G1 --> ROSDEP --> G2
-    WORKSPACE --> G2B
-    G1 --> BLOOM
-    G2 --> BLOOM
-    BLOOM --> G3
-    G1 --> Wave3
-    G2 --> Wave3
-    REPREPRO --> Wave3
-    BF_STANDALONE -.-> Wave3
-    Wave3 --> G4
-```
-
-#### Phased Release-Gate Progression Timeline (Gantt Schedule)
-
-```mermaid
-gantt
-    title REP-159 Phased Upstreaming & Release-Gate Progression Timeline
-    dateFormat YYYY-MM-DD
-    axisFormat %b %Y
-
-    section Wave 0 (Specs & Standalone)
-    reps#35 (binary_rule lowercase spec)    :done, m0_reps, 2026-01-01, 2026-02-15
-    reps (install_rule spec extension)      :done, m0_reps_inst, 2026-01-15, 2026-02-28
-    reprepro-updater (--package-prefix)     :done, m0_reprepro, 2026-02-01, 2026-03-01
-    Standalone fixes (TLS, 403, gpgSign)    :done, m0_fixes, 2026-02-01, 2026-03-01
-
-    section Milestone 1 (rosdistro)
-    rosdistro Format 3 & binary_rule (#1)   :active, m1_rd_pr, 2026-02-15, 2026-03-20
-    rosdistro feat/rep159-install-rule      :active, m1_inst_pr, 2026-02-25, 2026-03-25
-    RELEASE GATE 1 (rosdistro >= 1.2.0)     :milestone, m1_gate, 2026-03-25, 0d
-
-    section Milestone 2 (rosdep & ros_workspace)
-    rosdep feat/rep159-binary-lookup        :active, m2_rdep, after m1_gate, 30d
-    RELEASE GATE 2 (rosdep >= 0.27.0)       :milestone, m2_gate, after m2_rdep, 0d
-    ros_workspace feat/rep159-parent-chain  :active, m2_ws, 2026-03-01, 2026-03-31
-    RELEASE GATE 2B (ros_workspace >= 1.0.4):milestone, m2b_gate, after m2_ws, 0d
-
-    section Milestone 3 (bloom)
-    bloom feat/rep159-rules-support         :active, m3_bloom, after m2_gate, 30d
-    RELEASE GATE 3 (bloom >= 0.15.0)        :milestone, m3_gate, after m3_bloom, 0d
-
-    section Milestone 4 (ros_buildfarm)
-    ros_buildfarm PR 3A (workspace-walk)    :active, m4_3a, after m2_gate, 20d
-    ros_buildfarm PR 3B (dynamic underlays) :active, m4_3b, after m4_3a, 20d
-    ros_buildfarm PR 3C (binary-naming)     :active, m4_3c, after m4_3b, 20d
-    ros_buildfarm PR 5 (cache-job-rep159)   :active, m4_cache, after m4_3c, 15d
-    RELEASE GATE 4 (ros_buildfarm >= 4.2.0) :milestone, m4_gate, after m4_cache, 0d
-
-    section Milestone 5 (Production Deployment)
-    ros_buildfarm_config production distros :active, m5_config, after m4_gate, 30d
-    Full End-to-End Production Active       :milestone, m5_active, after m5_config, 0d
-```
-
-* Comprehensive cross-repository tracking, Gantt milestone schedule, and issue links across all 5 stages are maintained in [`STAGE_PR_AND_ISSUE_MAP.md`](https://github.com/KmoM88/rep159-testing/blob/main/STAGE_PR_AND_ISSUE_MAP.md).
-
 ### Repository & Branch Matrix
 
 | Repository | Branch / Track | Purpose |
@@ -517,5 +413,53 @@ graph TD
 * **Isolated Overlay Caching**: Child distributions cleanly isolate their own packages (`cachechild-cache.yaml.gz`) while successfully inheriting parent dependency resolution without contaminating upstream state.
 * **Deterministic Cache Invalidation**: Version updates in `distribution.yaml` trigger selective manifest refreshes and automated Jenkins build pipelines without full cache wipes.
 * **Automated Packaging Compliance**: Bloom generates 100% compliant Debian packaging files directly from ROSDistro metadata without manual patching, respecting custom binary naming, custom install prefixes, and multi-tier underlay chaining.
+
+---
+
+## Phased Upstream PR Progression & Release-Gate Timeline
+
+Upstreaming REP-159 features follows a release-gated dependency progression across Open Robotics repositories to prevent broken dependencies during Debian packaging and CI:
+
+```mermaid
+gantt
+    title REP-159 Phased Upstreaming & Release-Gate Progression Timeline
+    dateFormat YYYY-MM-DD
+    axisFormat %b %Y
+
+    section Wave 0 (Specs & Standalone)
+    reps#35 (binary_rule lowercase spec)    :done, m0_reps, 2026-01-01, 2026-02-15
+    reps (install_rule spec extension)      :done, m0_reps_inst, 2026-01-15, 2026-02-28
+    reprepro-updater (--package-prefix)     :done, m0_reprepro, 2026-02-01, 2026-03-01
+    Standalone fixes (TLS, 403, gpgSign)    :done, m0_fixes, 2026-02-01, 2026-03-01
+
+    section Milestone 1 (rosdistro)
+    rosdistro Format 3 & binary_rule (#1)   :active, m1_rd_pr, 2026-02-15, 2026-03-20
+    rosdistro feat/rep159-install-rule      :active, m1_inst_pr, 2026-02-25, 2026-03-25
+    RELEASE GATE 1 (rosdistro >= 1.2.0)     :milestone, m1_gate, 2026-03-25, 0d
+
+    section Milestone 2 (rosdep & ros_workspace)
+    rosdep feat/rep159-binary-lookup        :active, m2_rdep, after m1_gate, 30d
+    RELEASE GATE 2 (rosdep >= 0.27.0)       :milestone, m2_gate, after m2_rdep, 0d
+    ros_workspace feat/rep159-parent-chain  :active, m2_ws, 2026-03-01, 2026-03-31
+    RELEASE GATE 2B (ros_workspace >= 1.0.4):milestone, m2b_gate, after m2_ws, 0d
+
+    section Milestone 3 (bloom)
+    bloom feat/rep159-rules-support         :active, m3_bloom, after m2_gate, 30d
+    RELEASE GATE 3 (bloom >= 0.15.0)        :milestone, m3_gate, after m3_bloom, 0d
+
+    section Milestone 4 (ros_buildfarm)
+    ros_buildfarm PR 3A (workspace-walk)    :active, m4_3a, after m2_gate, 20d
+    ros_buildfarm PR 3B (dynamic underlays) :active, m4_3b, after m4_3a, 20d
+    ros_buildfarm PR 3C (binary-naming)     :active, m4_3c, after m4_3b, 20d
+    ros_buildfarm PR 5 (cache-job-rep159)   :active, m4_cache, after m4_3c, 15d
+    RELEASE GATE 4 (ros_buildfarm >= 4.2.0) :milestone, m4_gate, after m4_cache, 0d
+
+    section Milestone 5 (Production Deployment)
+    ros_buildfarm_config production distros :active, m5_config, after m4_gate, 30d
+    Full End-to-End Production Active       :milestone, m5_active, after m5_config, 0d
+```
+
+* Comprehensive cross-repository tracking, Gantt milestone schedule, and issue links across all 5 stages are maintained in [`STAGE_PR_AND_ISSUE_MAP.md`](https://github.com/KmoM88/rep159-testing/blob/main/STAGE_PR_AND_ISSUE_MAP.md).
+
 
 
