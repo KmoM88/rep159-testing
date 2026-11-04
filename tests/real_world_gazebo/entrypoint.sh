@@ -5,10 +5,57 @@ echo "==========================================================================
 echo " Starting REP-159 Real-World Topology Test: Gazebo Harmonic + ROS 2       "
 echo "=========================================================================="
 
+# Install local REP-159 rosdistro engine
+pip install --no-cache-dir --break-system-packages /opt/ros_submodules/rosdistro
+
+# Step 0: Dynamic Resolution of Extensible Distribution Metadata via ROSDistro
+echo ">>> [0/5] Resolving Extensible Distribution Hierarchy via ROSDistro (Format 3)..."
+python3 - << 'EOF' > /tmp/resolved_distro.env
+import yaml
+from rosdistro.distribution_file import DistributionFile
+
+# Load Child Distro (extensible)
+with open("/opt/distro_metadata/distribution_ros_downstream.yaml", "r") as f:
+    child_data = yaml.safe_load(f)
+child_dist = DistributionFile("ros_downstream", child_data)
+
+# Check extends declaration
+assert len(child_dist.extends) > 0, "No extends found in child distro"
+ext = child_dist.extends[0]
+parent_name = ext["distro_name"]
+ext_method = ext["extension_method"]
+
+# Load Parent Distro
+with open("/opt/distro_metadata/distribution_gz_harmonic.yaml", "r") as f:
+    parent_data = yaml.safe_load(f)
+parent_dist = DistributionFile(parent_name, parent_data)
+
+# Merge extends in rosdistro
+child_dist.merge_extends(parent_dist, ext_method)
+
+# Dynamically resolve prefixes from REP-159 rules
+parent_prefix = parent_dist.get_install_prefix()
+child_prefix = child_dist.get_install_prefix()
+math_bin = child_dist.get_binary_package_name("gz-math7")
+
+print(f"export GAZEBO_INSTALL='{parent_prefix}'")
+print(f"export ROS_INSTALL='{child_prefix}'")
+print(f"export PARENT_DISTRO='{parent_name}'")
+print(f"export EXTENSION_METHOD='{ext_method}'")
+print(f"export RESOLVED_MATH_BIN='{math_bin}'")
+
+import sys
+sys.stderr.write(f" [ROSDistro] Extensible Distribution: {child_dist.name}\n")
+sys.stderr.write(f" [ROSDistro] Extends: {parent_name} via {ext_method}\n")
+sys.stderr.write(f" [ROSDistro] Parent install_rule resolved: {parent_prefix}\n")
+sys.stderr.write(f" [ROSDistro] Child install_rule resolved: {child_prefix}\n")
+sys.stderr.write(f" [ROSDistro] Binary rename delegation: gz-math7 -> {math_bin}\n")
+EOF
+
+source /tmp/resolved_distro.env
+
 WORKSPACE_DIR="/workspace"
 GAZEBO_SRC="${WORKSPACE_DIR}/gazebo_ws/src"
-GAZEBO_INSTALL="/opt/gazebo/harmonic"
-ROS_INSTALL="/opt/ros/jazzy_custom"
 
 mkdir -p "${GAZEBO_SRC}"
 mkdir -p "${GAZEBO_INSTALL}"
@@ -37,10 +84,10 @@ colcon build \
         -DBUILD_TESTING=OFF \
         -DCMAKE_INSTALL_PREFIX="${GAZEBO_INSTALL}"
 
-echo "Gazebo libraries successfully installed:"
+echo "Gazebo libraries successfully installed in ${GAZEBO_INSTALL}:"
 ls -lh "${GAZEBO_INSTALL}/lib" || true
 
-# Step 3: Install ament_package, ament_cmake_core and ros_workspace into /opt/ros/jazzy_custom
+# Step 3: Install ament_package, ament_cmake_core and ros_workspace into downstream prefix
 echo ">>> [3/5] Setting up ROS Underlay Chaining via ros_workspace (REP-159)..."
 # 1. Install ament_package system-wide so python3 can import it anywhere
 pip install --no-cache-dir --break-system-packages /opt/ros_submodules/ament_package
@@ -56,13 +103,12 @@ cmake /opt/ros_submodules/ament_cmake_core \
     -DCMAKE_INSTALL_PREFIX="${ROS_INSTALL}"
 cmake --build . --target install
 
-# Install ros_workspace with ROS_WORKSPACE_PARENT_PREFIX_PATH pointing to /opt/gazebo/harmonic
+# Install ros_workspace with ROS_WORKSPACE_PARENT_PREFIX_PATH pointing to resolved parent prefix
 mkdir -p /tmp/build_ros_workspace
 cd /tmp/build_ros_workspace
 cmake /opt/ros_submodules/ros_workspace \
     -DCMAKE_INSTALL_PREFIX="${ROS_INSTALL}" \
-    -DROS_WORKSPACE_PARENT_PREFIX_PATH="${GAZEBO_INSTALL}" \
-    -DAMENT_CMAKE_ENVIRONMENT_PARENT_PREFIX_PATH_GENERATION=OFF
+    -DROS_WORKSPACE_PARENT_PREFIX_PATH="${GAZEBO_INSTALL}"
 cmake --build . --target install
 
 echo "Checking parent_prefix_path resource in ros_workspace:"

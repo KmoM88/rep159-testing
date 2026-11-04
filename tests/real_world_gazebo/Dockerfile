@@ -15,13 +15,17 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
  && rm -rf /var/lib/apt/lists/*
 
-# Install colcon without conflicting with debian packages
+# Install colcon
 RUN pip install --no-cache-dir --break-system-packages --ignore-installed colcon-common-extensions
 
 # Copy local ROS submodules with REP-159 support
+COPY submodules/rosdistro /opt/ros_submodules/rosdistro
 COPY submodules/ament_package /opt/ros_submodules/ament_package
 COPY submodules/ament_cmake_core /opt/ros_submodules/ament_cmake_core
 COPY submodules/ros_workspace /opt/ros_submodules/ros_workspace
+
+# Copy distribution metadata definitions
+COPY tests/real_world_gazebo/*.yaml /opt/distro_metadata/
 
 # Copy downstream test packages
 COPY tests/real_world_gazebo/packages /opt/test_packages
