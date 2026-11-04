@@ -24,7 +24,7 @@ jobs:
 
       - name: Install Python Dependencies
         run: |
-          pip install --upgrade pip pyyaml pytest
+          pip install --upgrade pip pyyaml pytest catkin_pkg rospkg
 
       - name: Run Metadata Validation Suite
         run: |
