@@ -222,13 +222,13 @@ Validates single-tier binary consumption where leaf packages build against paren
 
 ---
 
-### Topology 2: Multi-Tier Source Rebuild ($A \to B \to C$)
+### Topology 2: Multi-Tier Source Rebuild ($A \xrightarrow{\text{src}} B \xrightarrow{\text{src}} C$)
 
 #### Architectural Model
 
 ```mermaid
 graph TD
-    E2["extendable (Root Ancestor)"] -->|binary_import| EB2["extendablebin (Intermediate)"]
+    E2["extendable (Root Ancestor)"] -->|source_rebuild| EB2["extendablebin (Intermediate)"]
     EB2 -->|source_rebuild| EC2["extendablechain (Leaf Workspace)<br/>Clones and compiles all 5 source packages"]
 ```
 
@@ -236,6 +236,7 @@ graph TD
 Validates multi-tier source rebuilds across parent boundary lines.
 - `rosdistro` recursively walks the parent hierarchy (`extendablechain` $\to$ `extendablebin` $\to$ `extendable`).
 - Colcon compiles all 5 packages in topological order within a single hermetic workspace without APT binary dependencies.
+- *(Note: In the testbed configuration, the leaf `source_rebuild` cascades recursively upstream, rebuilding all ancestor packages from source regardless of intermediate default imports).*
 
 #### Repository & Branch Matrix
 * **`ros_buildfarm_config`**: [`feat/stage3-chained-extensions`](https://github.com/rep159-testing/ros_buildfarm_config/tree/feat/stage3-chained-extensions)
