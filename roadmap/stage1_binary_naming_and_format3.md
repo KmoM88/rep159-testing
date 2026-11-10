@@ -21,7 +21,7 @@ Stage 1 establishes the **Format 3 ROSDistro specification**, introduces declara
   ```yaml
   binary_rule:
     search: '^'
-    replace: 'vendor-{DISTRO}-'
+    replace: 'vendor-{distro}-'
   ```
 * **Rationale**: Zero external runtime dependencies, deterministic evaluation, immune to arbitrary code execution, and easily parsed across multiple programming languages.
 
@@ -43,10 +43,10 @@ Stage 1 establishes the **Format 3 ROSDistro specification**, introduces declara
 
 ### Core Feature Implementation (To Be Merged Upstream)
 
-1. **`ros-infrastructure/rosdistro` (Branch: `feature/rep159-binary-naming-regex` @ `3d301d6` stacked on `rep159` @ `46a7580`; Org PR [`rosdistro#1`](https://github.com/rep159-testing/rosdistro/pull/1))**:
+1. **`ros-infrastructure/rosdistro` (Branch: `feature/rep159-binary-naming-regex` @ `bfde799` stacked on `rep159` @ `46a7580`; Org PR [`rosdistro#1`](https://github.com/rep159-testing/rosdistro/pull/1))**:
    - `DistributionFile`: Adds Format 3 parsing, `extends:` DAG resolution, `binary_rule` schema validation, and `get_binary_package_name(pkg_name)`.
    - `ReleaseRepositorySpecification`: Adds repository-level `binary_rule` support.
-   - Normalization: Automatically converts underscores to hyphens and interpolates context variables (`{DISTRO}`, `{PACKAGE}`, `{ORIGIN_DISTRO}`).
+   - Normalization: Automatically converts underscores to hyphens and interpolates canonical lowercase context variables (`{distro}`, `{package}`, `{origin_distro}`).
    - Reverse Lookup: Implements `get_package_name_from_binary(binary_name)`.
 
 2. **`ros-infrastructure/reprepro-updater` (Branch: `feat/package-prefix` @ `93ed2dc` off `master`/`refactor` `1e7aa5c`)**:
@@ -143,7 +143,7 @@ While `reprepro-updater --package-prefix` successfully validates vendor prefixin
    - For standalone distros that strip prefixes (`replace: ''`), `get_os_package_name_prefix()` returns an empty string.
    - In `sync_ros_packages.py`, an empty string is falsy and falls back to `ros-%s-`, breaking un-prefixed package synchronization.
 4. **Missing `{origin_distro}` Interpolation**:
-   - `get_os_package_name_prefix()` currently interpolates `{distro}` and `{DISTRO}`, but does not interpolate `{origin_distro}`.
+   - `get_os_package_name_prefix()` currently interpolates `{distro}`, but does not interpolate `{origin_distro}`.
 
 ### Future Architectural Resolution
 For a fully generalized upstream implementation:
@@ -155,7 +155,7 @@ For a fully generalized upstream implementation:
 ## 6. Release-Gated Upstream PR & Release Sequence
 
 1. **Wave 0 — `openrobotics/reps` (Spec)**:
-   - *Live PR*: [`openrobotics/reps#35`](https://github.com/openrobotics/reps/pull/35) (`KmoM88:feature/rep-159-binary-name-templating` $\to$ `openrobotics:rosdistro_extension`, feeding [`openrobotics/reps#32`](https://github.com/openrobotics/reps/pull/32)).
+   - *Merged PR*: [`openrobotics/reps#35`](https://github.com/openrobotics/reps/pull/35) (`KmoM88:feature/rep-159-binary-name-templating` $\to$ `openrobotics:rosdistro_extension`, merged as `f683ccc`, feeding [`openrobotics/reps#32`](https://github.com/openrobotics/reps/pull/32)).
    - *Title*: `rep-159: document design explorations, regex decision rationale, and binary renaming in binary_import`
 2. **Wave 0 — `ros-infrastructure/reprepro-updater` (Zero Release Prerequisite)**:
    - *Title*: `feat: support custom --package-prefix for reprepro FilterFormula and cleanup`
