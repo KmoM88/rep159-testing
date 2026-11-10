@@ -14,7 +14,7 @@ Rollout strategy for upstreaming **[REP 159](https://github.com/openrobotics/rep
 flowchart TD
     subgraph Wave0 ["Wave 0: Spec, Standalone Fixes & Foundation (No Release Prerequisites)"]
         REPS1["openrobotics/reps#31 (MERGED)<br/>Base Format 3 & extends"] --> REPS2["openrobotics/reps#35 (MERGED f683ccc)<br/>feature/rep-159-binary-name-templating"]
-        REPS2 --> REPS3["KmoM88/reps (Ready to PR -> rosdistro_extension)<br/>feature/rep-159-install-rule (f0118d5)"]
+        REPS2 --> REPS3["KmoM88/reps (Ready to PR -> rosdistro_extension)<br/>feature/rep-159-install-rule (1aef980)"]
 
         REPREPRO["reprepro-updater<br/>feat/package-prefix (93ed2dc)<br/>Target: refactor"]
 
@@ -70,10 +70,32 @@ flowchart TD
 
 | Repository | Wave / Gate | Clean Upstream PR Branch(es) (`@ SHA`, 0 Hacks) | Testfarm Harness Branch (`build.test.ros2.org`) | Clean Implementation Commits | Testfarm Hacks Excluded from Clean Branch |
 |---|:---:|---|---|---|---|
-| **`openrobotics/reps`** | Wave 0 | 1. [`reps#31`](https://github.com/openrobotics/reps/pull/31) (**MERGED**)<br>2. [`reps#35`](https://github.com/openrobotics/reps/pull/35) (**MERGED** `f683ccc`)<br>3. [`KmoM88:feature/rep-159-install-rule`](https://github.com/KmoM88/reps/tree/feature/rep-159-install-rule) (`f0118d5`) | N/A | Format 3 `extends`, `binary_rule` (`{distro}`, `{package}`, `{origin_distro}`), and `install_rule` spec | **None** |
+| **`openrobotics/reps`** | Wave 0 | 1. [`reps#31`](https://github.com/openrobotics/reps/pull/31) (**MERGED**)<br>2. [`reps#35`](https://github.com/openrobotics/reps/pull/35) (**MERGED** `f683ccc`)<br>3. [`KmoM88:feature/rep-159-install-rule`](https://github.com/KmoM88/reps/tree/feature/rep-159-install-rule) (`1aef980`) | N/A | Format 3 `extends`, `binary_rule` (`{distro}`, `{package}`, `{origin_distro}`), `install_rule`, ABI immutability on `binary_import`, `BINARY_IMPORT_OVERRIDABLE = {'ros_workspace'}`, and multi-tier/diamond underlay resolution | **None** |
 | **`rosdistro`** | Wave 0 $\to$ **Gate 1** | 1. [`rep159`](https://github.com/rep159-testing/rosdistro/tree/rep159) (`46a7580`)<br>2. [`feature/rep159-binary-naming-regex`](https://github.com/rep159-testing/rosdistro/tree/feature/rep159-binary-naming-regex) (`bfde799`, [`#1`](https://github.com/rep159-testing/rosdistro/pull/1))<br>3. [`feat/rep159-install-rule`](https://github.com/rep159-testing/rosdistro/tree/feat/rep159-install-rule) (`a8f5543`) | [`feat/rep159-install-rule`](https://github.com/rep159-testing/rosdistro/tree/feat/rep159-install-rule) (`a8f5543`) | `46a7580` (parent cache load), `3d301d6` & `bfde799` (`binary_rule`), `4916cae` (`install_rule`), `aefe17c` & `a8f5543` (`BINARY_IMPORT_OVERRIDABLE`) | **None** (100% identical; uppercase `{DISTRO}` duplicates removed) |
 | **`reprepro-updater`** | Wave 0 | [`feat/package-prefix`](https://github.com/rep159-testing/reprepro-updater/tree/feat/package-prefix) (`93ed2dc` $\to$ `refactor`) | [`feat/package-prefix`](https://github.com/rep159-testing/reprepro-updater/tree/feat/package-prefix) (`93ed2dc`) | `93ed2dc`: `-p / --package-prefix` CLI filter in `sync_ros_packages.py` & `helpers.py` | **None** |
 | **`rosdep`** | Wave 1 (Gate 1) $\to$ **Gate 2** | [`feat/rep159-binary-lookup`](https://github.com/rep159-testing/rosdep/tree/feat/rep159-binary-lookup) (`5661779` $\to$ `master`) | [`rep159`](https://github.com/rep159-testing/rosdep/tree/rep159) (`3d52dad`) | `5661779`: `gbpdistro_support.py` delegation to `get_binary_package_name(pkg)` + Format 3 unit tests | Hardcoded `rosdistro @ git+https://github.com/KmoM88/rosdistro.git@...` in `setup.py` & `.github/workflows/ci.yaml` |
 | **`ros_workspace`** | Wave 1 $\to$ **Gate 2B** | [`feat/rep159-parent-chaining`](https://github.com/rep159-testing/ros_workspace/tree/feat/rep159-parent-chaining) (`4997f85` $\to$ `main`) | [`feat/rep159-parent-chaining`](https://github.com/rep159-testing/ros_workspace/tree/feat/rep159-parent-chaining) (`4997f85`) | `12f93e9` (`jrivero` `ROS_WORKSPACE_PARENT_PREFIX_PATH` & `parent_prefix_path` index) + `4997f85` (`PARENT_PREFIX_PATH` alias) | **None** |
 | **`bloom`** | Wave 2 (Gates 1 & 2) $\to$ **Gate 3** | 1. [`rep159`](https://github.com/rep159-testing/bloom/tree/rep159) (`2877687`, `jrivero`)<br>2. [`feat/rep159-rules-support`](https://github.com/rep159-testing/bloom/tree/feat/rep159-rules-support) (`7af7034` $\to$ `master`) | [`feat/rep159-rules-support`](https://github.com/rep159-testing/bloom/tree/feat/rep159-rules-support) (`7af7034`) | `0189046`..`2877687` (`ParentPrefixes` & `ros_workspace` deps), `1f62809`..`7af7034` (`binary_rule`, `install_rule`, `git tag -f -m` GPG fix) | **None** |
 | **`ros_buildfarm`** | Wave 3 (Gates 1 & 2) $\to$ **Gate 4** | • **PR 3A**: [`feat/rep159-workspace-walk`](https://github.com/rep159-testing/ros_buildfarm/tree/feat/rep159-workspace-walk) (`486b579`)<br>• **PR 3B**: [`feat/rep159-underlays`](https://github.com/rep159-testing/ros_buildfarm/tree/feat/rep159-underlays) (`a4a5bbd`)<br>• **PR 3C**: [`feat/rep159-binary-naming`](https://github.com/rep159-testing/ros_buildfarm/tree/feat/rep159-binary-naming) (`a271be1`)<br>• **Wave 0 Fixes**: `ae8826b` (git TLS), `199fd98` (Jenkins 403) | [`feat/binary-naming-rule`](https://github.com/rep159-testing/ros_buildfarm/tree/feat/binary-naming-rule) (`797d771`)<br>&<br>[`feat/cache-job-rep159`](https://github.com/rep159-testing/ros_buildfarm/tree/feat/cache-job-rep159) (`6f62d7b`) | • **PR 3A**: `1334bf9`, `486b579` (`jrivero` `ReleaseAndSourceDependencyWalker`)<br>• **PR 3B**: `83fd534` (`jrivero` `get_binary_import_distros`) + `0ee8e49`..`a4a5bbd` (`install_rule`, recursive DAG underlays, `workspace.py` CMake/LD exports)<br>• **PR 3C**: `a1f57c6`..`a271be1` (`get_os_package_name*`, `--package-prefix`, child `release_job.py` filter) | 1. `pip3 install --break-system-packages` tarball overrides in 6 `*.Dockerfile.em` templates<br>2. Fork `rep159-testing/reprepro-updater.git` URL in `sync_packages_to_*_job.xml.em`<br>3. `building_repository` label override in `rosdistro_cache_job.xml.em` |
+
+---
+
+## 4. `extendable` (`E*`) Progressive Roadmap on `build.test.ros2.org` (Stages 1 $\to$ 6: ROS + Gazebo)
+
+All remote validation on `https://build.test.ros2.org` stays strictly inside the **`extendable*` (`E*`)** namespace (zero overlap with `jrivero`'s `U*`/`S*`/`B*` or `cargotest`'s `C*`):
+
+```mermaid
+flowchart LR
+    S1["Stage 1 (DONE)<br/>extendable<br/>binary_rule + Root CI"] --> S2["Stage 2 (DONE)<br/>extendable{src,bin}<br/>install_rule + 1-Tier"]
+    S2 --> S3["Stage 3 (DONE)<br/>extendable{chain,mixed,diamond}<br/>3-Tier, Hybrid & Diamond DAG"]
+    S3 --> S4["Stage 4 (Next)<br/>extendable + ros_workspace<br/>ament_cmake + bloom ParentPrefixes"]
+    S4 --> S5["Stage 5<br/>extendable*_rosdistro-cache<br/>Parent Cache Merge + Bloom"]
+    S5 --> S6["Stage 6 (Target)<br/>ROS + Gazebo Extension<br/>binary_rule: {search: '^', replace: ''}"]
+```
+
+| Stage | Scope on `extendable*` (`E*`) | Status on `build.test.ros2.org` |
+|---|---|---|
+| **Stages 1–3** | Pure-CMake validation of `binary_rule`, `install_rule`, `binary_import` pruning, 3-Tier `source_rebuild` & `binary_import`, Hybrid Mixed, and Multi-Parent Diamond DAG | **100% COMPLETE (`SUCCESS` across all 18 `E*` jobs)** |
+| **Stage 4** | Unification with `jrivero`'s `ros_workspace` (`ROS_WORKSPACE_PARENT_PREFIX_PATH`) + `ament_cmake` + `bloom` (`@(ParentPrefixes)`) inside `extendable*` (`E*`) | **Ready** (branches prepared, zero overlap with `U*`/`S*`/`B*`/`C*`) |
+| **Stage 5** | Live `rosdistro_build_cache` (`extendable*_rosdistro-cache`) parent cache merge + automated `git-bloom-generate rosdebian` | **Ready** (validated in local replica #18, ready for `E*`) |
+| **Stage 6** | **ROS + Gazebo** integration (`binary_rule: {search: '^', replace: ''}` + per-repo `libgz-*-dev` overrides + `ament_cmake` / `ros_workspace` overlay) | **Planned Target** |
