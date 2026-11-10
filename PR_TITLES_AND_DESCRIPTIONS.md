@@ -15,7 +15,7 @@ For every PR beyond `rosdistro`, each entry explicitly separates:
 * **Repository**: `openrobotics/reps` (from fork `KmoM88/reps`)
 * **Base Branch**: `rosdistro_extension` (feeds [`openrobotics/reps#32`](https://github.com/openrobotics/reps/pull/32); builds on merged [`openrobotics/reps#31`](https://github.com/openrobotics/reps/pull/31))
 * **Merged Spec PR**: [`openrobotics/reps#35`](https://github.com/openrobotics/reps/pull/35) (**MERGED** as `f683ccc` on `openrobotics:rosdistro_extension` — standardizing strictly on lowercase `{distro}`, `{package}`, `{origin_distro}`)
-* **Stacked Spec Branch Ready to Open**: `KmoM88:feature/rep-159-install-rule` (`f0118d5`, rebased cleanly on `f683ccc`)
+* **Stacked Spec Branch Ready to Open**: `KmoM88:feature/rep-159-install-rule` (`1aef980`, rebased cleanly on `f683ccc`)
 * **Release Gate Prerequisite**: **None (Wave 0)**
 
 ### 1A. Merged PR Title (`openrobotics/reps#35` @ `f683ccc`)
@@ -23,7 +23,7 @@ For every PR beyond `rosdistro`, each entry explicitly separates:
 rep-159: document design explorations, regex decision rationale, and binary renaming in binary_import
 ```
 
-### 1B. Ready-to-Open Stacked Spec PR (`KmoM88:feature/rep-159-install-rule` @ `f0118d5`)
+### 1B. Ready-to-Open Stacked Spec PR (`KmoM88:feature/rep-159-install-rule` @ `1aef980`)
 * **Proposed PR Title**:
   ```text
   rep-159: add formal specification for custom installation prefixes (install_rule)

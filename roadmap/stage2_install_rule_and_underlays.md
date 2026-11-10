@@ -91,7 +91,7 @@ Stage 2 introduces the **`install_rule`** specification in `rosdistro` and the *
 ## 5. Release-Gated Upstream PR & Release Sequence
 
 1. **Wave 0 — `openrobotics/reps` (Spec)**:
-   - `KmoM88:feature/rep-159-install-rule` (`f0118d5`, rebased on merged [`openrobotics/reps#35`](https://github.com/openrobotics/reps/pull/35) `f683ccc`) adds the formal `install_rule` schema & resolution precedence section to `_posts/rep-0159:2026.md` on `openrobotics:rosdistro_extension`.
+   - `KmoM88:feature/rep-159-install-rule` (`1aef980`, rebased on merged [`openrobotics/reps#35`](https://github.com/openrobotics/reps/pull/35) `f683ccc`) adds the formal `install_rule` schema, resolution precedence, `ros_workspace` child override, and multi-tier DAG section to `_posts/rep-0159:2026.md` on `openrobotics:rosdistro_extension`.
 2. **Wave 0 — `ros-infrastructure/rosdistro`**:
    - *Title*: `feat(rep159): support install_rule prefixes, recursive underlays, and child ros_workspace override`
    - *Branch*: `feat/rep159-install-rule` (`a8f5543`, stacked on `feature/rep159-binary-naming-regex` @ `bfde799`) $\to$ `master` (org base: `rep159`).
