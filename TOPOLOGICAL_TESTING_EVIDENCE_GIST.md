@@ -117,30 +117,56 @@ graph LR
 > [!NOTE]
 > **Scope & Distribution Suite (`extendable*`)**: Validates pure CMake packages (`<build_type>cmake</build_type>`) across the **`extendable` distribution suite** (`extendable`, `extendablesrc`, `extendablebin`, `extendablechain`, `extendablechainedsrc`, `extendablechainedbin`, `extendablemixed`, `extendablediamond` — Jenkins job prefix **`E*`**). In this block, underlays are chained via buildfarm environment variable exports (`CMAKE_PREFIX_PATH`, `LD_LIBRARY_PATH`, `PATH`) rather than relying on prefix `setup.sh` shell scripts, isolating pure graph and packaging algorithms from ROS shell complexities.
 
-### Topology 1: Single-Tier Binary Import
+### Topology 1: Single-Tier Binary Import & Custom Installation Prefix (`/opt/vendor/{distro}`)
 
 #### Architectural Model
 
 ```mermaid
 graph TD
-    E1["extendable (Root APT Repo)<br/>vendor-extendable-upstream-*<br/>Prefix: /opt/ros/extendable"] -->|binary_import| EB1["extendablebin<br/>Workspace: downstream_bin_a (Source)<br/>APT Dependency: vendor-extendable-upstream-c"]
+    E1["extendable (Root APT Repo)<br/>vendor-extendable-upstream-*<br/>install_rule: /opt/vendor/{distro}<br/>Prefix: /opt/vendor/extendable"] -->|binary_import| EB1["extendablebin<br/>Workspace: downstream_bin_a (Source)<br/>APT Dependency: vendor-extendable-upstream-c<br/>Underlay: /opt/vendor/extendable"]
+    E1 -->|source_rebuild| ES1["extendablesrc<br/>Workspace: upstream_{a,b,c} + downstream_src_a (Source)"]
 ```
 
 #### Behavior & Topological Invariants
-Validates single-tier binary consumption where leaf packages build against parent distributions installed strictly from Debian repositories.
-- `rosdep` maps ROS package dependency `upstream_c` to Debian package `vendor-extendable-upstream-c`.
-- Buildfarm automatically derives parent result spaces and exports `CMAKE_PREFIX_PATH=/opt/ros/extendable`.
+Validates single-tier binary consumption and custom non-standard installation prefixes (`/opt/vendor/extendable`) where leaf packages build against parent distributions installed strictly from Debian repositories:
+- `extendable` and `extendablebin` declare `install_rule: '/opt/vendor/{distro}'`, packaging and installing `vendor-extendable-upstream-{a,b,c}` into `/opt/vendor/extendable`.
+- `ReleaseAndSourceDependencyWalker` halts source checkout traversal at the `binary_import` boundary so only `downstream_bin_a` is cloned into `/tmp/ws/src`.
+- `rosdep` maps ROS package dependency `upstream_c` to Debian package `vendor-extendable-upstream-c` and installs it via APT into `/opt/vendor/extendable`.
+- Buildfarm automatically derives parent result spaces (`ROS_BUILDFARM_PARENT_RESULT_SPACES=/opt/vendor/extendable`) and exports `CMAKE_PREFIX_PATH`, `COLCON_PREFIX_PATH`, and `LD_LIBRARY_PATH` pointing to `/opt/vendor/extendable`.
 
 #### Repository & Branch Matrix
-* **`ros_buildfarm_config`**: [`feat/stage3-chained-extensions`](https://github.com/rep159-testing/ros_buildfarm_config/tree/feat/stage3-chained-extensions)
+* **`ros_buildfarm_config`**: [`feat/extendable-install-rule`](https://github.com/rep159-testing/ros_buildfarm_config/tree/feat/extendable-install-rule)
 * **`rep159-rosdistro`**: [`feat/extendable-install-rule`](https://github.com/rep159-testing/rep159-rosdistro/tree/feat/extendable-install-rule)
-* **`ros_buildfarm`**: [`feat/binary-naming-rule`](https://github.com/rep159-testing/ros_buildfarm/tree/feat/binary-naming-rule) (Testbed) / [`feat/rep159-underlays`](https://github.com/rep159-testing/ros_buildfarm/tree/feat/rep159-underlays) (PR-Ready)
+* **`ros_buildfarm`**: [`feat/binary-naming-rule`](https://github.com/rep159-testing/ros_buildfarm/tree/feat/binary-naming-rule) (Testbed) / [`feat/rep159-underlays`](https://github.com/rep159-testing/ros_buildfarm/tree/feat/rep159-underlays) & [`feat/rep159-workspace-walk`](https://github.com/rep159-testing/ros_buildfarm/tree/feat/rep159-workspace-walk) (PR-Ready)
 * **`rosdistro`**: [`feat/rep159-install-rule`](https://github.com/rep159-testing/rosdistro/tree/feat/rep159-install-rule) (Stacked PR-Ready)
 * **`rosdep`**: [`feat/rep159-binary-lookup`](https://github.com/rep159-testing/rosdep/tree/feat/rep159-binary-lookup) (PR-Ready)
-* **Source Repositories**: `downstream_bin_a` (`main`)
+* **`upstream_{a,b,c}-release`**: [`debian/vendor-extendable-install-rule/resolute/upstream_a`](https://github.com/rep159-testing/upstream_a-release/tree/debian/vendor-extendable-install-rule/resolute/upstream_a), [`upstream_b`](https://github.com/rep159-testing/upstream_b-release/tree/debian/vendor-extendable-install-rule/resolute/upstream_b), [`upstream_c`](https://github.com/rep159-testing/upstream_c-release/tree/debian/vendor-extendable-install-rule/resolute/upstream_c) (`-DCMAKE_INSTALL_PREFIX="/opt/vendor/extendable"`)
+* **Source Repositories**: `downstream_bin_a` (`main`), `downstream_src_a` (`main`)
 
-#### Executed Jobs & Configuration References
-* [`Eci__binary-import_ubuntu_resolute_amd64`](https://build.test.ros2.org/job/Eci__binary-import_ubuntu_resolute_amd64) (Status: SUCCESS) — [Job Config](https://github.com/rep159-testing/ros_buildfarm_config/blob/feat/stage3-chained-extensions/extendablebin/ci-nightly-release.yaml)
+#### Executed Jobs, Repository Artifacts & Log References
+* **Custom Prefix Release & Sync Pipeline (`/opt/vendor/extendable`)**:
+  - **Source Builds**: [`Esrc_uR__upstream_a #3`](https://build.test.ros2.org/job/Esrc_uR__upstream_a__ubuntu_resolute__source/3/) ([Console](https://build.test.ros2.org/job/Esrc_uR__upstream_a__ubuntu_resolute__source/3/console)), [`Esrc_uR__upstream_b #2`](https://build.test.ros2.org/job/Esrc_uR__upstream_b__ubuntu_resolute__source/2/) ([Console](https://build.test.ros2.org/job/Esrc_uR__upstream_b__ubuntu_resolute__source/2/console)), [`Esrc_uR__upstream_c #2`](https://build.test.ros2.org/job/Esrc_uR__upstream_c__ubuntu_resolute__source/2/) ([Console](https://build.test.ros2.org/job/Esrc_uR__upstream_c__ubuntu_resolute__source/2/console)) — **SUCCESS**
+  - **Binary Builds**: [`Ebin_uR64__upstream_a #2`](https://build.test.ros2.org/job/Ebin_uR64__upstream_a__ubuntu_resolute_amd64__binary/2/) ([Console](https://build.test.ros2.org/job/Ebin_uR64__upstream_a__ubuntu_resolute_amd64__binary/2/console)), [`Ebin_uR64__upstream_b #2`](https://build.test.ros2.org/job/Ebin_uR64__upstream_b__ubuntu_resolute_amd64__binary/2/) ([Console](https://build.test.ros2.org/job/Ebin_uR64__upstream_b__ubuntu_resolute_amd64__binary/2/console)), [`Ebin_uR64__upstream_c #2`](https://build.test.ros2.org/job/Ebin_uR64__upstream_c__ubuntu_resolute_amd64__binary/2/) ([Console](https://build.test.ros2.org/job/Ebin_uR64__upstream_c__ubuntu_resolute_amd64__binary/2/console)) — **SUCCESS**
+  - **Repository Sync**: [`Erel_sync-packages-to-testing_resolute_amd64 #9`](https://build.test.ros2.org/job/Erel_sync-packages-to-testing_resolute_amd64/9/) ([Console](https://build.test.ros2.org/job/Erel_sync-packages-to-testing_resolute_amd64/9/console)) — **SUCCESS**
+  - **Promoted APT Artifacts (`testing` Pool, installed into `/opt/vendor/extendable`)**:
+    - [`vendor-extendable-upstream-a_0.1.0-1resolute.20261110.003705_amd64.deb`](http://repo.test.ros2.org/ubuntu/testing/pool/main/v/vendor-extendable-upstream-a/vendor-extendable-upstream-a_0.1.0-1resolute.20261110.003705_amd64.deb)
+    - [`vendor-extendable-upstream-b_0.1.0-1resolute.20261110.004112_amd64.deb`](http://repo.test.ros2.org/ubuntu/testing/pool/main/v/vendor-extendable-upstream-b/vendor-extendable-upstream-b_0.1.0-1resolute.20261110.004112_amd64.deb)
+    - [`vendor-extendable-upstream-c_0.1.0-1resolute.20261110.004146_amd64.deb`](http://repo.test.ros2.org/ubuntu/testing/pool/main/v/vendor-extendable-upstream-c/vendor-extendable-upstream-c_0.1.0-1resolute.20261110.004146_amd64.deb)
+* **Downstream Extension CI Jobs**:
+  - [`Eci__binary-import_ubuntu_resolute_amd64` #5](https://build.test.ros2.org/job/Eci__binary-import_ubuntu_resolute_amd64/5/) (Status: SUCCESS — [Console Log](https://build.test.ros2.org/job/Eci__binary-import_ubuntu_resolute_amd64/5/console)) — [Job Config](https://github.com/rep159-testing/ros_buildfarm_config/blob/feat/extendable-install-rule/extendablebin/ci-nightly-release.yaml)
+  - [`Eci__source-rebuild_ubuntu_resolute_amd64` #2](https://build.test.ros2.org/job/Eci__source-rebuild_ubuntu_resolute_amd64/2/) (Status: SUCCESS — [Console Log](https://build.test.ros2.org/job/Eci__source-rebuild_ubuntu_resolute_amd64/2/console)) — [Job Config](https://github.com/rep159-testing/ros_buildfarm_config/blob/feat/extendable-install-rule/extendablesrc/ci-nightly-release.yaml)
+* **Console Log Verification (`Eci__binary-import_ubuntu_resolute_amd64` [#5](https://build.test.ros2.org/job/Eci__binary-import_ubuntu_resolute_amd64/5/console))**:
+  ```text
+  Step 32/42 : ENV ROS_BUILDFARM_PARENT_RESULT_SPACES=/opt/vendor/extendable
+  Invoking 'apt-get install -q -y -o Debug::pkgProblemResolver=yes cmake libgtest-dev libyaml-dev pkg-config vendor-extendable-upstream-c'
+  Setting up vendor-extendable-upstream-a (0.1.0-1resolute.20261110.003705) ...
+  Setting up vendor-extendable-upstream-b (0.1.0-1resolute.20261110.004112) ...
+  Setting up vendor-extendable-upstream-c (0.1.0-1resolute.20261110.004146) ...
+  Invoking 'export CMAKE_PREFIX_PATH="/opt/vendor/extendable:${CMAKE_PREFIX_PATH}" && export COLCON_PREFIX_PATH="/opt/vendor/extendable:${COLCON_PREFIX_PATH}" && export LD_LIBRARY_PATH="/opt/vendor/extendable/lib:/opt/vendor/extendable/lib/x86_64-linux-gnu:${LD_LIBRARY_PATH}" && PYTHONIOENCODING=utf_8 PYTHONUNBUFFERED=1 colcon build ...' in '/tmp/ws'
+  Starting >>> downstream_bin_a
+  Finished <<< downstream_bin_a [2.64s]
+  INFO: [CTest-Version 3.x (default)] - 1 test report file(s) were found with the pattern 'ws/test_results/*/Testing/*/Test.xml'
+  ```
 
 ---
 

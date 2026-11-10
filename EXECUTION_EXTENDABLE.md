@@ -632,74 +632,113 @@ INDEX_URL="https://raw.githubusercontent.com/rep159-testing/ros_buildfarm_config
 
 ---
 
-### Prueba F: Prefijos de Instalación y Underlays Dinámicos (FEAT-2 Remoto, Acumulado con FEAT-1/3)
+### Prueba F: Prefijos de Instalación Personalizados (`/opt/vendor/{distro}`) y Underlays Dinámicos (FEAT-2 Remoto, Acumulado con FEAT-1/3)
 
 #### 1. Descripción
-Valida la especificación declarativa de `install_rule` y la resolución dinámica de underlays en los runners remotos de la infraestructura oficial (`build.test.ros2.org`), **construyendo sobre los binarios renombrados (`vendor-extendable-*`)**:
+Valida la especificación declarativa de `install_rule` con un prefijo no estándar (`/opt/vendor/{distro}` $\to$ `/opt/vendor/extendable`) y la resolución dinámica de underlays en los runners remotos de la infraestructura oficial (`build.test.ros2.org`), **construyendo sobre los binarios renombrados (`vendor-extendable-*`)**:
 * **Regla de instalación (`install_rule`)**: Declarada en `extendablebin/distribution.yaml` y `extendable/distribution.yaml`:
   ```yaml
-  install_rule: '/opt/ros/{distro}'
+  install_rule: '/opt/vendor/{distro}'
   ```
+* **Empaquetado Debian en Prefijo Personalizado**: Las ramas dedicadas `debian/vendor-extendable-install-rule/resolute/upstream_{a,b,c}` configuran `-DCMAKE_INSTALL_PREFIX="/opt/vendor/extendable"` en `debian/rules`.
 * **Resolución de Underlay en Remoto**: `ros_buildfarm` detecta `install_rule` en `extends` y configura en el job remoto:
-  `ROS_BUILDFARM_PARENT_RESULT_SPACES=/opt/ros/extendable`
-* **Validación CI**: El job `Eci__binary-import_ubuntu_resolute_amd64` corre en los nodos `ci-agent` remotos, instala `vendor-extendable-upstream-c` vía APT desde `repo.test.ros2.org/ubuntu/testing`, hace `source /opt/ros/extendable/setup.sh` y compila `downstream_bin_a` contra ese prefijo con éxito.
+  `ROS_BUILDFARM_PARENT_RESULT_SPACES=/opt/vendor/extendable`
+* **Poda en Frontera `binary_import` (`ReleaseAndSourceDependencyWalker`)**: `create_workspace.py` detiene la resolución de dependencias de código fuente al llegar a paquetes `binary_import` del padre `extendable`, clonando únicamente `downstream_bin_a` en `/tmp/ws/src`.
+* **Validación CI**:
+  - `Eci__binary-import_ubuntu_resolute_amd64` instala `vendor-extendable-upstream-{a,b,c}` vía APT desde `repo.test.ros2.org/ubuntu/testing` en `/opt/vendor/extendable`, exporta `CMAKE_PREFIX_PATH` y `LD_LIBRARY_PATH` hacia `/opt/vendor/extendable` y compila/testea únicamente `downstream_bin_a`.
+  - `Eci__source-rebuild_ubuntu_resolute_amd64` clona y compila desde código fuente los 4 paquetes (`upstream_{a,b,c}` + `downstream_src_a`).
 
 ---
 
 #### 2. Set de Ramas en Git para FEAT-2 Remoto
 
-| Submódulo | Rama | Commit / Estado | URL Raw de Configuración |
+| Submódulo | Rama | Commit / Estado | URL Raw / Descripción |
 |---|---|---|---|
-| **`rep159-rosdistro`** | `feat/extendable-install-rule` | Pushed a `origin` | `https://raw.githubusercontent.com/rep159-testing/rep159-rosdistro/feat/extendable-install-rule/index-v4.yaml` |
-| **`ros_buildfarm_config`** | `feat/extendable-install-rule` | Pushed a `origin` | `https://raw.githubusercontent.com/rep159-testing/ros_buildfarm_config/feat/extendable-install-rule/index-rep159.yaml` |
-| **`ros_buildfarm`** | `feat/binary-naming-rule` | Pushed a `origin` | Código de generación de jobs con soporte underlays |
+| **`rep159-rosdistro`** | `feat/extendable-install-rule` | `518c339` (Pushed a `origin`) | `https://raw.githubusercontent.com/rep159-testing/rep159-rosdistro/feat/extendable-install-rule/index-v4.yaml` (`install_rule: '/opt/vendor/{distro}'`) |
+| **`ros_buildfarm_config`** | `feat/extendable-install-rule` | `f8751e6` (Pushed a `origin`) | `https://raw.githubusercontent.com/rep159-testing/ros_buildfarm_config/feat/extendable-install-rule/index-rep159.yaml` |
+| **`ros_buildfarm`** | `feat/binary-naming-rule` | `3d8539d` (Pushed a `origin`) | Generador de jobs con soporte underlays + `ReleaseAndSourceDependencyWalker` (`1334bf9`, `486b579`) |
+| **`upstream_{a,b,c}-release`** | `debian/vendor-extendable-install-rule/resolute/upstream_{a,b,c}` | `ad87f5b`, `8c33a3d`, `eef2f2b` | `debian/rules` instalando en `/opt/vendor/extendable` (sin pisar ramas de Stage 1) |
 
 ---
 
-#### 3. Cargar Jobs a Jenkins Remoto con Install Rule
+#### 3. Cargar Jobs a Jenkins Remoto con Install Rule (`/opt/vendor/{distro}`)
 
 ```bash
-export JENKINS_URL="https://build.test.ros2.org"
-export JENKINS_USER="kmom88"
-export JENKINS_TOKEN="<TU_TOKEN_DE_JENKINS_REMOTO>"
-
 INDEX_URL="https://raw.githubusercontent.com/rep159-testing/ros_buildfarm_config/feat/extendable-install-rule/index-rep159.yaml"
 
-# 1. Regenerar Job de CI Downstream (binary_import) en Jenkins remoto
+# 1. Regenerar Release Jobs (con --package-names para preservar downstream_bin_a)
+.venv/bin/python3 submodules/ros_buildfarm/scripts/release/generate_release_jobs.py \
+  "$INDEX_URL" extendable default \
+  --package-names upstream_a upstream_b upstream_c
+
+# 2. Regenerar Jobs de CI Downstream (binary_import y source_rebuild)
 .venv/bin/python3 submodules/ros_buildfarm/scripts/ci/generate_ci_jobs.py \
   "$INDEX_URL" extendablebin binary-import
 
-# 2. (Opcional) Regenerar Job de CI (source_rebuild) en Jenkins remoto
 .venv/bin/python3 submodules/ros_buildfarm/scripts/ci/generate_ci_jobs.py \
   "$INDEX_URL" extendablesrc source-rebuild
+
+# 3. Asegurar prioridad 1 en los jobs E*
+.venv/bin/python3 tools/trigger_buildfarm_job.py --url https://build.test.ros2.org --prefix E --set-priority 1
 ```
 
 ---
 
-#### 4. Lanzar Jobs en Remoto (Validación de Underlays Dinámicos)
-
-Dado que los paquetes `vendor-extendable-upstream-{a,b,c}` ya fueron promovidos a `repo.test.ros2.org/ubuntu/testing` en la Prueba E:
+#### 4. Lanzar Jobs en Remoto (Rebuild en `/opt/vendor/extendable` + CI Validation)
 
 ```bash
-.venv/bin/python3 tools/trigger_buildfarm_job.py --url https://build.test.ros2.org --job Eci__binary-import_ubuntu_resolute_amd64
+# 1. Lanzar Esrc_uR__upstream_{a,b,c} (dispara automáticamente Ebin_uR64__* y Erel_sync)
+.venv/bin/python3 tools/trigger_buildfarm_job.py --url https://build.test.ros2.org --jobs \
+  Esrc_uR__upstream_a__ubuntu_resolute__source \
+  Esrc_uR__upstream_b__ubuntu_resolute__source \
+  Esrc_uR__upstream_c__ubuntu_resolute__source
+
+# 2. Esperar sincronización a testing y verificar paquetes en repo.test.ros2.org
+.venv/bin/python3 tools/trigger_buildfarm_job.py --url https://build.test.ros2.org --wait-only \
+  --job Erel_sync-packages-to-testing_resolute_amd64
+.venv/bin/python3 tools/trigger_buildfarm_job.py --verify-apt-prefix vendor-extendable-
+
+# 3. Lanzar jobs de CI de Stage 2 (binary_import y source_rebuild)
+.venv/bin/python3 tools/trigger_buildfarm_job.py --url https://build.test.ros2.org --jobs \
+  Eci__binary-import_ubuntu_resolute_amd64 \
+  Eci__source-rebuild_ubuntu_resolute_amd64
 ```
 
-##### Criterios de Verificación en la Consola del Agente Remoto (`ci-agent`):
-1. **Inyección de Variable de Underlay**:
-   ```text
-   ENV ROS_BUILDFARM_PARENT_RESULT_SPACES=/opt/ros/extendable
-   ```
-2. **Instalación APT**: `vendor-extendable-upstream-c` descargado e instalado desde `repo.test.ros2.org/ubuntu/testing`.
-3. **Encadenamiento Dinámico con `colcon`**:
-   ```text
-   Invoking '. /opt/ros/extendable/setup.sh && colcon build ...'
-   [100%] Built target test_downstream_bin_a
-   ```
-4. **Ejecución Exitosa de Tests**:
-   ```text
-   Invoking '. /opt/ros/extendable/setup.sh && colcon test ...'
-   1/1 Test #1: test_downstream_bin_a ............   Passed
-   ```
+---
+
+#### 5. Evidencia de Ejecución en Testfarm Remoto (`build.test.ros2.org` & `repo.test.ros2.org`)
+
+* **Release & Sync Pipeline (`/opt/vendor/extendable`)**:
+  - **Source Builds**:
+    - [`Esrc_uR__upstream_a__ubuntu_resolute__source #3`](https://build.test.ros2.org/job/Esrc_uR__upstream_a__ubuntu_resolute__source/3/) — **SUCCESS** ([Console Log](https://build.test.ros2.org/job/Esrc_uR__upstream_a__ubuntu_resolute__source/3/console))
+    - [`Esrc_uR__upstream_b__ubuntu_resolute__source #2`](https://build.test.ros2.org/job/Esrc_uR__upstream_b__ubuntu_resolute__source/2/) — **SUCCESS** ([Console Log](https://build.test.ros2.org/job/Esrc_uR__upstream_b__ubuntu_resolute__source/2/console))
+    - [`Esrc_uR__upstream_c__ubuntu_resolute__source #2`](https://build.test.ros2.org/job/Esrc_uR__upstream_c__ubuntu_resolute__source/2/) — **SUCCESS** ([Console Log](https://build.test.ros2.org/job/Esrc_uR__upstream_c__ubuntu_resolute__source/2/console))
+  - **Binary Builds (auto-triggered)**:
+    - [`Ebin_uR64__upstream_a__ubuntu_resolute_amd64__binary #2`](https://build.test.ros2.org/job/Ebin_uR64__upstream_a__ubuntu_resolute_amd64__binary/2/) — **SUCCESS** ([Console Log](https://build.test.ros2.org/job/Ebin_uR64__upstream_a__ubuntu_resolute_amd64__binary/2/console))
+    - [`Ebin_uR64__upstream_b__ubuntu_resolute_amd64__binary #2`](https://build.test.ros2.org/job/Ebin_uR64__upstream_b__ubuntu_resolute_amd64__binary/2/) — **SUCCESS** ([Console Log](https://build.test.ros2.org/job/Ebin_uR64__upstream_b__ubuntu_resolute_amd64__binary/2/console))
+    - [`Ebin_uR64__upstream_c__ubuntu_resolute_amd64__binary #2`](https://build.test.ros2.org/job/Ebin_uR64__upstream_c__ubuntu_resolute_amd64__binary/2/) — **SUCCESS** ([Console Log](https://build.test.ros2.org/job/Ebin_uR64__upstream_c__ubuntu_resolute_amd64__binary/2/console))
+  - **Repository Sync**:
+    - [`Erel_sync-packages-to-testing_resolute_amd64 #9`](https://build.test.ros2.org/job/Erel_sync-packages-to-testing_resolute_amd64/9/) — **SUCCESS** ([Console Log](https://build.test.ros2.org/job/Erel_sync-packages-to-testing_resolute_amd64/9/console))
+* **Artefactos `.deb` Publicados en `repo.test.ros2.org/ubuntu/testing` (instalados bajo `/opt/vendor/extendable`)**:
+  - **Índices APT**: [`building/Packages.gz`](http://repo.test.ros2.org/ubuntu/building/dists/resolute/main/binary-amd64/Packages.gz) | [`testing/Packages.gz`](http://repo.test.ros2.org/ubuntu/testing/dists/resolute/main/binary-amd64/Packages.gz)
+  - [`vendor-extendable-upstream-a_0.1.0-1resolute.20261110.003705_amd64.deb`](http://repo.test.ros2.org/ubuntu/testing/pool/main/v/vendor-extendable-upstream-a/vendor-extendable-upstream-a_0.1.0-1resolute.20261110.003705_amd64.deb)
+  - [`vendor-extendable-upstream-b_0.1.0-1resolute.20261110.004112_amd64.deb`](http://repo.test.ros2.org/ubuntu/testing/pool/main/v/vendor-extendable-upstream-b/vendor-extendable-upstream-b_0.1.0-1resolute.20261110.004112_amd64.deb)
+  - [`vendor-extendable-upstream-c_0.1.0-1resolute.20261110.004146_amd64.deb`](http://repo.test.ros2.org/ubuntu/testing/pool/main/v/vendor-extendable-upstream-c/vendor-extendable-upstream-c_0.1.0-1resolute.20261110.004146_amd64.deb)
+* **Downstream CI Validation Jobs**:
+  - [`Eci__binary-import_ubuntu_resolute_amd64 #5`](https://build.test.ros2.org/job/Eci__binary-import_ubuntu_resolute_amd64/5/) — **SUCCESS** ([Console Log](https://build.test.ros2.org/job/Eci__binary-import_ubuntu_resolute_amd64/5/console))
+  - [`Eci__source-rebuild_ubuntu_resolute_amd64 #2`](https://build.test.ros2.org/job/Eci__source-rebuild_ubuntu_resolute_amd64/2/) — **SUCCESS** ([Console Log](https://build.test.ros2.org/job/Eci__source-rebuild_ubuntu_resolute_amd64/2/console))
+* **Extracto Verificado de Consola ([`Eci__binary-import_ubuntu_resolute_amd64 #5`](https://build.test.ros2.org/job/Eci__binary-import_ubuntu_resolute_amd64/5/console))**:
+  ```text
+  Step 32/42 : ENV ROS_BUILDFARM_PARENT_RESULT_SPACES=/opt/vendor/extendable
+  Invoking 'apt-get install -q -y -o Debug::pkgProblemResolver=yes cmake libgtest-dev libyaml-dev pkg-config vendor-extendable-upstream-c'
+  Setting up vendor-extendable-upstream-a (0.1.0-1resolute.20261110.003705) ...
+  Setting up vendor-extendable-upstream-b (0.1.0-1resolute.20261110.004112) ...
+  Setting up vendor-extendable-upstream-c (0.1.0-1resolute.20261110.004146) ...
+  Invoking 'export CMAKE_PREFIX_PATH="/opt/vendor/extendable:${CMAKE_PREFIX_PATH}" && export COLCON_PREFIX_PATH="/opt/vendor/extendable:${COLCON_PREFIX_PATH}" && export LD_LIBRARY_PATH="/opt/vendor/extendable/lib:/opt/vendor/extendable/lib/x86_64-linux-gnu:${LD_LIBRARY_PATH}" && PYTHONIOENCODING=utf_8 PYTHONUNBUFFERED=1 colcon build ...' in '/tmp/ws'
+  Starting >>> downstream_bin_a
+  Finished <<< downstream_bin_a [2.64s]
+  INFO: [CTest-Version 3.x (default)] - 1 test report file(s) were found with the pattern 'ws/test_results/*/Testing/*/Test.xml'
+  ```
 
 ---
 
