@@ -48,7 +48,7 @@ except ImportError:
 
 from ros_buildfarm.jenkins_credentials import get_credentials
 
-DEFAULT_JENKINS_URL = os.environ.get("JENKINS_URL", "http://192.168.30.206:8080")
+DEFAULT_JENKINS_URL = os.environ.get("JENKINS_URL", "https://build.test.ros2.org")
 
 GAZEBO_TOPOLOGY_JOBS = [
     # Gazebo Harmonic Release Jobs (Phase 1)

@@ -44,28 +44,31 @@ Stage 4 establishes the **`composable` distribution suite**, integrates **`ros_w
 
 ### Core Feature Implementation & PR-Ready Branches (To Be Merged Upstream)
 
-1. **`ros2/ros_workspace` (Branch: `feat/rep159-parent-chaining` @ `1805a69`)**:
-   - Reconciled `rep159-parent-chain` (`12f93e9`) and `feat/composable-underlay-chaining` (`032d161`) into a single, clean branch cut directly off `origin/main` (`db49f0a`).
+1. **`ros-infrastructure/rosdistro` (Branch: `feat/rep159-install-rule` @ `a8f5543`)**:
+   - Adopts Jose Luis Rivero's commits `aefe17c` & `a8f5543` (from `origin/rep159-child-ros-workspace` `4a89ac4` & `78c7db8`) defining `BINARY_IMPORT_OVERRIDABLE = frozenset(['ros_workspace'])` so a `binary_import` child distribution is allowed and required to release its own `ros_workspace` package while keeping all other inherited parent packages immutable.
+
+2. **`ros2/ros_workspace` (Branch: `feat/rep159-parent-chaining` @ `4997f85`)**:
+   - Stacked directly on Jose Luis Rivero's commit `12f93e9` (`origin/rep159-parent-chain` off `origin/main` `db49f0a`), adding a 5-line `PARENT_PREFIX_PATH` CMake variable alias (`4997f85`).
    - Parameterizes `ROS_WORKSPACE_PARENT_PREFIX_PATH` / `PARENT_PREFIX_PATH` in `CMakeLists.txt`, iterates over parent prefixes to discover `ament_package`, and registers parent underlay prefixes into the `parent_prefix_path` ament resource index. Zero hacks.
 
-2. **`ros-infrastructure/bloom` (Branch: `feat/rep159-rules-support` @ `45fb575`)**:
-   - Clean PR branch stacked on `origin/master`.
+3. **`ros-infrastructure/bloom` (Branch: `feat/rep159-rules-support` @ `7af7034`)**:
+   - Clean PR branch stacked directly on Jose Luis Rivero's `origin/rep159` (`0189046`..`2877687` off `origin/master`).
    - `bloom/rosdistro_api.py`: Implements `get_binary_import_parents()`, `get_ros_workspace_dependencies()`, `get_binary_package_name()`, and `get_install_prefix()` (delegating directly to `dist_file.get_install_prefix()` to support regex dict rules).
    - `bloom/generators/rosdebian.py`: Parameterizes `InstallationPrefix`, `ParentPrefixes`, and `rosify_package_name()` (`Package:` and `Depends:`) using `install_rule` and `binary_rule`.
    - `bloom/generators/debian/templates/{ament_cmake,cmake}/rules.em`: Injects parent `<prefix>/setup.sh` sourcing loops, chains `CMAKE_PREFIX_PATH` & `PKG_CONFIG_PATH`, and passes `-DROS_WORKSPACE_PARENT_PREFIX_PATH=...`.
-   - `bloom/generators/debian/generator.py`: Supplies `-m` message to `git tag -f` for environments with `tag.gpgSign=true`. 26/26 unit tests passing.
+   - `bloom/generators/debian/generator.py`: Supplies `-m` message to `git tag -f` for environments with `tag.gpgSign=true`. 26/26 unit tests passing (strictly canonical lowercase `{distro}` fixtures).
 
-3. **`ros-infrastructure/ros_buildfarm` (Branch: `feat/rep159-binary-naming` @ `9b02768` — PR 3C)**:
+4. **`ros-infrastructure/ros_buildfarm` (Branch: `feat/rep159-binary-naming` @ `a271be1` — PR 3C)**:
    - Clean PR branch cut directly off `origin/master` (`7daa2b1`).
    - Propagates `binary_rule` naming to `sourcedeb`, `binarydeb`, passes `--package-prefix` to `reprepro-updater` in sync jobs, and isolates child release jobs (`release_job.py` `9b02768`).
    - `ros_buildfarm/workspace.py`: Automatically sources `<prefix>/setup.sh` when present on disk (`vendor-composable-ros-workspace`) while retaining pure-CMake environment exports as a fallback. 6/6 unit tests and flake8 passing with 0 errors, zero Dockerfile tarball hacks.
 
 ### Resolved Engineering Fixes Before Creating Upstream PRs
 
-1. **`ros_workspace` Branch Reconciliation (`12f93e9` + `032d161`)**:
-   - **Resolved in `feat/rep159-parent-chaining` (`1805a69`)**: Combined `12f93e9`'s multi-prefix search for `ament_package` across `ROS_WORKSPACE_PARENT_PREFIX_PATH` and preserving default `SKIP_PARENT_PREFIX_PATH` when no parent prefix is passed with `032d161`'s `PARENT_PREFIX_PATH` alias and explicit `ament_index_register_resource("parent_prefix_path" ...)`.
-2. **`bloom` Regex Dictionary `install_rule` Fix (`bloom/rosdistro_api.py:get_install_prefix()`)**:
-   - **Resolved in `feat/rep159-rules-support` (`45fb575`)**: Updated `get_install_prefix()` to delegate directly to `dist_file.get_install_prefix()`, fully supporting regex dict rules without `AttributeError`.
+1. **`ros_workspace` Direct Alignment on `jrivero`'s `12f93e9` (`4997f85`)**:
+   - Preserves `12f93e9` intact (multi-prefix search for `ament_package` across `ROS_WORKSPACE_PARENT_PREFIX_PATH`, default `SKIP_PARENT_PREFIX_PATH` when no parent prefix is passed, and `ament_index_register_resource("parent_prefix_path" ...)`) plus `4997f85` (`PARENT_PREFIX_PATH` CMake variable alias).
+2. **`bloom` Regex Dictionary `install_rule` Fix & Lowercase Alignment (`45fb575`, `7af7034`)**:
+   - Updated `get_install_prefix()` to delegate directly to `dist_file.get_install_prefix()`, fully supporting regex dict rules without `AttributeError`, and standardized all test fixtures on lowercase `{distro}`.
 3. **`bloom` Version Pins (Post-Gates 1 & 2)**:
    - Bump `rosdistro >= 1.2.0` and `rosdep >= 0.27.0` in `setup.py` and `stdeb.cfg`.
 
@@ -74,21 +77,21 @@ Stage 4 establishes the **`composable` distribution suite**, integrates **`ros_w
 1. **Local Python Environment Overwrite**:
    - Installing bloom via `pip install -e submodules/bloom` pulled `rosdistro` from PyPI/git, overwriting the local editable `submodules/rosdistro` before Gate 1 existed.
    - *Fix for testing*: Explicitly re-installed the local fork (`pip install -e submodules/rosdistro`). Solved permanently once Gate 1 (`rosdistro >= 1.2.0`) is published to PyPI.
-2. **Dedicated Suite Prefix `C*` & `*-local.yaml` Configs**:
-   - Jenkins jobs were named with prefix `C*` (`Cci`, `Csrc`, `Cbin`, `Crel_sync`) using `composable/*-local.yaml` pointing to the local mirror (`192.168.30.202:8088`).
+2. **Dedicated Suite Prefix `C*`**:
+   - Jenkins jobs were named with prefix `C*` (`Cci`, `Csrc`, `Cbin`, `Crel_sync`); local cluster details are documented in [`LOCAL_BUILDFARM_SETUP.md`](../LOCAL_BUILDFARM_SETUP.md).
 
 ---
 
 ## 4. Empirical Validation & Test Evidence
 
-### 5-Step Release & CI Pipeline on Local Testfarm (`192.168.30.206`)
+*(For the complete 5-step local pipeline execution log, see [`LOCAL_BUILDFARM_SETUP.md`](../LOCAL_BUILDFARM_SETUP.md)).*
 
 1. **Workspace Package Release**:
    - `Csrc_uR__ros_workspace` (#5) & `Cbin_uR64__ros_workspace` (#3): **SUCCESS**. Built `vendor-composable-ros-workspace_1.0.4-1resolute_amd64.deb` under prefix `/opt/ros/composable` and exported to `building`.
 2. **Root Distribution Package Release (`composable`)**:
    - `Csrc` & `Cbin` for `upstream_a` (#1, #2), `upstream_b` (#1, #3), `upstream_c` (#1, #3): **SUCCESS**. Built all binary debs (`vendor-composable-upstream-{a,b,c}`) under `/opt/ros/composable`.
 3. **Repository Promotion**:
-   - `Crel_sync-packages-to-testing_resolute_amd64` (#5): **SUCCESS**. Promoted all 4 debian packages to the local `testing` APT repository.
+   - `Crel_sync-packages-to-testing_resolute_amd64` (#5): **SUCCESS**. Promoted all 4 debian packages to the `testing` APT repository.
 4. **Native Shell CI Validation**:
    - `Cci__nightly-release_ubuntu_resolute_amd64` (#3): **SUCCESS**. Installed `vendor-composable-ros-workspace` from APT, sourced `. /opt/ros/composable/setup.sh`, compiled `upstream_{a,b,c}` natively, and passed 100% of unit tests.
 5. **Downstream Extension Release & CI (`composablebin`)**:
@@ -102,16 +105,16 @@ Stage 4 establishes the **`composable` distribution suite**, integrates **`ros_w
 
 1. **Wave 1 — `ros2/ros_workspace` (Independent CMake PR; Packaging Child `.deb` Requires Gate 3)**:
    - *Title*: `feat: support parent underlay prefix chaining and parent ament_package discovery for REP-159`
-   - *Branch*: `feat/rep159-parent-chaining` (commit `1805a69` cut directly off `origin/main` `db49f0a`).
+   - *Branch*: `feat/rep159-parent-chaining` (commits `12f93e9`, `4997f85` off `origin/main` `db49f0a`).
    - *Target Base*: `main`.
    - *Unblocks Release Gate 2B*: **`ros_workspace >= 1.0.4`**.
 2. **Wave 2 — `ros-infrastructure/bloom` (Blocked Until Gate 1 `rosdistro >= 1.2.0` + Gate 2 `rosdep >= 0.27.0`)**:
    - *Title*: `feat(debian): support REP-159 binary_rule, install_rule, and parent underlay chaining`
-   - *Branch*: `feat/rep159-rules-support` (commits `0189046`..`45fb575` on top of `origin/master`).
+   - *Branch*: `feat/rep159-rules-support` (commits `0189046`..`7af7034` on top of `origin/master`).
    - *Target Base*: `master` (org base: `rep159`).
    - *Unblocks Release Gate 3*: **`bloom >= 0.15.0`** (PyPI + `ros_bootstrap` APT).
 3. **Wave 3 (PR 3C) — `ros-infrastructure/ros_buildfarm` (Blocked on Gates 1 & 2 + reprepro-updater)**:
    - *Title*: `feat(release): delegate binary package naming, isolate child release jobs, and pass sync prefix`
-   - *Branch*: `feat/rep159-binary-naming` (commits `a1f57c6`..`9b02768` cut directly off `origin/master`).
+   - *Branch*: `feat/rep159-binary-naming` (commits `a1f57c6`..`a271be1` cut directly off `origin/master`).
    - *Target Base*: `master`.
    - *Unblocks Release Gate 4*: **`ros_buildfarm >= 4.2.0`**.

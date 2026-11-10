@@ -38,19 +38,20 @@ Stage 3 validates these complex topological extensions across both pure CMake pa
 
 ### Core Feature Implementation & Required Fixes (To Be Merged Upstream)
 
-1. **`ros-infrastructure/ros_buildfarm` — CI Workspace Dependency Walk (`feat/rep159-workspace-walk`, PR 3A)**:
-   - **`scripts/ci/create_workspace.py` & `test/test_rep159_create_workspace.py` (Commits `1334bf9`, `486b579`)**: Walks source-only repositories during dependency resolution and stops workspace source checkout traversal at `binary_import` parent boundaries (leaving parent binaries to be installed via `rosdep` from APT).
-   - Clean PR-ready branch cut directly off `origin/master` (zero Dockerfile pip hacks, 7/7 tests passing).
+1. **`ros-infrastructure/ros_buildfarm` — CI Workspace Dependency Walk (`feat/rep159-workspace-walk` @ `486b579`, PR 3A)**:
+   - **`scripts/ci/create_workspace.py` & `test/test_rep159_create_workspace.py` (Commits `1334bf9`, `486b579` by Jose Luis Rivero)**: Walks source-only repositories during dependency resolution (`ReleaseAndSourceDependencyWalker`) and stops workspace source checkout traversal at `binary_import` parent boundaries (leaving parent binaries to be installed via `rosdep` from APT).
+   - Clean PR-ready branch cut directly off `origin/master` (`7daa2b1`, zero Dockerfile pip hacks, 7/7 tests passing).
 
-2. **`ros-infrastructure/ros_buildfarm` — Underlay & Pure-CMake Engineering Fixes (`feat/rep159-underlays`, PR 3B)**:
-   - **`scripts/devel/build_and_install.py` (Commit `901c78b`)**: Added fallback to `get_default_parent_result_spaces(args.rosdistro_name)` when `--parent-result-space` is `None`, ensuring chained parent spaces are never silently dropped.
-   - **`ros_buildfarm/workspace.py` (Commit `dce7ded`)**: Added dynamic export of `CMAKE_PREFIX_PATH`, `COLCON_PREFIX_PATH`, and `PATH` when underlays exist on disk without `setup.sh`.
-   - **`ros_buildfarm/workspace.py` (Commit `f4d37d9`)**: Added multiarch `LD_LIBRARY_PATH` export (`lib`, `lib/x86_64-linux-gnu`, `lib/aarch64-linux-gnu`) so binaries built against pure-CMake underlay shared libraries locate `.so` targets during runtime `ctest` execution.
-   - Clean PR-ready branch cut directly off `origin/master` (10/10 underlay tests + flake8 passing 100% green).
+2. **`ros-infrastructure/ros_buildfarm` — Underlay & Pure-CMake Engineering Fixes (`feat/rep159-underlays` @ `a4a5bbd`, PR 3B)**:
+   - **Commit `83fd534` (by Jose Luis Rivero, from `9807b32`)**: `BINARY_IMPORT_DISTROS_ENV`, `get_binary_import_distros(dist_file)`, and 4 baseline unit tests in `test/test_rep159_underlay.py`.
+   - **Commits `0ee8e49`, `7d23292`**: `install_rule` prefix evaluation (`get_distribution_install_prefix`) and recursive multi-tier/diamond `get_binary_import_underlays(dist_file, index)` (10/10 unit tests pass).
+   - **`scripts/devel/build_and_install.py` (Commit `4c70fdc`)**: Added fallback to `get_default_parent_result_spaces(args.rosdistro_name)` when `--parent-result-space` is `None`, ensuring chained parent spaces are never silently dropped.
+   - **`ros_buildfarm/workspace.py` (Commits `6b7dc03`, `a63a39d`, `a4a5bbd`)**: Added dynamic export of `CMAKE_PREFIX_PATH`, `COLCON_PREFIX_PATH`, `PATH`, and multiarch `LD_LIBRARY_PATH` (`lib`, `lib/x86_64-linux-gnu`, `lib/aarch64-linux-gnu`) when underlays exist on disk without `setup.sh`.
+   - Clean PR-ready branch cut directly off `origin/master` (`7daa2b1`, 10/10 underlay tests + flake8 passing 100% green).
 
-3. **`ros-infrastructure/rosdistro` (Branch: `feat/rep159-install-rule`, commit `4916cae`)**:
-   - Transitive topological DAG walk & multi-parent diamond deduplication: Recursively traverses multi-tier parent hierarchies ($C \to B \to A$ and convergent diamonds) without circular dependency deadlocks or false collision errors.
-   - Stacked cleanly on `feature/rep159-binary-naming-regex` (`bfde799`), 91/91 tests passing.
+3. **`ros-infrastructure/rosdistro` (Branch: `feat/rep159-install-rule`, commit `a8f5543`)**:
+   - Transitive topological DAG walk & multi-parent diamond deduplication: Recursively traverses multi-tier parent hierarchies ($C \to B \to A$ and convergent diamonds) without circular dependency deadlocks or false collision errors, plus Jose Luis Rivero's `BINARY_IMPORT_OVERRIDABLE = frozenset(['ros_workspace'])` (`aefe17c`, `a8f5543`).
+   - Stacked cleanly on `feature/rep159-binary-naming-regex` (`bfde799`), 96/96 tests passing.
 
 ### Testing Tweaks & Local Workarounds (Test Harness Only — Do NOT Upstream)
 
@@ -63,22 +64,23 @@ Stage 3 validates these complex topological extensions across both pure CMake pa
 
 ---
 
-## 4. Empirical Validation & Test Evidence
+## 4. Empirical Validation & Test Evidence (`https://build.test.ros2.org`)
+
+*(For historical local cluster builds, see [`LOCAL_BUILDFARM_SETUP.md`](../LOCAL_BUILDFARM_SETUP.md)).*
 
 ### Option A: Chained Source Rebuild ($A \xrightarrow{\text{src}} B \xrightarrow{\text{src}} C$)
-* **Local Testfarm**: `Eci__chained-import_ubuntu_resolute_amd64` (#3) — **SUCCESS**. Compiled all 5 repositories from source in cascading colcon workspaces. GoogleTest suites passed 100%.
-* **Remote Testfarm (`build.test.ros2.org`)**: `Eci__chained-import_ubuntu_resolute_amd64` (#2) — **SUCCESS** (953s). Clean cascading source build on public OSRF runners.
+* **Remote Testfarm (`build.test.ros2.org`)**: [`Eci__chained-import_ubuntu_resolute_amd64 #3`](https://build.test.ros2.org/job/Eci__chained-import_ubuntu_resolute_amd64/3/) — **SUCCESS**. Compiled all 5 repositories (`upstream_{a,b,c}`, `downstream_bin_a`, `downstream_chain_a`) from source in cascading colcon workspace and passed 5/5 CTest suites 100% green.
 
 ### Option B: Chained Binary Import ($A \xrightarrow{\text{bin}} B \xrightarrow{\text{bin}} C$)
-* **Sourcedeb & Binarydeb**: `Esrc_uR__downstream_bin_a` (#1) and `Ebin_uR64__downstream_bin_a` (#1) built and published `ros-extendablebin-downstream-bin-a_0.2.0-1resolute_amd64.deb` into `building`.
-* **Sync**: `Erel_sync-packages-to-testing_resolute_amd64` (#9 local, #7 remote) promoted the package to `testing`.
-* **CI Execution**:
-  - Local Build #9 to #12 diagnosed and fixed the underlay fallback, CMake prefix, and `LD_LIBRARY_PATH` bugs.
-  - Local Build #13: **SUCCESS** — Clean binary install from APT, compiled `downstream_chain_a`, linked against `libdownstream_bin_a.so`, and passed all CTest and GoogleTest suites (1/1 green).
+* **Sourcedeb & Binarydeb**: [`Esrc_uR__downstream_bin_a #1`](https://build.test.ros2.org/job/Esrc_uR__downstream_bin_a__ubuntu_resolute__source/1/) and [`Ebin_uR64__downstream_bin_a #1`](https://build.test.ros2.org/job/Ebin_uR64__downstream_bin_a__ubuntu_resolute_amd64__binary/1/) built and published `ros-extendablebin-downstream-bin-a_0.2.0-1resolute_amd64.deb` into `building`.
+* **Sync**: [`Erel_sync-packages-to-testing_resolute_amd64 #7`](https://build.test.ros2.org/job/Erel_sync-packages-to-testing_resolute_amd64/7/) (and `#10` for root `/opt/ros/extendable`) promoted the packages to `http://repo.test.ros2.org/ubuntu/testing`.
+* **CI Execution**: [`Eci__chained-import_ubuntu_resolute_amd64`](https://build.test.ros2.org/job/Eci__chained-import_ubuntu_resolute_amd64/) — **SUCCESS** — Clean binary install from APT, compiled `downstream_chain_a`, linked against `libdownstream_bin_a.so` and `libupstream_c.so`, and passed all CTest suites.
 
 ### Topology 2: Hybrid Binary + Source Overriding (`--ignore-src`)
-* **Local Testfarm**: `Eci__mixed-chain_ubuntu_resolute_amd64` (#2) — **SUCCESS**. `downstream_bin_a` installed from APT binaries; `upstream_c` compiled from source in workspace, cleanly overriding the binary package.
-* **Remote Testfarm (`build.test.ros2.org`)**: `Eci__mixed-chain_ubuntu_resolute_amd64` (#1) — **SUCCESS**. 2/2 test suites passed green.
+* **Remote Testfarm (`build.test.ros2.org`)**: [`Eci__mixed-chain_ubuntu_resolute_amd64 #1`](https://build.test.ros2.org/job/Eci__mixed-chain_ubuntu_resolute_amd64/1/) — **SUCCESS**. `downstream_bin_a` installed from APT binaries; `upstream_c` compiled from source in workspace, passing 2/2 test suites green.
+
+### Topology 3: Multi-Parent Convergent Diamond DAG
+* **Remote Testfarm (`build.test.ros2.org`)**: [`Eci__diamond-chain_ubuntu_resolute_amd64 #1`](https://build.test.ros2.org/job/Eci__diamond-chain_ubuntu_resolute_amd64/1/) — **SUCCESS**. Deduplicated underlays `/opt/ros/extendable:/opt/ros/extendablebin` and passed 2/2 test suites green.
 
 ---
 
@@ -90,6 +92,6 @@ Stage 3 validates these complex topological extensions across both pure CMake pa
    - *Target Base*: `master`.
 2. **Wave 3 (PR 3B) — `ros-infrastructure/ros_buildfarm` (Folded with Stage 2 `install_rule` Underlays)**:
    - *Title*: `feat(underlays): dynamically compute parent result spaces via install_rule and export CMake/LD paths for pure-CMake underlays`
-   - *Branch*: `feat/rep159-underlays` (commits `4664f5b`..`902ccb1` off `origin/master`).
+   - *Branch*: `feat/rep159-underlays` (commits `83fd534`..`a4a5bbd` off `origin/master`).
    - *Target Base*: `master`.
    - *Unblocks Release Gate 4*: **`ros_buildfarm >= 4.2.0`**.

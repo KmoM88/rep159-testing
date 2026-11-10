@@ -75,8 +75,8 @@ Stage 1 establishes the **Format 3 ROSDistro specification**, introduces declara
    - Leaves `setup.py` (`rosdistro >= 0.7.5`) and `stdeb.cfg` untouched without speculative version bumps; pinning will occur once the official release version is published upstream.
    - Completely eliminates testbed CI hacks (`setup.py` git URLs and `.github/workflows/ci.yaml` manual pytest step are untouched from upstream `master`).
    - Staged and ready to open as an upstream PR against `ros-infrastructure/rosdep:master` once Release Gate 1 (`rosdistro >= 1.2.0`) is published to PyPI.
-5. **Clean PR-Ready Branch Prepared in `ros_buildfarm` (`feat/rep159-binary-naming` @ `9b02768`)**:
-   - Branched directly from `origin/master`, isolating the 6 core Stage 1 binary naming and sync commits (`a1f57c6`, `27628c1`, `f380425`, `0547082`, `b5305a0`, `9b02768`).
+5. **Clean PR-Ready Branch Prepared in `ros_buildfarm` (`feat/rep159-binary-naming` @ `a271be1`)**:
+   - Branched directly from `origin/master` (`7daa2b1`), isolating the 7 core Stage 1 binary naming and sync commits (`a1f57c6`..`a271be1`, strictly lowercase `{distro}`).
    - Propagates `dist_file`, `debian_package_name`, and `--package-prefix` across common, release, sourcedeb, binarydeb, and sync jobs.
    - Includes child release job isolation (`4062a66` / `9b02768`), skipping cached packages not in current distro `release_packages`.
    - Completely strips all Dockerfile `pip3 install` overrides (will use native APT dependencies from Gates 1 & 2).
@@ -91,7 +91,7 @@ Stage 1 establishes the **Format 3 ROSDistro specification**, introduces declara
 2. **Direct Tarball `pip3 install` & Fork URLs in `ros_buildfarm`**:
    - Tarball `pip3 install` blocks in `sourcepkg_task.Dockerfile.em`, `binarypkg_create_task.Dockerfile.em`, `binarypkg_task.Dockerfile.em`, and `release_check_sync_criteria_task.Dockerfile.em` (`1fd12c0`, `4b3072b`, `68369e9`, `efcbab3`), plus the `rep159-testing/reprepro-updater` URL in `sync_packages_to_{testing,main}_job.xml.em` (`c907db2`). Replace with `rosdistro >= 1.2.0` / `rosdep >= 0.27.0` APT dependencies and `ros-infrastructure/reprepro-updater -b refactor`.
 3. **Target Repository Hostname Overrides**:
-   - `release-build-local.yaml` pointing `target_repository` to `192.168.30.202:8088`.
+   - Local replica configuration (`release-build-local.yaml`) documented in [`LOCAL_BUILDFARM_SETUP.md`](../LOCAL_BUILDFARM_SETUP.md).
 
 ---
 
@@ -101,15 +101,11 @@ Stage 1 establishes the **Format 3 ROSDistro specification**, introduces declara
 * **`tools/validate_binary_naming.py` (Suite 6)**: 100% pass across all regex replacement edge cases (prefixing, suffixing, token substitution, hyphen normalization).
 * **`test/test_binary_naming_rule.py`**: 6/6 unit tests passed in `ros_buildfarm`.
 
-### Jenkins Release Pipeline Evidence
+### Jenkins Release Pipeline Evidence (`https://build.test.ros2.org` & `http://repo.test.ros2.org`)
 
-* **Local Testfarm (`192.168.30.206`)**:
-  - `Usrc_uR__upstream_a__ubuntu_resolute__source` (#11): Generated `vendor-upstream-upstream-a_0.1.0-1resolute.dsc` and imported into `building`.
-  - `Ubin_uR64__upstream_a__ubuntu_resolute_amd64__binary` (#7): Built `vendor-upstream-upstream-a_0.1.0-1resolute_amd64.deb` and ingested to reprepro.
-  - `Urel_sync-packages-to-testing_resolute_amd64` (#8): Synchronized vendor package to `testing` using prefix filter `Package (% vendor-upstream-*)`.
-
+* *(For historical local cluster builds, see [`LOCAL_BUILDFARM_SETUP.md`](../LOCAL_BUILDFARM_SETUP.md)).*
 * **Remote Testfarm (`https://build.test.ros2.org` & `http://repo.test.ros2.org`)**:
-  - ** Pure CMake `extendable` Suite (`E*` jobs)**:
+  - **Pure CMake `extendable` Suite (`E*` jobs)**:
     - **Source Release Jobs**:
       - [`Esrc_uR__upstream_a__ubuntu_resolute__source #2`](https://build.test.ros2.org/job/Esrc_uR__upstream_a__ubuntu_resolute__source/2/) ([Console](https://build.test.ros2.org/job/Esrc_uR__upstream_a__ubuntu_resolute__source/2/console)): **SUCCESS** — Built `vendor-extendable-upstream-a_0.1.0-1resolute.dsc` and triggered downstream binary/sync pipeline via [`Erel_import-package #26`](https://build.test.ros2.org/job/Erel_import-package/26/).
       - [`Esrc_uR__upstream_b__ubuntu_resolute__source #1`](https://build.test.ros2.org/job/Esrc_uR__upstream_b__ubuntu_resolute__source/1/) ([Console](https://build.test.ros2.org/job/Esrc_uR__upstream_b__ubuntu_resolute__source/1/console)): **SUCCESS** — Built `vendor-extendable-upstream-b_0.1.0-1resolute.dsc`.

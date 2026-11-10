@@ -20,7 +20,7 @@ sequenceDiagram
     participant Jenkins as Jenkins (<distro>_rosdistro-cache)
     participant Docker as Container (rosdistro_cache_task)
     participant Script as rosdistro_build_cache
-    participant Nginx as Web Server (192.168.30.202)
+    participant Nginx as Web Server (<local-apt-host>)
     participant Reconfig as Jenkins (<distro>_reconfigure-jobs)
 
     Jenkins->>Docker: Launch container with index URL and distro
@@ -70,9 +70,9 @@ To avoid unnecessary topology overhead while strictly validating cache inheritan
 ```mermaid
 graph TD
     subgraph MinimalCacheSuite [Minimal Cache Validation Suite]
-        CB["cachebase (Root Distro)<br>Prefix: /opt/ros/cachebase<br>binary_rule: vendor-cachebase-@PKG@<br>Packages: upstream_a (0.1.0)"]
+        CB["cachebase (Root Distro)<br>Prefix: /opt/ros/cachebase<br>binary_rule: vendor-{distro}-{package}<br>Packages: upstream_a (0.1.0)"]
         
-        CC["cachechild (Overlay Distro)<br>extends: cachebase (binary_import)<br>Prefix: /opt/ros/cachechild<br>binary_rule: vendor-cachechild-@PKG@<br>Packages: downstream_bin_a (0.2.0)"]
+        CC["cachechild (Overlay Distro)<br>extends: cachebase (binary_import)<br>Prefix: /opt/ros/cachechild<br>binary_rule: vendor-{distro}-{package}<br>Packages: downstream_bin_a (0.2.0)"]
 
         CB -->|binary_import| CC
     end
@@ -84,8 +84,8 @@ graph TD
 |---|---|---|
 | **Distribution Type** | `ros2` | `ros2` |
 | **`extends`** | `None` | `cachebase` (`binary_import`) |
-| **`install_rule`** | `/opt/ros/cachebase` | `/opt/ros/cachechild` |
-| **`binary_rule`** | `vendor-cachebase-@PKG@` | `vendor-cachechild-@PKG@` |
+| **`install_rule`** | `/opt/ros/{distro}` | `/opt/ros/{distro}` |
+| **`binary_rule`** | `{search: '^', replace: 'vendor-{distro}-'}` | `{search: '^', replace: 'vendor-{distro}-'}` |
 | **Packages Hosted** | `upstream_a` (ver 0.1.0) | `downstream_bin_a` (ver 0.2.0) |
 | **Parent Dependency** | None | Depends on `upstream_a` |
 
@@ -124,7 +124,7 @@ All changes will be isolated on dedicated feature branches without mutating exis
 4. Add build files to `submodules/ros_buildfarm_config`:
    - `cachebase/release-build.yaml`, `cachebase/ci-build.yaml`
    - `cachechild/release-build.yaml`, `cachechild/ci-build.yaml`
-5. Sync definitions to Reprepro/Nginx server (`192.168.30.202`).
+5. Sync definitions to Reprepro/Nginx server (`<local-apt-host>`).
 
 ### Stage 5.3: Cache Generation & Verification in Jenkins
 1. Generate cache jobs:
@@ -132,8 +132,8 @@ All changes will be isolated on dedicated feature branches without mutating exis
    - `python3 scripts/misc/generate_rosdistro_cache_job.py ... cachechild`
 2. **Execute `cachebase_rosdistro-cache`**:
    - Verify container builds cache successfully.
-   - Verify `cachebase-cache.yaml.gz` is published to `192.168.30.202:/var/repos/rep159-rosdistro/`.
-   - Verify HTTP download: `curl -I http://192.168.30.202:8088/rosdistro_cache/cachebase-cache.yaml.gz`.
+   - Verify `cachebase-cache.yaml.gz` is published to `<local-apt-host>:/var/repos/rep159-rosdistro/`.
+   - Verify HTTP download: `curl -I http://<local-apt-host>:8088/rosdistro_cache/cachebase-cache.yaml.gz`.
 3. **Execute `cachechild_rosdistro-cache`**:
    - Verify `cachechild` correctly resolves its parent (`cachebase`).
    - Verify `cachechild-cache.yaml.gz` is published and accessible.

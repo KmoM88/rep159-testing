@@ -16,7 +16,7 @@ targets:
       amd64:
 urls:
 - http://repos.ros.org/repos/ros_bootstrap
-- http://192.168.30.202:8088/ubuntu/building
-- http://192.168.30.202:8088/ubuntu/testing
+- http://<local-apt-host>:8088/ubuntu/building
+- http://<local-apt-host>:8088/ubuntu/testing
 type: release-build
 version: 2

@@ -1,517 +1,205 @@
 # REP-159: Comprehensive Validation & Evidence Suite
 
-This document establishes the empirical validation evidence, architectural models, branch matrices, and job configurations across the three core validation phases of the **[REP 159](https://github.com/openrobotics/reps/pull/32)** test campaign.
+Empirical validation evidence, topological diagrams, branch matrices, and remote testfarm (`https://build.test.ros2.org` & `http://repo.test.ros2.org`) verification across all stages of the **[REP 159](https://github.com/openrobotics/reps/pull/32)** test campaign.
 
 ---
 
-## Thematic Block 1: Binary Renaming, Custom Install Paths & Release Pipeline
+## 0. Two-Suite Validation Architecture (`extendable` vs. `composable`)
 
-### Architecture & Pipeline Overview
+```mermaid
+flowchart LR
+    subgraph Collab ["Collaborator Baseline (Untouched)"]
+        U["upstream / srcext / binext<br/>Jobs: U*, S*, B*<br/>Branches: rep159*"]
+    end
+
+    subgraph Extendable ["Suite 1: extendable* (Stages 1-3, Jobs E*)"]
+        E["Pure CMake (<build_type>cmake</build_type>)<br/>Isolates binary_rule, install_rule, DAG walk<br/>& workspace.py CMake/LD env exports"]
+    end
+
+    subgraph Composable ["Suite 2: composable* & cache* (Stages 4-5, Jobs C*)"]
+        C["Native ROS 2 (ament_cmake + ros_workspace + bloom)<br/>Adopts jrivero's child ros_workspace override,<br/>ROS_WORKSPACE_PARENT_PREFIX_PATH & ParentPrefixes"]
+    end
+
+    Extendable --> Composable
+```
+
+| Dimension | Collaborator Baseline (`upstream` / `srcext` / `binext`) | Suite 1: `extendable*` (Stages 1–3) | Suite 2: `composable*` & `cache*` (Stages 4–5) |
+|---|---|---|---|
+| **Jenkins Prefix** | `U*`, `S*`, `B*` *(untouched)* | **`E*`** (`Esrc`, `Ebin`, `Erel`, `Eci`) | **`C*`** (`Csrc`, `Cbin`, `Crel`, `Cci`, `*_rosdistro-cache`) |
+| **Package Build Type** | `ament_cmake` + `ros_workspace` | Pure `cmake` (`upstream_{a,b,c}`, `downstream_*`) | `ament_cmake` + `ros_workspace` + `bloom` |
+| **Environment Chaining** | `/opt/ros/<distro>/setup.sh` | Buildfarm `workspace.py` (`CMAKE_PREFIX_PATH`, `LD_LIBRARY_PATH`) | Native `/opt/ros/<distro>/setup.sh` + `.dsv` hooks (`ROS_WORKSPACE_PARENT_PREFIX_PATH`) |
+| **Packaging Mechanism** | Baseline `ros-<distro>-<pkg>` | Custom `binary_rule` (`vendor-{distro}-{package}`) & `install_rule` (`/opt/vendor/{distro}`) | Automated `git-bloom-generate rosdebian` (`binary_rule` + `install_rule` + `ParentPrefixes`) |
+| **Primary Validation Goal** | Foundational 1-tier `source_rebuild` & `binary_import` | Regex binary naming, custom prefixes, 3-tier chains, hybrid & diamond DAGs | Child `ros_workspace` release override, automated `bloom` packaging & cache lifecycle |
+
+---
+
+## Thematic Block 1: Binary Renaming (`binary_rule`), Custom Install Paths & Release Pipeline
+
+### Architecture & Pipeline Flow
 
 ```mermaid
 graph LR
-    subgraph Spec [Distribution Metadata: Format 3]
+    subgraph Spec ["Distribution Metadata (Format 3)"]
         BR["binary_rule: vendor-{distro}-{package}"]
         IR["install_rule: /opt/ros/{distro}"]
     end
 
-    subgraph ReleasePipeline [Hermetic Release Pipeline]
-        SRC["Source Job: Esrc_uR__*<br/>Generates .dsc with custom name"]
-        BIN["Binary Job: Ebin_uR64__*<br/>Builds .deb with custom prefix"]
-        SYNC["Sync Job: Erel_sync-*<br/>Reprepro package prefix filter"]
-        
-        SRC -->|triggers| BIN
-        BIN -->|imports to building| SYNC
+    subgraph ReleasePipeline ["Hermetic Release Pipeline (build.test.ros2.org)"]
+        SRC["Esrc_uR__*<br/>Generates .dsc with custom name"]
+        BIN["Ebin_uR64__*<br/>Builds .deb in pbuilder chroot"]
+        SYNC["Erel_sync-*<br/>--package-prefix vendor-extendable-"]
+        SRC -->|Erel_import-package| BIN -->|check_sync_criteria| SYNC
     end
 
-    subgraph Repositories [APT Repositories]
-        BUILDING["reprepro: building<br/>vendor-extendable-upstream-*"]
-        TESTING["reprepro: testing<br/>vendor-extendable-upstream-*"]
-        
-        SYNC -->|promotes| TESTING
+    subgraph Repositories ["APT Repositories (repo.test.ros2.org)"]
+        BUILDING["building<br/>vendor-extendable-upstream-*"]
+        TESTING["testing<br/>vendor-extendable-upstream-*"]
+        BIN --> BUILDING --> SYNC -->|FilterFormula| TESTING
     end
 
     Spec --> ReleasePipeline
 ```
 
-### Feature Mechanics
+### Feature Summary
 
-1. **Binary Name Templating (`binary_rule`)**:
-   - REP-159 extends `rosdistro` distribution specifications with a Format 3 `binary_rule` dictionary containing `search` and `replace` regex directives, `{distro}`, `{package}` variables, and regex capture groups (`\1`).
-   - `rosdistro.get_binary_package_name()` deterministically converts ROS package names (e.g., `upstream_a`) to customized OS binary packages (e.g., `vendor-extendable-upstream-a`).
-   - `ros_buildfarm` release jobs query `dist_file.get_binary_package_name()` to format source package tarballs (`.orig.tar.gz`), Debian source control files (`.dsc`), and binary archives (`.deb`).
-
-2. **Custom Installation Prefix Resolution (`install_rule`)**:
-   - ROS distributions and repositories declare parameterized install locations (e.g., `/opt/ros/{distro}` or `/opt/vendor/{distro}`).
-   - Release jobs pass `CMAKE_INSTALL_PREFIX` to build processes, ensuring binaries install into their declared hierarchy.
-
-3. **Reprepro Package Filter Synchronization & Ingestion Invariants**:
-   - `reprepro-updater` filters incoming packages using `--package-prefix <prefix>`.
-   - Prevents binary collisions and ensures only vendor-specific packages matching the declared naming prefix are promoted from `building` to `testing`.
-   - In shared flat APT pools, prefix isolation guarantees that downstream packages do not accidentally overwrite or shadow packages from parallel vendor stacks.
+| Feature | Directive / Flag | Implementation & Verified Invariant |
+|---|---|---|
+| **Declarative Binary Renaming** | `binary_rule: {search: '^', replace: 'vendor-{distro}-'}` | `rosdistro.get_binary_package_name()` maps `upstream_{a,b,c}` $\to$ `vendor-extendable-upstream-{a,b,c}` using canonical lowercase `{distro}`, `{package}`, `{origin_distro}`. |
+| **Prefix-Filtered APT Sync** | `--package-prefix vendor-extendable-` | `reprepro-updater` applies `FilterFormula: Package (% vendor-extendable-*)`, promoting only matching vendor packages from `building` to `testing`. |
+| **`rosdep` Binary Delegation** | `gbpdistro_support.py` | Delegates OS binary package lookups to `dist_file.get_binary_package_name(pkg)` with `binary_import` parent fallback. |
 
 ### Repository & Branch Matrix
 
-| Repository | Branch / Track | Purpose |
-|---|---|---|
-| **`reps`** | [`feature/rep-159-binary-name-templating`](https://github.com/KmoM88/reps/tree/feature/rep-159-binary-name-templating) ([`openrobotics/reps#35`](https://github.com/openrobotics/reps/pull/35))<br>[`feature/rep-159-install-rule`](https://github.com/KmoM88/reps/tree/feature/rep-159-install-rule) (Stacked) | REP-159 specification updates: `binary_rule` regex engine, canonical lowercase variables, and optional `install_rule` directive |
-| **`rosdistro`** | [`feature/rep159-binary-naming-regex`](https://github.com/rep159-testing/rosdistro/tree/feature/rep159-binary-naming-regex) ([`rep159-testing/rosdistro#1`](https://github.com/rep159-testing/rosdistro/pull/1))<br>[`feat/rep159-install-rule`](https://github.com/rep159-testing/rosdistro/tree/feat/rep159-install-rule) (Stacked PR-Ready) | Format 3 parser, `extends` DAG, `binary_rule` regex engine, and `install_rule` prefixes |
-| **`rosdep`** | [`rep159`](https://github.com/rep159-testing/rosdep/tree/rep159) (Org Testbed)<br>[`feat/rep159-binary-lookup`](https://github.com/rep159-testing/rosdep/tree/feat/rep159-binary-lookup) (PR-Ready) | Delegates OS binary package name lookups to `rosdistro.get_binary_package_name()`. `rep159` includes testbed CI overrides; `feat/rep159-binary-lookup` is the clean, unencumbered branch targeting upstream `ros-infrastructure/rosdep:master` once Gate 1 (`rosdistro >= 1.2.0`) is released. |
-| **`reprepro-updater`** | [`feat/package-prefix`](https://github.com/rep159-testing/reprepro-updater/tree/feat/package-prefix) | Selective APT suite promotion & cleanup via `--package-prefix` (targets upstream `refactor` directly) |
-| **`ros_buildfarm`** | **Testbed:** [`feat/binary-naming-rule`](https://github.com/rep159-testing/ros_buildfarm/tree/feat/binary-naming-rule), [`rep159`](https://github.com/rep159-testing/ros_buildfarm/tree/rep159)<br>**PR-Ready (off `master`):**<br>• [`feat/rep159-binary-naming`](https://github.com/rep159-testing/ros_buildfarm/tree/feat/rep159-binary-naming) (Release jobs & naming)<br>• [`feat/rep159-workspace-walk`](https://github.com/rep159-testing/ros_buildfarm/tree/feat/rep159-workspace-walk) (PR 3A: CI walk boundary)<br>• [`feat/rep159-underlays`](https://github.com/rep159-testing/ros_buildfarm/tree/feat/rep159-underlays) (PR 3B: Dynamic underlays & pure-CMake env) | Core release job generation, workspace checkout boundaries, dynamic underlay injection, and pure-CMake environment fallbacks. PR-ready branches are completely free of Dockerfile pip hacks and target `ros-infrastructure/ros_buildfarm:master`. |
-| **`rep159-rosdistro`** | [`feat/extendable-binary-naming`](https://github.com/rep159-testing/rep159-rosdistro/tree/feat/extendable-binary-naming)<br>[`feat/extendable-install-rule`](https://github.com/rep159-testing/rep159-rosdistro/tree/feat/extendable-install-rule) | Root `extendable` distribution file defining `binary_rule` and `install_rule` |
-| **`ros_buildfarm_config`** | [`feat/extendable-binary-naming`](https://github.com/rep159-testing/ros_buildfarm_config/tree/feat/extendable-binary-naming) | Release, sync, and CI build files targeting `repo.test.ros2.org` |
-| **`upstream_a-release`** | [`debian/vendor-extendable/resolute/upstream_a`](https://github.com/rep159-testing/upstream_a-release/tree/debian/vendor-extendable/resolute/upstream_a) | Debian release track for `upstream_a` (`vendor-extendable-upstream-a`) |
-| **`upstream_b-release`** | [`debian/vendor-extendable/resolute/upstream_b`](https://github.com/rep159-testing/upstream_b-release/tree/debian/vendor-extendable/resolute/upstream_b) | Debian release track for `upstream_b` (`vendor-extendable-upstream-b`) |
-| **`upstream_c-release`** | [`debian/vendor-extendable/resolute/upstream_c`](https://github.com/rep159-testing/upstream_c-release/tree/debian/vendor-extendable/resolute/upstream_c) | Debian release track for `upstream_c` (`vendor-extendable-upstream-c`) |
+| Repository | Clean Upstream PR Branch (`@ SHA`) | Testfarm Branch (`@ SHA`) | Role |
+|---|---|---|---|
+| **`reps`** | [`openrobotics/reps#31`](https://github.com/openrobotics/reps/pull/31) (**MERGED**)<br>[`openrobotics/reps#35`](https://github.com/openrobotics/reps/pull/35) (**MERGED** `f683ccc`)<br>[`feature/rep-159-install-rule`](https://github.com/KmoM88/reps/tree/feature/rep-159-install-rule) (`f0118d5`) | N/A | REP-159 Format 3 `extends`, `binary_rule` (`{distro}`, `{package}`, `{origin_distro}`), and `install_rule` spec |
+| **`rosdistro`** | [`feature/rep159-binary-naming-regex`](https://github.com/rep159-testing/rosdistro/tree/feature/rep159-binary-naming-regex) (`bfde799`, [`#1`](https://github.com/rep159-testing/rosdistro/pull/1))<br>[`feat/rep159-install-rule`](https://github.com/rep159-testing/rosdistro/tree/feat/rep159-install-rule) (`a8f5543`) | [`feat/rep159-install-rule`](https://github.com/rep159-testing/rosdistro/tree/feat/rep159-install-rule) (`a8f5543`) | Format 3 parser, `extends` DAG, parent cache load (`46a7580`), `binary_rule`, `install_rule`, and child `ros_workspace` override (`aefe17c`, `a8f5543`) |
+| **`reprepro-updater`** | [`feat/package-prefix`](https://github.com/rep159-testing/reprepro-updater/tree/feat/package-prefix) (`93ed2dc`) | [`feat/package-prefix`](https://github.com/rep159-testing/reprepro-updater/tree/feat/package-prefix) (`93ed2dc`) | Selective APT promotion via `--package-prefix` (targets upstream `refactor`) |
+| **`rosdep`** | [`feat/rep159-binary-lookup`](https://github.com/rep159-testing/rosdep/tree/feat/rep159-binary-lookup) (`5661779`) | [`rep159`](https://github.com/rep159-testing/rosdep/tree/rep159) (`3d52dad`) | Delegates binary package lookup to `rosdistro.get_binary_package_name()` |
+| **`ros_buildfarm`** | • **PR 3A**: [`feat/rep159-workspace-walk`](https://github.com/rep159-testing/ros_buildfarm/tree/feat/rep159-workspace-walk) (`486b579`)<br>• **PR 3B**: [`feat/rep159-underlays`](https://github.com/rep159-testing/ros_buildfarm/tree/feat/rep159-underlays) (`a4a5bbd`)<br>• **PR 3C**: [`feat/rep159-binary-naming`](https://github.com/rep159-testing/ros_buildfarm/tree/feat/rep159-binary-naming) (`a271be1`) | [`feat/binary-naming-rule`](https://github.com/rep159-testing/ros_buildfarm/tree/feat/binary-naming-rule) (`797d771`) | Release naming delegation, `--package-prefix`, `ReleaseAndSourceDependencyWalker`, and dynamic underlays |
+| **`rep159-rosdistro`** | [`feat/extendable-binary-naming`](https://github.com/rep159-testing/rep159-rosdistro/tree/feat/extendable-binary-naming) (`b2882ed`) | [`feat/extendable-binary-naming`](https://github.com/rep159-testing/rep159-rosdistro/tree/feat/extendable-binary-naming) (`b2882ed`) | Root `extendable` distribution file defining `binary_rule` |
+| **`ros_buildfarm_config`** | [`feat/extendable-binary-naming`](https://github.com/rep159-testing/ros_buildfarm_config/tree/feat/extendable-binary-naming) (`30a7f90`) | [`feat/extendable-binary-naming`](https://github.com/rep159-testing/ros_buildfarm_config/tree/feat/extendable-binary-naming) (`30a7f90`) | Release, sync, and CI build files targeting `build.test.ros2.org` |
+| **`upstream_{a,b,c}-release`** | [`debian/vendor-extendable/resolute/upstream_{a,b,c}`](https://github.com/rep159-testing/upstream_a-release/tree/debian/vendor-extendable/resolute/upstream_a) | `d290d17`, `65280fc`, `ad6c0e8` | Debian release tracks for `vendor-extendable-upstream-{a,b,c}` (`/opt/ros/extendable`) |
 
-### Executed Jobs & Configuration References
+### Executed Jobs & Published Artifacts (`build.test.ros2.org` & `repo.test.ros2.org`)
 
-* **Source Release Pipeline** (automatically triggers downstream binary builds and sync via [`Erel_import-package` #26–#31](https://build.test.ros2.org/job/Erel_import-package/)):
-  - [`Esrc_uR__upstream_a__ubuntu_resolute__source` #2](https://build.test.ros2.org/job/Esrc_uR__upstream_a__ubuntu_resolute__source/2/) (Status: SUCCESS — [Console Log](https://build.test.ros2.org/job/Esrc_uR__upstream_a__ubuntu_resolute__source/2/console)) — [Job Config](https://github.com/rep159-testing/ros_buildfarm_config/blob/feat/extendable-binary-naming/extendable/release-build.yaml)
-  - [`Esrc_uR__upstream_b__ubuntu_resolute__source` #1](https://build.test.ros2.org/job/Esrc_uR__upstream_b__ubuntu_resolute__source/1/) (Status: SUCCESS — [Console Log](https://build.test.ros2.org/job/Esrc_uR__upstream_b__ubuntu_resolute__source/1/console)) — [Job Config](https://github.com/rep159-testing/ros_buildfarm_config/blob/feat/extendable-binary-naming/extendable/release-build.yaml)
-  - [`Esrc_uR__upstream_c__ubuntu_resolute__source` #1](https://build.test.ros2.org/job/Esrc_uR__upstream_c__ubuntu_resolute__source/1/) (Status: SUCCESS — [Console Log](https://build.test.ros2.org/job/Esrc_uR__upstream_c__ubuntu_resolute__source/1/console)) — [Job Config](https://github.com/rep159-testing/ros_buildfarm_config/blob/feat/extendable-binary-naming/extendable/release-build.yaml)
-* **Binary Packaging Pipeline** (ordered by topological upstream dependency locks):
-  - [`Ebin_uR64__upstream_a__ubuntu_resolute_amd64__binary` #1](https://build.test.ros2.org/job/Ebin_uR64__upstream_a__ubuntu_resolute_amd64__binary/1/) (Status: SUCCESS — [Console Log](https://build.test.ros2.org/job/Ebin_uR64__upstream_a__ubuntu_resolute_amd64__binary/1/console)) — [Job Config](https://github.com/rep159-testing/ros_buildfarm_config/blob/feat/extendable-binary-naming/extendable/release-build.yaml)
-  - [`Ebin_uR64__upstream_b__ubuntu_resolute_amd64__binary` #1](https://build.test.ros2.org/job/Ebin_uR64__upstream_b__ubuntu_resolute_amd64__binary/1/) (Status: SUCCESS — [Console Log](https://build.test.ros2.org/job/Ebin_uR64__upstream_b__ubuntu_resolute_amd64__binary/1/console)) — [Job Config](https://github.com/rep159-testing/ros_buildfarm_config/blob/feat/extendable-binary-naming/extendable/release-build.yaml)
-  - [`Ebin_uR64__upstream_c__ubuntu_resolute_amd64__binary` #1](https://build.test.ros2.org/job/Ebin_uR64__upstream_c__ubuntu_resolute_amd64__binary/1/) (Status: SUCCESS — [Console Log](https://build.test.ros2.org/job/Ebin_uR64__upstream_c__ubuntu_resolute_amd64__binary/1/console)) — [Job Config](https://github.com/rep159-testing/ros_buildfarm_config/blob/feat/extendable-binary-naming/extendable/release-build.yaml)
-* **Repository Synchronization** (gated until all 3 upstream binaries are present in `building`):
-  - [`Erel_sync-packages-to-testing_resolute_amd64` #8](https://build.test.ros2.org/job/Erel_sync-packages-to-testing_resolute_amd64/8/) (Status: SUCCESS — [Console Log](https://build.test.ros2.org/job/Erel_sync-packages-to-testing_resolute_amd64/8/console)) — [Job Config](https://github.com/rep159-testing/ros_buildfarm_config/blob/feat/extendable-binary-naming/extendable/release-build.yaml)
-* **Root Distribution CI Validation (`extendable`)**:
-  - [`Eci__nightly-release_ubuntu_resolute_amd64` #2](https://build.test.ros2.org/job/Eci__nightly-release_ubuntu_resolute_amd64/2/) (Status: SUCCESS — [Console Log](https://build.test.ros2.org/job/Eci__nightly-release_ubuntu_resolute_amd64/2/console)) — [Job Config](https://github.com/rep159-testing/ros_buildfarm_config/blob/feat/extendable-binary-naming/extendable/ci-nightly-release.yaml)
-  - [`Eci__source-branches_ubuntu_resolute_amd64` #2](https://build.test.ros2.org/job/Eci__source-branches_ubuntu_resolute_amd64/2/) (Status: SUCCESS — [Console Log](https://build.test.ros2.org/job/Eci__source-branches_ubuntu_resolute_amd64/2/console)) — [Job Config](https://github.com/rep159-testing/ros_buildfarm_config/blob/feat/extendable-binary-naming/extendable/ci-source-branches.yaml)
-  - [`Eci__release-branches_ubuntu_resolute_amd64` #2](https://build.test.ros2.org/job/Eci__release-branches_ubuntu_resolute_amd64/2/) (Status: SUCCESS — [Console Log](https://build.test.ros2.org/job/Eci__release-branches_ubuntu_resolute_amd64/2/console)) — [Job Config](https://github.com/rep159-testing/ros_buildfarm_config/blob/feat/extendable-binary-naming/extendable/ci-release-branches.yaml)
-
-### Published APT Repository Artifacts (`repo.test.ros2.org`)
-
-* **APT Repository Package Indexes (`resolute` / `amd64`)**:
-  - **Building Repository Index**: [`http://repo.test.ros2.org/ubuntu/building/dists/resolute/main/binary-amd64/Packages.gz`](http://repo.test.ros2.org/ubuntu/building/dists/resolute/main/binary-amd64/Packages.gz)
-  - **Testing Repository Index**: [`http://repo.test.ros2.org/ubuntu/testing/dists/resolute/main/binary-amd64/Packages.gz`](http://repo.test.ros2.org/ubuntu/testing/dists/resolute/main/binary-amd64/Packages.gz)
-* **Promoted Debian Binary Artifacts (`testing` Pool)**:
-  - [`pool/main/v/vendor-extendable-upstream-a/`](http://repo.test.ros2.org/ubuntu/testing/pool/main/v/vendor-extendable-upstream-a/) — [`vendor-extendable-upstream-a_0.1.0-1resolute.20261109.233112_amd64.deb`](http://repo.test.ros2.org/ubuntu/testing/pool/main/v/vendor-extendable-upstream-a/vendor-extendable-upstream-a_0.1.0-1resolute.20261109.233112_amd64.deb)
-  - [`pool/main/v/vendor-extendable-upstream-b/`](http://repo.test.ros2.org/ubuntu/testing/pool/main/v/vendor-extendable-upstream-b/) — [`vendor-extendable-upstream-b_0.1.0-1resolute.20261109.233710_amd64.deb`](http://repo.test.ros2.org/ubuntu/testing/pool/main/v/vendor-extendable-upstream-b/vendor-extendable-upstream-b_0.1.0-1resolute.20261109.233710_amd64.deb)
-  - [`pool/main/v/vendor-extendable-upstream-c/`](http://repo.test.ros2.org/ubuntu/testing/pool/main/v/vendor-extendable-upstream-c/) — [`vendor-extendable-upstream-c_0.1.0-1resolute.20261109.233949_amd64.deb`](http://repo.test.ros2.org/ubuntu/testing/pool/main/v/vendor-extendable-upstream-c/vendor-extendable-upstream-c_0.1.0-1resolute.20261109.233949_amd64.deb)
-
-### Verified Invariants & Sync Log Evidence
-
-* **Hermetic Binary Naming**: Built Debian packages match `vendor-extendable-upstream-{a,b,c}_0.1.0-1resolute.<timestamp>_amd64.deb` and install under `/opt/ros/extendable`.
-* **Inter-Package Dependency Resolution**: `vendor-extendable-upstream-b` depends strictly on `vendor-extendable-upstream-a`, and `vendor-extendable-upstream-c` depends on `vendor-extendable-upstream-b`.
-* **Repository Ingestion & Prefix-Filtered Promotion**: `Erel_sync-packages-to-testing_resolute_amd64` [#8](https://build.test.ros2.org/job/Erel_sync-packages-to-testing_resolute_amd64/8/console) verifies that `check_sync_criteria.py` waits until all 3 packages exist in `building` and `reprepro-updater` applies `--package-prefix vendor-extendable-`:
-  ```text
-  Creating updates file /var/repos/ubuntu/testing/conf/updates
-    Name: vendor-extendableresolute-amd64
-    Method: file:///var/repos/ubuntu/building
-    Suite: resolute
-    Components: main
-    Architectures: amd64
-    FilterFormula: Package (% vendor-extendable-*)
-  aptmethod got 'file:///var/repos/ubuntu/building/pool/main/v/vendor-extendable-upstream-a/vendor-extendable-upstream-a_0.1.0-1resolute.20261109.233112_amd64.deb'
-  aptmethod got 'file:///var/repos/ubuntu/building/pool/main/v/vendor-extendable-upstream-b/vendor-extendable-upstream-b_0.1.0-1resolute.20261109.233710_amd64.deb'
-  aptmethod got 'file:///var/repos/ubuntu/building/pool/main/v/vendor-extendable-upstream-c/vendor-extendable-upstream-c_0.1.0-1resolute.20261109.233949_amd64.deb'
-  ```
+| Stage / Pipeline Phase | Jenkins Job (`build.test.ros2.org`) | Build & Console | Status | Config / Published APT Artifact (`repo.test.ros2.org`) |
+|---|---|---|:---:|---|
+| **Source Packaging** | `Esrc_uR__upstream_a__ubuntu_resolute__source` | [#2](https://build.test.ros2.org/job/Esrc_uR__upstream_a__ubuntu_resolute__source/2/) / [#4](https://build.test.ros2.org/job/Esrc_uR__upstream_a__ubuntu_resolute__source/4/) ([Log](https://build.test.ros2.org/job/Esrc_uR__upstream_a__ubuntu_resolute__source/4/console)) | **SUCCESS** | [`release-build.yaml`](https://github.com/rep159-testing/ros_buildfarm_config/blob/feat/extendable-binary-naming/extendable/release-build.yaml) |
+| **Source Packaging** | `Esrc_uR__upstream_b__ubuntu_resolute__source` | [#1](https://build.test.ros2.org/job/Esrc_uR__upstream_b__ubuntu_resolute__source/1/) / [#3](https://build.test.ros2.org/job/Esrc_uR__upstream_b__ubuntu_resolute__source/3/) ([Log](https://build.test.ros2.org/job/Esrc_uR__upstream_b__ubuntu_resolute__source/3/console)) | **SUCCESS** | [`release-build.yaml`](https://github.com/rep159-testing/ros_buildfarm_config/blob/feat/extendable-binary-naming/extendable/release-build.yaml) |
+| **Source Packaging** | `Esrc_uR__upstream_c__ubuntu_resolute__source` | [#1](https://build.test.ros2.org/job/Esrc_uR__upstream_c__ubuntu_resolute__source/1/) / [#3](https://build.test.ros2.org/job/Esrc_uR__upstream_c__ubuntu_resolute__source/3/) ([Log](https://build.test.ros2.org/job/Esrc_uR__upstream_c__ubuntu_resolute__source/3/console)) | **SUCCESS** | [`release-build.yaml`](https://github.com/rep159-testing/ros_buildfarm_config/blob/feat/extendable-binary-naming/extendable/release-build.yaml) |
+| **Binary Packaging** | `Ebin_uR64__upstream_a__ubuntu_resolute_amd64__binary` | [#1](https://build.test.ros2.org/job/Ebin_uR64__upstream_a__ubuntu_resolute_amd64__binary/1/) / [#3](https://build.test.ros2.org/job/Ebin_uR64__upstream_a__ubuntu_resolute_amd64__binary/3/) ([Log](https://build.test.ros2.org/job/Ebin_uR64__upstream_a__ubuntu_resolute_amd64__binary/3/console)) | **SUCCESS** | [`pool/main/v/vendor-extendable-upstream-a/`](http://repo.test.ros2.org/ubuntu/testing/pool/main/v/vendor-extendable-upstream-a/) |
+| **Binary Packaging** | `Ebin_uR64__upstream_b__ubuntu_resolute_amd64__binary` | [#1](https://build.test.ros2.org/job/Ebin_uR64__upstream_b__ubuntu_resolute_amd64__binary/1/) / [#4](https://build.test.ros2.org/job/Ebin_uR64__upstream_b__ubuntu_resolute_amd64__binary/4/) ([Log](https://build.test.ros2.org/job/Ebin_uR64__upstream_b__ubuntu_resolute_amd64__binary/4/console)) | **SUCCESS** | [`pool/main/v/vendor-extendable-upstream-b/`](http://repo.test.ros2.org/ubuntu/testing/pool/main/v/vendor-extendable-upstream-b/) |
+| **Binary Packaging** | `Ebin_uR64__upstream_c__ubuntu_resolute_amd64__binary` | [#1](https://build.test.ros2.org/job/Ebin_uR64__upstream_c__ubuntu_resolute_amd64__binary/1/) / [#3](https://build.test.ros2.org/job/Ebin_uR64__upstream_c__ubuntu_resolute_amd64__binary/3/) ([Log](https://build.test.ros2.org/job/Ebin_uR64__upstream_c__ubuntu_resolute_amd64__binary/3/console)) | **SUCCESS** | [`pool/main/v/vendor-extendable-upstream-c/`](http://repo.test.ros2.org/ubuntu/testing/pool/main/v/vendor-extendable-upstream-c/) |
+| **APT Repo Sync** | `Erel_sync-packages-to-testing_resolute_amd64` | [#8](https://build.test.ros2.org/job/Erel_sync-packages-to-testing_resolute_amd64/8/) / [#10](https://build.test.ros2.org/job/Erel_sync-packages-to-testing_resolute_amd64/10/) ([Log](https://build.test.ros2.org/job/Erel_sync-packages-to-testing_resolute_amd64/10/console)) | **SUCCESS** | [`testing/dists/resolute/main/binary-amd64/Packages.gz`](http://repo.test.ros2.org/ubuntu/testing/dists/resolute/main/binary-amd64/Packages.gz) |
+| **Root CI (`extendable`)** | `Eci__nightly-release_ubuntu_resolute_amd64` | [#2](https://build.test.ros2.org/job/Eci__nightly-release_ubuntu_resolute_amd64/2/) ([Log](https://build.test.ros2.org/job/Eci__nightly-release_ubuntu_resolute_amd64/2/console)) | **SUCCESS** | [`ci-nightly-release.yaml`](https://github.com/rep159-testing/ros_buildfarm_config/blob/feat/extendable-binary-naming/extendable/ci-nightly-release.yaml) |
+| **Root CI (`extendable`)** | `Eci__source-branches_ubuntu_resolute_amd64` | [#2](https://build.test.ros2.org/job/Eci__source-branches_ubuntu_resolute_amd64/2/) ([Log](https://build.test.ros2.org/job/Eci__source-branches_ubuntu_resolute_amd64/2/console)) | **SUCCESS** | [`ci-source-branches.yaml`](https://github.com/rep159-testing/ros_buildfarm_config/blob/feat/extendable-binary-naming/extendable/ci-source-branches.yaml) |
+| **Root CI (`extendable`)** | `Eci__release-branches_ubuntu_resolute_amd64` | [#2](https://build.test.ros2.org/job/Eci__release-branches_ubuntu_resolute_amd64/2/) ([Log](https://build.test.ros2.org/job/Eci__release-branches_ubuntu_resolute_amd64/2/console)) | **SUCCESS** | [`ci-release-branches.yaml`](https://github.com/rep159-testing/ros_buildfarm_config/blob/feat/extendable-binary-naming/extendable/ci-release-branches.yaml) |
 
 ---
 
-## Thematic Block 2: Advanced Topological Validations (Pure CMake Scope)
+## Thematic Block 2: Advanced Topological Validations (Pure CMake Suite `extendable*`)
 
-> [!NOTE]
-> **Scope & Distribution Suite (`extendable*`)**: Validates pure CMake packages (`<build_type>cmake</build_type>`) across the **`extendable` distribution suite** (`extendable`, `extendablesrc`, `extendablebin`, `extendablechain`, `extendablechainedsrc`, `extendablechainedbin`, `extendablemixed`, `extendablediamond` — Jenkins job prefix **`E*`**). In this block, underlays are chained via buildfarm environment variable exports (`CMAKE_PREFIX_PATH`, `LD_LIBRARY_PATH`, `PATH`) rather than relying on prefix `setup.sh` shell scripts, isolating pure graph and packaging algorithms from ROS shell complexities.
+### Master Overview of Topologies 1–5
+
+| Topology | Distribution Hierarchy | Extension Method(s) | Underlay Prefix (`ROS_BUILDFARM_PARENT_RESULT_SPACES`) | Workspace Source Packages | APT Installed Packages (`rosdep`) |
+|---|---|---|---|---|---|
+| **1. Single-Tier Custom Prefix** | `extendable` $\to$ `extendablebin`<br>`extendable` $\to$ `extendablesrc` | `binary_import`<br>`source_rebuild` | `/opt/vendor/extendable` | `downstream_bin_a`<br>*(or all 4 in `extendablesrc`)* | `vendor-extendable-upstream-{a,b,c}` |
+| **2. Chained Source Rebuild (Option A)** | `extendable` $\to$ `extendablebin` $\to$ `extendablechain` | `source_rebuild` (3-tier) | *(None — full source build)* | `upstream_{a,b,c}`, `downstream_bin_a`, `downstream_chain_a` (5 pkgs) | *(System build deps only)* |
+| **3. Chained Binary Import (Option B)** | `extendable` $\to$ `extendablebin` $\to$ `extendablechain` | `binary_import` (3-tier) | `/opt/ros/extendable:/opt/ros/extendablebin` | `downstream_chain_a` (1 pkg) | `ros-extendablebin-downstream-bin-a` + `vendor-extendable-upstream-{a,b,c}` |
+| **4. Hybrid Mixed Extension** | `extendable` $\to$ `extendablebin` $\to$ `extendablemixed` | `binary_import` + CI source override | `/opt/ros/extendable:/opt/ros/extendablebin` | `downstream_chain_a`, `upstream_c` (2 pkgs) | `ros-extendablebin-downstream-bin-a` (`--ignore-src` skips `upstream_c`) |
+| **5. Multi-Parent Diamond DAG** | `extendable` $\to$ `[extendablebin, extendablesrc]` $\to$ `extendablediamond` | `binary_import` + `source_rebuild` | `/opt/ros/extendable:/opt/ros/extendablebin` *(deduplicated)* | `downstream_chain_a`, `downstream_src_a` (2 pkgs) | `ros-extendablebin-downstream-bin-a` + `vendor-extendable-upstream-{a,b,c}` |
+
+---
 
 ### Topology 1: Single-Tier Binary Import & Custom Installation Prefix (`/opt/vendor/{distro}`)
 
-#### Architectural Model
-
 ```mermaid
-graph TD
-    E1["extendable (Root APT Repo)<br/>vendor-extendable-upstream-*<br/>install_rule: /opt/vendor/{distro}<br/>Prefix: /opt/vendor/extendable"] -->|binary_import| EB1["extendablebin<br/>Workspace: downstream_bin_a (Source)<br/>APT Dependency: vendor-extendable-upstream-c<br/>Underlay: /opt/vendor/extendable"]
-    E1 -->|source_rebuild| ES1["extendablesrc<br/>Workspace: upstream_{a,b,c} + downstream_src_a (Source)"]
+graph LR
+    E1["extendable (Root APT Repo)<br/>vendor-extendable-upstream-*<br/>install_rule: /opt/vendor/{distro}<br/>Prefix: /opt/vendor/extendable"] -->|binary_import| EB1["extendablebin<br/>Workspace: downstream_bin_a<br/>APT: vendor-extendable-upstream-c<br/>Underlay: /opt/vendor/extendable"]
+    E1 -->|source_rebuild| ES1["extendablesrc<br/>Workspace: upstream_{a,b,c} + downstream_src_a"]
 ```
 
-#### Behavior & Topological Invariants
-Validates single-tier binary consumption and custom non-standard installation prefixes (`/opt/vendor/extendable`) where leaf packages build against parent distributions installed strictly from Debian repositories:
-- `extendable` and `extendablebin` declare `install_rule: '/opt/vendor/{distro}'`, packaging and installing `vendor-extendable-upstream-{a,b,c}` into `/opt/vendor/extendable`.
-- `ReleaseAndSourceDependencyWalker` halts source checkout traversal at the `binary_import` boundary so only `downstream_bin_a` is cloned into `/tmp/ws/src`.
-- `rosdep` maps ROS package dependency `upstream_c` to Debian package `vendor-extendable-upstream-c` and installs it via APT into `/opt/vendor/extendable`.
-- Buildfarm automatically derives parent result spaces (`ROS_BUILDFARM_PARENT_RESULT_SPACES=/opt/vendor/extendable`) and exports `CMAKE_PREFIX_PATH`, `COLCON_PREFIX_PATH`, and `LD_LIBRARY_PATH` pointing to `/opt/vendor/extendable`.
-
-#### Repository & Branch Matrix
-* **`ros_buildfarm_config`**: [`feat/extendable-install-rule`](https://github.com/rep159-testing/ros_buildfarm_config/tree/feat/extendable-install-rule)
-* **`rep159-rosdistro`**: [`feat/extendable-install-rule`](https://github.com/rep159-testing/rep159-rosdistro/tree/feat/extendable-install-rule)
-* **`ros_buildfarm`**: [`feat/binary-naming-rule`](https://github.com/rep159-testing/ros_buildfarm/tree/feat/binary-naming-rule) (Testbed) / [`feat/rep159-underlays`](https://github.com/rep159-testing/ros_buildfarm/tree/feat/rep159-underlays) & [`feat/rep159-workspace-walk`](https://github.com/rep159-testing/ros_buildfarm/tree/feat/rep159-workspace-walk) (PR-Ready)
-* **`rosdistro`**: [`feat/rep159-install-rule`](https://github.com/rep159-testing/rosdistro/tree/feat/rep159-install-rule) (Stacked PR-Ready)
-* **`rosdep`**: [`feat/rep159-binary-lookup`](https://github.com/rep159-testing/rosdep/tree/feat/rep159-binary-lookup) (PR-Ready)
-* **`upstream_{a,b,c}-release`**: [`debian/vendor-extendable-install-rule/resolute/upstream_a`](https://github.com/rep159-testing/upstream_a-release/tree/debian/vendor-extendable-install-rule/resolute/upstream_a), [`upstream_b`](https://github.com/rep159-testing/upstream_b-release/tree/debian/vendor-extendable-install-rule/resolute/upstream_b), [`upstream_c`](https://github.com/rep159-testing/upstream_c-release/tree/debian/vendor-extendable-install-rule/resolute/upstream_c) (`-DCMAKE_INSTALL_PREFIX="/opt/vendor/extendable"`)
-* **Source Repositories**: `downstream_bin_a` (`main`), `downstream_src_a` (`main`)
-
-#### Executed Jobs, Repository Artifacts & Log References
-* **Custom Prefix Release & Sync Pipeline (`/opt/vendor/extendable`)**:
-  - **Source Builds**: [`Esrc_uR__upstream_a #3`](https://build.test.ros2.org/job/Esrc_uR__upstream_a__ubuntu_resolute__source/3/) ([Console](https://build.test.ros2.org/job/Esrc_uR__upstream_a__ubuntu_resolute__source/3/console)), [`Esrc_uR__upstream_b #2`](https://build.test.ros2.org/job/Esrc_uR__upstream_b__ubuntu_resolute__source/2/) ([Console](https://build.test.ros2.org/job/Esrc_uR__upstream_b__ubuntu_resolute__source/2/console)), [`Esrc_uR__upstream_c #2`](https://build.test.ros2.org/job/Esrc_uR__upstream_c__ubuntu_resolute__source/2/) ([Console](https://build.test.ros2.org/job/Esrc_uR__upstream_c__ubuntu_resolute__source/2/console)) — **SUCCESS**
-  - **Binary Builds**: [`Ebin_uR64__upstream_a #2`](https://build.test.ros2.org/job/Ebin_uR64__upstream_a__ubuntu_resolute_amd64__binary/2/) ([Console](https://build.test.ros2.org/job/Ebin_uR64__upstream_a__ubuntu_resolute_amd64__binary/2/console)), [`Ebin_uR64__upstream_b #2`](https://build.test.ros2.org/job/Ebin_uR64__upstream_b__ubuntu_resolute_amd64__binary/2/) ([Console](https://build.test.ros2.org/job/Ebin_uR64__upstream_b__ubuntu_resolute_amd64__binary/2/console)), [`Ebin_uR64__upstream_c #2`](https://build.test.ros2.org/job/Ebin_uR64__upstream_c__ubuntu_resolute_amd64__binary/2/) ([Console](https://build.test.ros2.org/job/Ebin_uR64__upstream_c__ubuntu_resolute_amd64__binary/2/console)) — **SUCCESS**
-  - **Repository Sync**: [`Erel_sync-packages-to-testing_resolute_amd64 #9`](https://build.test.ros2.org/job/Erel_sync-packages-to-testing_resolute_amd64/9/) ([Console](https://build.test.ros2.org/job/Erel_sync-packages-to-testing_resolute_amd64/9/console)) — **SUCCESS**
-  - **Promoted APT Artifacts (`testing` Pool, installed into `/opt/vendor/extendable`)**:
-    - [`vendor-extendable-upstream-a_0.1.0-1resolute.20261110.003705_amd64.deb`](http://repo.test.ros2.org/ubuntu/testing/pool/main/v/vendor-extendable-upstream-a/vendor-extendable-upstream-a_0.1.0-1resolute.20261110.003705_amd64.deb)
-    - [`vendor-extendable-upstream-b_0.1.0-1resolute.20261110.004112_amd64.deb`](http://repo.test.ros2.org/ubuntu/testing/pool/main/v/vendor-extendable-upstream-b/vendor-extendable-upstream-b_0.1.0-1resolute.20261110.004112_amd64.deb)
-    - [`vendor-extendable-upstream-c_0.1.0-1resolute.20261110.004146_amd64.deb`](http://repo.test.ros2.org/ubuntu/testing/pool/main/v/vendor-extendable-upstream-c/vendor-extendable-upstream-c_0.1.0-1resolute.20261110.004146_amd64.deb)
-* **Downstream Extension CI Jobs**:
-  - [`Eci__binary-import_ubuntu_resolute_amd64` #5](https://build.test.ros2.org/job/Eci__binary-import_ubuntu_resolute_amd64/5/) (Status: SUCCESS — [Console Log](https://build.test.ros2.org/job/Eci__binary-import_ubuntu_resolute_amd64/5/console)) — [Job Config](https://github.com/rep159-testing/ros_buildfarm_config/blob/feat/extendable-install-rule/extendablebin/ci-nightly-release.yaml)
-  - [`Eci__source-rebuild_ubuntu_resolute_amd64` #2](https://build.test.ros2.org/job/Eci__source-rebuild_ubuntu_resolute_amd64/2/) (Status: SUCCESS — [Console Log](https://build.test.ros2.org/job/Eci__source-rebuild_ubuntu_resolute_amd64/2/console)) — [Job Config](https://github.com/rep159-testing/ros_buildfarm_config/blob/feat/extendable-install-rule/extendablesrc/ci-nightly-release.yaml)
-* **Console Log Verification (`Eci__binary-import_ubuntu_resolute_amd64` [#5](https://build.test.ros2.org/job/Eci__binary-import_ubuntu_resolute_amd64/5/console))**:
-  ```text
-  Step 32/42 : ENV ROS_BUILDFARM_PARENT_RESULT_SPACES=/opt/vendor/extendable
-  Invoking 'apt-get install -q -y -o Debug::pkgProblemResolver=yes cmake libgtest-dev libyaml-dev pkg-config vendor-extendable-upstream-c'
-  Setting up vendor-extendable-upstream-a (0.1.0-1resolute.20261110.003705) ...
-  Setting up vendor-extendable-upstream-b (0.1.0-1resolute.20261110.004112) ...
-  Setting up vendor-extendable-upstream-c (0.1.0-1resolute.20261110.004146) ...
-  Invoking 'export CMAKE_PREFIX_PATH="/opt/vendor/extendable:${CMAKE_PREFIX_PATH}" && export COLCON_PREFIX_PATH="/opt/vendor/extendable:${COLCON_PREFIX_PATH}" && export LD_LIBRARY_PATH="/opt/vendor/extendable/lib:/opt/vendor/extendable/lib/x86_64-linux-gnu:${LD_LIBRARY_PATH}" && PYTHONIOENCODING=utf_8 PYTHONUNBUFFERED=1 colcon build ...' in '/tmp/ws'
-  Starting >>> downstream_bin_a
-  Finished <<< downstream_bin_a [2.64s]
-  INFO: [CTest-Version 3.x (default)] - 1 test report file(s) were found with the pattern 'ws/test_results/*/Testing/*/Test.xml'
-  ```
+| Job / Artifact | Build & Console (`build.test.ros2.org`) | Status | Config / Branch (`@ SHA`) |
+|---|---|:---:|---|
+| `Esrc_uR__upstream_{a,b,c}__ubuntu_resolute__source` | [`a #3`](https://build.test.ros2.org/job/Esrc_uR__upstream_a__ubuntu_resolute__source/3/), [`b #2`](https://build.test.ros2.org/job/Esrc_uR__upstream_b__ubuntu_resolute__source/2/), [`c #2`](https://build.test.ros2.org/job/Esrc_uR__upstream_c__ubuntu_resolute__source/2/) | **SUCCESS** | `upstream_{a,b,c}-release:debian/vendor-extendable-install-rule/resolute/upstream_*` (`ad87f5b`, `8c33a3d`, `eef2f2b`) |
+| `Ebin_uR64__upstream_{a,b,c}__ubuntu_resolute_amd64__binary` | [`a #2`](https://build.test.ros2.org/job/Ebin_uR64__upstream_a__ubuntu_resolute_amd64__binary/2/), [`b #2`](https://build.test.ros2.org/job/Ebin_uR64__upstream_b__ubuntu_resolute_amd64__binary/2/), [`c #2`](https://build.test.ros2.org/job/Ebin_uR64__upstream_c__ubuntu_resolute_amd64__binary/2/) | **SUCCESS** | Installed into `/opt/vendor/extendable` |
+| `Erel_sync-packages-to-testing_resolute_amd64` | [#9](https://build.test.ros2.org/job/Erel_sync-packages-to-testing_resolute_amd64/9/) ([Log](https://build.test.ros2.org/job/Erel_sync-packages-to-testing_resolute_amd64/9/console)) | **SUCCESS** | [`rep159-rosdistro:feat/extendable-install-rule`](https://github.com/rep159-testing/rep159-rosdistro/tree/feat/extendable-install-rule) (`6bc24b1`) |
+| `Eci__binary-import_ubuntu_resolute_amd64` | [#5](https://build.test.ros2.org/job/Eci__binary-import_ubuntu_resolute_amd64/5/) ([Log](https://build.test.ros2.org/job/Eci__binary-import_ubuntu_resolute_amd64/5/console)) | **SUCCESS** | [`extendablebin/ci-nightly-release.yaml`](https://github.com/rep159-testing/ros_buildfarm_config/blob/feat/extendable-install-rule/extendablebin/ci-nightly-release.yaml) |
+| `Eci__source-rebuild_ubuntu_resolute_amd64` | [#2](https://build.test.ros2.org/job/Eci__source-rebuild_ubuntu_resolute_amd64/2/) ([Log](https://build.test.ros2.org/job/Eci__source-rebuild_ubuntu_resolute_amd64/2/console)) | **SUCCESS** | [`extendablesrc/ci-nightly-release.yaml`](https://github.com/rep159-testing/ros_buildfarm_config/blob/feat/extendable-install-rule/extendablesrc/ci-nightly-release.yaml) |
 
 ---
 
-### Topology 2: Multi-Tier Source Rebuild ($A \xrightarrow{\text{src}} B \xrightarrow{\text{src}} C$)
-
-#### Architectural Model
+### Topologies 2, 3, 4 & 5: Multi-Tier, Hybrid & Diamond Extensions
 
 ```mermaid
 graph TD
-    E2["extendable (Root Ancestor)"] -->|source_rebuild| EB2["extendablebin (Intermediate)"]
-    EB2 -->|source_rebuild| EC2["extendablechain (Leaf Workspace)<br/>Clones and compiles all 5 source packages"]
+    E["extendable (Root APT Repo)<br/>/opt/ros/extendable<br/>vendor-extendable-upstream-{a,b,c}"] -->|binary_import| EB["extendablebin (Intermediate APT Repo)<br/>/opt/ros/extendablebin<br/>ros-extendablebin-downstream-bin-a"]
+    E -->|source_rebuild| ES["extendablesrc<br/>downstream_src_a"]
+
+    EB -->|Topology 2: source_rebuild| T2["extendablechain (Option A)<br/>Builds all 5 source pkgs"]
+    EB -->|Topology 3: binary_import| T3["extendablechain (Option B)<br/>Source: downstream_chain_a only<br/>Underlays: /opt/ros/extendable:/opt/ros/extendablebin"]
+    EB -->|Topology 4: binary_import + CI src| T4["extendablemixed<br/>Source: downstream_chain_a + upstream_c<br/>APT: ros-extendablebin-downstream-bin-a"]
+    EB -->|Topology 5: binary_import| T5["extendablediamond<br/>Source: downstream_chain_a + downstream_src_a<br/>Deduplicated Underlays: /opt/ros/extendable:/opt/ros/extendablebin"]
+    ES -->|Topology 5: source_rebuild| T5
 ```
 
-#### Behavior & Topological Invariants
-Validates multi-tier source rebuilds across parent boundary lines.
-- `rosdistro` recursively walks the parent hierarchy (`extendablechain` $\to$ `extendablebin` $\to$ `extendable`).
-- Colcon compiles all 5 packages in topological order within a single hermetic workspace without APT binary dependencies.
-- *(Note: In the testbed configuration, the leaf `source_rebuild` cascades recursively upstream, rebuilding all ancestor packages from source regardless of intermediate default imports).*
-
-#### Repository & Branch Matrix
-* **`ros_buildfarm_config`**: [`feat/stage3-chained-extensions`](https://github.com/rep159-testing/ros_buildfarm_config/tree/feat/stage3-chained-extensions)
-* **`rep159-rosdistro`**: [`feat/stage3-chained-extensions`](https://github.com/rep159-testing/rep159-rosdistro/tree/feat/stage3-chained-extensions)
-* **`ros_buildfarm`**: [`feat/binary-naming-rule`](https://github.com/rep159-testing/ros_buildfarm/tree/feat/binary-naming-rule)
-* **Source Repositories**: `upstream_{a,b,c}` (`main`), `downstream_bin_a` (`main`), `downstream_chain_a` (`main`)
-
-#### Executed Jobs & Configuration References
-* [`Eci__source-rebuild_ubuntu_resolute_amd64`](https://build.test.ros2.org/job/Eci__source-rebuild_ubuntu_resolute_amd64) (Status: SUCCESS) — [Job Config](https://github.com/rep159-testing/ros_buildfarm_config/blob/feat/stage3-chained-extensions/extendablechain/ci-nightly-release.yaml)
-
----
-
-### Topology 3: Pure Chained Binary Import ($A \xrightarrow{\text{bin}} B \xrightarrow{\text{bin}} C$)
-
-#### Architectural Model
-
-```mermaid
-graph TD
-    E3["extendable (Root APT Repo)<br/>vendor-extendable-upstream-*"] -->|binary_import| EB3["extendablebin (Intermediate APT Repo)<br/>ros-extendablebin-downstream-bin-a"]
-    EB3 -->|binary_import| EC3["extendablechain (Leaf Workspace)<br/>Workspace: downstream_chain_a (Source)<br/>Underlays: /opt/ros/extendable:/opt/ros/extendablebin"]
-```
-
-#### Behavior & Topological Invariants
-Validates multi-tier binary dependency chaining where each level is released as Debian packages into APT.
-- Intermediate tier package `downstream_bin_a` compiles in chroot against `/opt/ros/extendable` and installs into `/opt/ros/extendablebin`.
-- Grandchild workspace contains **only** leaf package `downstream_chain_a`.
-- `rosdep` installs `ros-extendablebin-downstream-bin-a` and transitively `vendor-extendable-upstream-c`.
-- Buildfarm injects cascading underlays: `ROS_BUILDFARM_PARENT_RESULT_SPACES=/opt/ros/extendable:/opt/ros/extendablebin`.
-- Multiarch dynamic library search path (`LD_LIBRARY_PATH`) and `CMAKE_PREFIX_PATH` are automatically resolved for packages lacking `setup.sh`.
-
-#### Repository & Branch Matrix
-* **`ros_buildfarm_config`**: [`feat/stage3-binary-chained`](https://github.com/rep159-testing/ros_buildfarm_config/tree/feat/stage3-binary-chained)
-* **`rep159-rosdistro`**: [`feat/stage3-binary-chained`](https://github.com/rep159-testing/rep159-rosdistro/tree/feat/stage3-binary-chained)
-* **`ros_buildfarm`**: [`feat/binary-naming-rule`](https://github.com/rep159-testing/ros_buildfarm/tree/feat/binary-naming-rule)
-* **Source Repositories**: `downstream_chain_a` (`main`), `downstream_bin_a` (`main`)
-* **Release Repositories**: `downstream_bin_a-release` (`debian/extendablebin/resolute/downstream_bin_a`)
-
-#### Executed Jobs & Configuration References
-* **Intermediate Release Pipeline**:
-  - [`Esrc_uR__downstream_bin_a__ubuntu_resolute__source`](https://build.test.ros2.org/job/Esrc_uR__downstream_bin_a__ubuntu_resolute__source) (Status: SUCCESS) — [Job Config](https://github.com/rep159-testing/ros_buildfarm_config/blob/feat/stage3-binary-chained/extendablebin/release-build.yaml)
-  - [`Ebin_uR64__downstream_bin_a__ubuntu_resolute_amd64__binary`](https://build.test.ros2.org/job/Ebin_uR64__downstream_bin_a__ubuntu_resolute_amd64__binary) (Status: SUCCESS) — [Job Config](https://github.com/rep159-testing/ros_buildfarm_config/blob/feat/stage3-binary-chained/extendablebin/release-build.yaml)
-  - [`Erel_sync-packages-to-testing_resolute_amd64`](https://build.test.ros2.org/job/Erel_sync-packages-to-testing_resolute_amd64) (Status: SUCCESS) — [Job Config](https://github.com/rep159-testing/ros_buildfarm_config/blob/feat/stage3-binary-chained/extendablebin/release-build.yaml)
-* **Chained Binary CI Validation**:
-  - [`Eci__chained-import_ubuntu_resolute_amd64`](https://build.test.ros2.org/job/Eci__chained-import_ubuntu_resolute_amd64) (Status: SUCCESS) — [Job Config](https://github.com/rep159-testing/ros_buildfarm_config/blob/feat/stage3-binary-chained/extendablechain/ci-nightly-release.yaml)
-
----
-
-### Topology 4: Hybrid Mixed Extension (Binary Underlay + Source Overlay)
-
-#### Architectural Model
-
-```mermaid
-graph TD
-    E4["extendable (Root APT Repo)<br/>vendor-extendable-upstream-*"] -->|binary_import| EB4["extendablebin (Intermediate APT Repo)<br/>ros-extendablebin-downstream-bin-a"]
-    EB4 -->|binary_import| EM4["extendablemixed (Workspace)<br/>Source: downstream_chain_a + upstream_c<br/>APT: ros-extendablebin-downstream-bin-a"]
-```
-
-#### Behavior & Topological Invariants
-Validates developer workflows where pre-built binary dependencies are installed from APT while an ancestor package is checked out and rebuilt from source in the workspace.
-- **ABI Immutability Rule**: `distribution.yaml` does not override `upstream_c` under `binary_import` (protecting ABI compatibility). The source override is declared strictly at CI job level (`repository_names: [downstream_chain_a, upstream_c]`).
-- `rosdep --ignore-src` skips APT installation of `upstream_c` because it is present in the workspace source space.
-- APT installs pre-built `ros-extendablebin-downstream-bin-a`.
-- `downstream_chain_a` links against workspace source-built `upstream_c` and binary underlay `/opt/ros/extendablebin/lib/libdownstream_bin_a.so`.
+| Topology | Jenkins Job (`build.test.ros2.org`) | Build & Console | Status | Config & Distro Branch (`@ SHA`) |
+|---|---|---|:---:|---|
+| **Topology 2 (Option A: 3-Tier Source)** | `Eci__chained-import_ubuntu_resolute_amd64` | [#3](https://build.test.ros2.org/job/Eci__chained-import_ubuntu_resolute_amd64/3/) ([Log](https://build.test.ros2.org/job/Eci__chained-import_ubuntu_resolute_amd64/3/console)) | **SUCCESS** | [`feat/stage3-chained-extensions`](https://github.com/rep159-testing/rep159-rosdistro/tree/feat/stage3-chained-extensions) (`69afb27` / `7fa2b40`) |
+| **Topology 3 (Intermediate Release)** | `Esrc_uR__downstream_bin_a__ubuntu_resolute__source`<br>`Ebin_uR64__downstream_bin_a__ubuntu_resolute_amd64__binary`<br>`Erel_sync-packages-to-testing_resolute_amd64` | [#1](https://build.test.ros2.org/job/Esrc_uR__downstream_bin_a__ubuntu_resolute__source/1/) ([Log](https://build.test.ros2.org/job/Esrc_uR__downstream_bin_a__ubuntu_resolute__source/1/console))<br>[#1](https://build.test.ros2.org/job/Ebin_uR64__downstream_bin_a__ubuntu_resolute_amd64__binary/1/) ([Log](https://build.test.ros2.org/job/Ebin_uR64__downstream_bin_a__ubuntu_resolute_amd64__binary/1/console))<br>[#7](https://build.test.ros2.org/job/Erel_sync-packages-to-testing_resolute_amd64/7/) ([Log](https://build.test.ros2.org/job/Erel_sync-packages-to-testing_resolute_amd64/7/console)) | **SUCCESS** | [`extendablebin/release-build.yaml`](https://github.com/rep159-testing/ros_buildfarm_config/blob/feat/stage3-binary-chained/extendablebin/release-build.yaml)<br>[`pool/main/r/ros-extendablebin-downstream-bin-a/`](http://repo.test.ros2.org/ubuntu/testing/pool/main/r/ros-extendablebin-downstream-bin-a/) |
+| **Topology 3 (Option B: 3-Tier Binary)** | `Eci__chained-import_ubuntu_resolute_amd64` | [#4](https://build.test.ros2.org/job/Eci__chained-import_ubuntu_resolute_amd64/4/) ([Log](https://build.test.ros2.org/job/Eci__chained-import_ubuntu_resolute_amd64/4/console)) | **SUCCESS** | [`feat/stage3-binary-chained`](https://github.com/rep159-testing/rep159-rosdistro/tree/feat/stage3-binary-chained) (`e63a90a` / `b38d0dc`) |
+| **Topology 4 (Hybrid Binary + Source)** | `Eci__mixed-chain_ubuntu_resolute_amd64` | [#1](https://build.test.ros2.org/job/Eci__mixed-chain_ubuntu_resolute_amd64/1/) / [#2](https://build.test.ros2.org/job/Eci__mixed-chain_ubuntu_resolute_amd64/2/) ([Log](https://build.test.ros2.org/job/Eci__mixed-chain_ubuntu_resolute_amd64/2/console)) | **SUCCESS** | [`feat/stage3-mixed`](https://github.com/rep159-testing/rep159-rosdistro/tree/feat/stage3-mixed) (`3e66c48` / `41c5aa9`) |
+| **Topology 5 (Multi-Parent Diamond)** | `Eci__diamond-chain_ubuntu_resolute_amd64` | [#1](https://build.test.ros2.org/job/Eci__diamond-chain_ubuntu_resolute_amd64/1/) / [#3](https://build.test.ros2.org/job/Eci__diamond-chain_ubuntu_resolute_amd64/3/) ([Log](https://build.test.ros2.org/job/Eci__diamond-chain_ubuntu_resolute_amd64/3/console)) | **SUCCESS** | [`feat/stage3-diamond`](https://github.com/rep159-testing/rep159-rosdistro/tree/feat/stage3-diamond) (`7ab72c6` / `66de746`) |
 
 > [!WARNING]
-> **Architectural Governance & ABI Drift Consideration (Enforcing Binary Upstream)**:
-> While this topology empirically proved that a local workspace can check out and compile an upstream ancestor from source (`upstream_c`) alongside an intermediate pre-built binary underlay (`downstream_bin_a`) using `rosdep --ignore-src` and CMake/Colcon overlay linking, **this may not be a desirable or recommended production behavior**:
-> 1. **Risk of ABI Drift & Dual-Linking**: The intermediate binary package `downstream_bin_a.deb` was compiled and linked against the canonical binary release of `upstream_c.deb`. If the leaf workspace overrides `upstream_c` from source with modified struct layouts, signatures, or state, `downstream_bin_a.so` in the underlay remains linked against the original binary ABI while `downstream_chain_a` links against the new source version. This creates potential One Definition Rule (ODR) violations and subtle memory corruption bugs.
-> 2. **Strict Binary Upstream Enforcement**: From an architectural and release-engineering standpoint, if an extension hierarchy declares `binary_import`, **everything above that boundary should strictly enforce binary resolution**. Even though compiling an upstream source in chains that begin with a `binary_import` is technically feasible at the workspace level, distribution governance should generally disallow mutating upstream dependencies across binary boundaries.
-> 3. **Production Recommendation**: When an upstream ancestor requires modification or patching, distributions should establish a pure `source_rebuild` chain from that ancestor downwards, preserving hermetic end-to-end ABI consistency.
-
-#### Repository & Branch Matrix
-* **`ros_buildfarm_config`**: [`feat/stage3-mixed`](https://github.com/rep159-testing/ros_buildfarm_config/tree/feat/stage3-mixed)
-* **`rep159-rosdistro`**: [`feat/stage3-mixed`](https://github.com/rep159-testing/rep159-rosdistro/tree/feat/stage3-mixed)
-* **`ros_buildfarm`**: [`feat/binary-naming-rule`](https://github.com/rep159-testing/ros_buildfarm/tree/feat/binary-naming-rule)
-* **Source Repositories**: `downstream_chain_a` (`main`), `upstream_c` (`main`)
-
-#### Executed Jobs & Configuration References
-* [`Eci__mixed-chain_ubuntu_resolute_amd64`](https://build.test.ros2.org/job/Eci__mixed-chain_ubuntu_resolute_amd64) (Status: SUCCESS) — [Job Config](https://github.com/rep159-testing/ros_buildfarm_config/blob/feat/stage3-mixed/extendablemixed/ci-nightly-release.yaml)
+> **ABI Governance Note (Topology 4)**: In `distribution.yaml`, `rosdistro` enforces ABI immutability by prohibiting `binary_import` child distributions from overriding inherited parent packages (except `BINARY_IMPORT_OVERRIDABLE = frozenset(['ros_workspace'])`). While CI jobs (`repository_names`) can check out an ancestor package (`upstream_c`) from source alongside an intermediate binary (`downstream_bin_a.deb`) via `rosdep --ignore-src`, production releases requiring upstream changes should use `source_rebuild` to prevent ODR/ABI drift.
 
 ---
 
-### Topology 5: Multi-Parent Diamond Extension (Convergent DAG)
+## Thematic Block 3: Composable Suite (`ros_workspace` + `bloom`) & Cache Lifecycle (Stages 4 & 5)
 
-#### Architectural Model
-
-```mermaid
-graph TD
-    E5["extendable (Root Ancestor)"] -->|binary_import| EB5["extendablebin"]
-    E5 -->|source_rebuild| ES5["extendablesrc"]
-    EB5 -->|binary_import| ED5["extendablediamond (Multi-Parent Child)"]
-    ES5 -->|source_rebuild| ED5
-```
-
-#### Behavior & Topological Invariants
-Validates multi-parent inheritance where a child distribution declares multiple parents with different extension methods converging back to a shared root ancestor.
-- **Multi-Parent Resolution**: `rosdistro` resolves `extends: [extendablebin (binary_import), extendablesrc (source_rebuild)]`.
-- **Topological Underlay Deduplication**: `get_binary_import_underlays()` traverses both paths of the DAG, identifies the shared root ancestor, and deduplicates the result space path:
-  `ROS_BUILDFARM_PARENT_RESULT_SPACES=/opt/ros/extendable:/opt/ros/extendablebin`
-- APT installs pre-built `ros-extendablebin-downstream-bin-a`.
-- Colcon compiles `downstream_src_a` and `downstream_chain_a` in the same workspace and passes 100% of unit test suites.
-
-> [!NOTE]
-> **Architectural Consideration: CI Scope & Pruning Unused Sources in Convergent DAGs**:
-> In this diamond topology, the leaf distribution `extendablediamond` links its target package `downstream_chain_a` exclusively against the binary underlay `downstream_bin_a` from the left (`binary_import`) branch. However, because the right branch declared `source_rebuild`, `downstream_src_a` was also checked out, compiled, and tested in the CI container even though it is not consumed anywhere by `downstream_chain_a`.
-> * **Governance & Default Behavior Consideration**: In production distribution maintenance, if a leaf distribution resolves its final runtime dependencies strictly from binary packages, building and testing unreferenced source packages from parallel `source_rebuild` branches may introduce unnecessary build overhead and compute cost. Future default behaviors or CI policies could consider transitive dependency pruning (e.g., pruning source checkout and build steps to only packages required by the distribution's released targets, using `--packages-up-to` or dependency-graph filtering) unless full-suite regression testing is explicitly desired.
-
-#### Repository & Branch Matrix
-* **`ros_buildfarm_config`**: [`feat/stage3-diamond`](https://github.com/rep159-testing/ros_buildfarm_config/tree/feat/stage3-diamond)
-* **`rep159-rosdistro`**: [`feat/stage3-diamond`](https://github.com/rep159-testing/rep159-rosdistro/tree/feat/stage3-diamond)
-* **`ros_buildfarm`**: [`feat/binary-naming-rule`](https://github.com/rep159-testing/ros_buildfarm/tree/feat/binary-naming-rule)
-* **Source Repositories**: `downstream_chain_a` (`main`), `downstream_src_a` (`main`)
-
-#### Executed Jobs & Configuration References
-* [`Eci__diamond-chain_ubuntu_resolute_amd64`](https://build.test.ros2.org/job/Eci__diamond-chain_ubuntu_resolute_amd64) (Status: SUCCESS) — [Job Config](https://github.com/rep159-testing/ros_buildfarm_config/blob/feat/stage3-diamond/extendablediamond/ci-nightly-release.yaml)
-
----
-
-## Thematic Block 3: Composable Suite & Native `ros_workspace` Integration
-
-> [!IMPORTANT]
-> **Distribution Suite Shift (`extendable*` $\to$ `composable*`)**:
-> - **Thematic Blocks 1 & 2 (`extendable` Suite, Jenkins Jobs `E*`)**: Evaluated core REP-159 algorithms (binary naming regex, install rules, DAG resolution, workspace checkout pruning) using pure CMake test packages without ROS shell environment files. Underlays were injected by buildfarm environment variable exports (`CMAKE_PREFIX_PATH`, `LD_LIBRARY_PATH`).
-> - **Thematic Block 3 (`composable` Suite, Jenkins Jobs `C*`)**: Advances to full **ROS 2 native environment sourcing** (`ros_workspace`, `/opt/ros/<distro>/setup.sh`, `.dsv` hooks) and automated Debian release generation via **`bloom`**, testing standard ROS 2 package lifecycles where child setups recursively source parent underlays.
-
-> [!NOTE]
-> **Execution Status Notice**: Because the public ROS 2 testfarm (`build.test.ros2.org`) is currently offline/unavailable, all release pipeline and CI runs for the `composable` distribution suite have been validated and confirmed 100% green on a local replica buildfarm cluster. Once the public testfarm is restored, these exact job configurations can be triggered directly.
-
-### Architecture & Underlay Chaining Model
+### Architecture & Underlay Chaining Flow
 
 ```mermaid
-graph TD
-    subgraph ComposableSuite [The composable Distribution Family]
-        C["composable (Root Distro)<br/>Prefix: /opt/ros/composable<br/>binary_rule: vendor-composable-@PKG@<br/>Provides: ros_workspace, upstream_{a,b,c}"]
-        
-        U["upstream (Underlay Distro)<br/>Prefix: /opt/ros/upstream<br/>Provides: ament_cmake_core, ament_package"]
-        
-        U -.->|Environment Chaining<br/>AMENT_PREFIX_PATH / CMAKE_PREFIX_PATH| C
-        
-        CB["composablebin<br/>extends: composable (binary_import)<br/>Prefix: /opt/ros/composablebin"]
-        CS["composablesrc<br/>extends: composable (source_rebuild)<br/>Prefix: /opt/ros/composablesrc"]
-        
-        C -->|binary_import| CB
-        C -->|source_rebuild| CS
+graph LR
+    subgraph Stage4 ["Stage 4: Composable Suite (Native ros_workspace & bloom)"]
+        U["upstream (/opt/ros/upstream)<br/>ament_package, ament_cmake_core"] -.->|ROS_WORKSPACE_PARENT_PREFIX_PATH| C["composable (/opt/ros/composable)<br/>binary_rule: vendor-{distro}-{package}<br/>vendor-composable-ros-workspace<br/>vendor-composable-upstream-{a,b,c}"]
+        C -->|binary_import| CB["composablebin (/opt/ros/composablebin)<br/>vendor-composablebin-downstream-bin-a"]
+    end
+
+    subgraph Stage5 ["Stage 5: Cache Lifecycle & Isolation"]
+        CACHE_B["cachebase-cache.yaml.gz<br/>upstream_{a,b,c}"] -->|extends[].index_url<br/>- REMOVE parent pkgs| CACHE_C["cachechild-cache.yaml.gz<br/>Isolated: downstream_bin_a only"]
     end
 ```
 
-### Feature Mechanics & Tooling Innovations
+### Collaborative Implementation Matrix (Adopting Jose Luis Rivero's `jrivero` Commits)
 
-1. **Native ROS 2 Shell Environment (`ros_workspace`)**:
-   - Transitions from artificial environment variable injection to native ROS 2 underlay environment sourcing.
-   - Sourcing `/opt/ros/composable/setup.sh` evaluates `.dsv` environment hooks, sets `AMENT_PREFIX_PATH`, `CMAKE_PREFIX_PATH`, `LD_LIBRARY_PATH`, and recursively incorporates `/opt/ros/upstream`.
-
-2. **Dedicated Packaging Tooling Fork (`rep159-testing/bloom`)**:
-   - Standard `bloom` hardcodes `Package: ros-@ROS_DISTRO@-@PKG@` and `CMAKE_INSTALL_PREFIX="/opt/ros/@ROS_DISTRO@"`.
-   - The fork on branch `feat/rep159-rules-support`:
-     - Queries `rosdistro.get_binary_package_name()` to format Debian control dependencies dynamically according to `binary_rule`.
-     - Parameterizes `CMAKE_INSTALL_PREFIX` according to `install_rule`.
-     - Generates multi-tier underlay sourcing logic inside `debian/rules`.
-
-3. **Hermetic Release & CI Execution**:
-   - `vendor-composable-ros-workspace` is packaged as an independent `.deb` archive installed into `/opt/ros/composable`.
-   - In CI jobs (`Cci`), `ros_buildfarm` installs `vendor-composable-ros-workspace` via APT, detects `/opt/ros/composable/setup.sh`, and executes builds natively:
-     ```bash
-     . /opt/ros/composable/setup.sh && colcon build ...
-     . /opt/ros/composable/setup.sh && colcon test ...
-     ```
-
-### Repository & Branch Matrix
-
-| Repository | Branch / Track | Purpose |
-|---|---|---|
-| **`bloom`** | [`feat/rep159-rules-support`](https://github.com/rep159-testing/bloom/tree/feat/rep159-rules-support) | Packaging generator honoring `binary_rule` and `install_rule` (commit `45fb575`) |
-| **`ros_workspace`** | [`feat/rep159-parent-chaining`](https://github.com/rep159-testing/ros_workspace/tree/feat/rep159-parent-chaining) | Reconciled underlay chaining configuration for `/opt/ros/composable` (commit `1805a69`) |
-| **`ros_buildfarm`** | [`feat/rep159-binary-naming`](https://github.com/rep159-testing/ros_buildfarm/tree/feat/rep159-binary-naming) | PR 3C release naming delegation, child release job isolation, and sync prefix (commit `9b02768`) |
-| **`ros_workspace-release`** | [`debian/vendor-composable/resolute/ros_workspace`](https://github.com/rep159-testing/ros_workspace-release/tree/debian/vendor-composable/resolute/ros_workspace) | Release track and tag `debian/vendor-composable-ros-workspace_1.0.4-1_resolute` |
-| **`upstream_{a,b,c}-release`** | [`debian/vendor-composable/resolute/upstream_{a,b,c}`](https://github.com/rep159-testing/upstream_a-release/tree/debian/vendor-composable/resolute/upstream_a) | Release tracks and tags `debian/vendor-composable-upstream-{a,b,c}_0.1.0-1_resolute` |
-| **`downstream_bin_a-release`** | [`debian/vendor-composablebin/resolute/downstream_bin_a`](https://github.com/rep159-testing/downstream_bin_a-release/tree/debian/vendor-composablebin/resolute/downstream_bin_a) | Release track and tag `debian/vendor-composablebin-downstream-bin-a_0.2.0-1_resolute` |
-| **`rep159-rosdistro`** | [`feat/composable-distro`](https://github.com/rep159-testing/rep159-rosdistro/tree/feat/composable-distro) | Distribution definitions for `composable` and `composablebin` |
-| **`ros_buildfarm_config`** | [`feat/composable-distro`](https://github.com/rep159-testing/ros_buildfarm_config/tree/feat/composable-distro) | Buildfarm release, sync, and CI configurations (`composable/`, `composablebin/`) |
-
-### Executed Jobs & Configuration References
-
-* **Workspace & Root Distro Release Pipelines (`composable`)**:
-  - [`Csrc_uR__ros_workspace__ubuntu_resolute__source`](https://build.test.ros2.org/job/Csrc_uR__ros_workspace__ubuntu_resolute__source) (Status: Validated locally; pending remote testfarm) — [Job Config](https://github.com/rep159-testing/ros_buildfarm_config/blob/feat/composable-distro/composable/release-build-local.yaml)
-  - [`Cbin_uR64__ros_workspace__ubuntu_resolute_amd64__binary`](https://build.test.ros2.org/job/Cbin_uR64__ros_workspace__ubuntu_resolute_amd64__binary) (Status: Validated locally; pending remote testfarm) — [Job Config](https://github.com/rep159-testing/ros_buildfarm_config/blob/feat/composable-distro/composable/release-build-local.yaml)
-  - [`Csrc_uR__upstream_a__ubuntu_resolute__source`](https://build.test.ros2.org/job/Csrc_uR__upstream_a__ubuntu_resolute__source) (Status: Validated locally; pending remote testfarm) — [Job Config](https://github.com/rep159-testing/ros_buildfarm_config/blob/feat/composable-distro/composable/release-build-local.yaml)
-  - [`Cbin_uR64__upstream_a__ubuntu_resolute_amd64__binary`](https://build.test.ros2.org/job/Cbin_uR64__upstream_a__ubuntu_resolute_amd64__binary) (Status: Validated locally; pending remote testfarm) — [Job Config](https://github.com/rep159-testing/ros_buildfarm_config/blob/feat/composable-distro/composable/release-build-local.yaml)
-  - [`Csrc_uR__upstream_b__ubuntu_resolute__source`](https://build.test.ros2.org/job/Csrc_uR__upstream_b__ubuntu_resolute__source) (Status: Validated locally; pending remote testfarm) — [Job Config](https://github.com/rep159-testing/ros_buildfarm_config/blob/feat/composable-distro/composable/release-build-local.yaml)
-  - [`Cbin_uR64__upstream_b__ubuntu_resolute_amd64__binary`](https://build.test.ros2.org/job/Cbin_uR64__upstream_b__ubuntu_resolute_amd64__binary) (Status: Validated locally; pending remote testfarm) — [Job Config](https://github.com/rep159-testing/ros_buildfarm_config/blob/feat/composable-distro/composable/release-build-local.yaml)
-  - [`Csrc_uR__upstream_c__ubuntu_resolute__source`](https://build.test.ros2.org/job/Csrc_uR__upstream_c__ubuntu_resolute__source) (Status: Validated locally; pending remote testfarm) — [Job Config](https://github.com/rep159-testing/ros_buildfarm_config/blob/feat/composable-distro/composable/release-build-local.yaml)
-  - [`Cbin_uR64__upstream_c__ubuntu_resolute_amd64__binary`](https://build.test.ros2.org/job/Cbin_uR64__upstream_c__ubuntu_resolute_amd64__binary) (Status: Validated locally; pending remote testfarm) — [Job Config](https://github.com/rep159-testing/ros_buildfarm_config/blob/feat/composable-distro/composable/release-build-local.yaml)
-  - [`Crel_sync-packages-to-testing_resolute_amd64`](https://build.test.ros2.org/job/Crel_sync-packages-to-testing_resolute_amd64) (Status: Validated locally; pending remote testfarm) — [Job Config](https://github.com/rep159-testing/ros_buildfarm_config/blob/feat/composable-distro/composable/release-build-local.yaml)
-  - [`Cci__nightly-release_ubuntu_resolute_amd64`](https://build.test.ros2.org/job/Cci__nightly-release_ubuntu_resolute_amd64) (Status: Validated locally; pending remote testfarm) — [Job Config](https://github.com/rep159-testing/ros_buildfarm_config/blob/feat/composable-distro/composable/ci-nightly-release-local.yaml)
-* **Downstream Extension Pipelines (`composablebin` Overlay via `binary_import`)**:
-  - [`Csrc_uR__downstream_bin_a__ubuntu_resolute__source`](https://build.test.ros2.org/job/Csrc_uR__downstream_bin_a__ubuntu_resolute__source) (Status: Validated locally; pending remote testfarm) — [Job Config](https://github.com/rep159-testing/ros_buildfarm_config/blob/feat/composable-distro/composablebin/release-build-local.yaml)
-  - [`Cbin_uR64__downstream_bin_a__ubuntu_resolute_amd64__binary`](https://build.test.ros2.org/job/Cbin_uR64__downstream_bin_a__ubuntu_resolute_amd64__binary) (Status: Validated locally; pending remote testfarm) — [Job Config](https://github.com/rep159-testing/ros_buildfarm_config/blob/feat/composable-distro/composablebin/release-build-local.yaml)
-  - [`Cci__binary-import_ubuntu_resolute_amd64`](https://build.test.ros2.org/job/Cci__binary-import_ubuntu_resolute_amd64) (Status: Validated locally; pending remote testfarm) — [Job Config](https://github.com/rep159-testing/ros_buildfarm_config/blob/feat/composable-distro/composablebin/ci-nightly-release-local.yaml)
-
-
-### Verified Invariants
-
-* **Native Setup Sourcing**: Container verified presence of `/opt/ros/composable/setup.sh` and sourced it automatically prior to building and testing.
-* **Underlay Chain Inheritance**: `upstream_a`, `upstream_b`, and `upstream_c` compiled with `colcon` and resolved build dependencies (`ament_cmake_core`) from the chained `/opt/ros/upstream` underlay without manual environment intervention.
-* **Downstream Binary Overlay Chaining**: `downstream_bin_a` compiled and linked against `vendor-composable-upstream-c` installed via `binary_import` under prefix `/opt/ros/composable`, verifying seamless cross-distribution ABI and environment inheritance.
-* **Hermetic Unit Test Execution**: 100% unit tests passed across all packages with CTest and GoogleTest XML reports archived.
+| Component | Clean PR Branch (`@ SHA`) | Adopted `jrivero` Commits & Extensions | Verified Behavior |
+|---|---|---|---|
+| **`rosdistro` Child `ros_workspace` Override & Parent Cache** | [`feat/rep159-install-rule`](https://github.com/rep159-testing/rosdistro/tree/feat/rep159-install-rule) (`a8f5543`) | • `46a7580` (`jrivero`): Load parent caches from `extends[].index_url`<br>• `aefe17c`, `a8f5543` (`jrivero` `4a89ac4`, `78c7db8`): `BINARY_IMPORT_OVERRIDABLE = frozenset(['ros_workspace'])`<br>• `3d301d6`, `bfde799`, `4916cae`: `binary_rule` & `install_rule` | Child `binary_import` distros can release their own `ros_workspace` package while keeping parent packages immutable; `rosdistro_build_cache` strips parent packages (`- REMOVE`) from child cache files. |
+| **`ros_workspace` Multi-Parent Chaining** | [`feat/rep159-parent-chaining`](https://github.com/rep159-testing/ros_workspace/tree/feat/rep159-parent-chaining) (`4997f85`) | • `12f93e9` (`jrivero`): Searches `${CMAKE_INSTALL_PREFIX};${ROS_WORKSPACE_PARENT_PREFIX_PATH}` for `ament_package` and writes `parent_prefix_path` ament index<br>• `4997f85`: `PARENT_PREFIX_PATH` CMake variable alias | Sourcing `/opt/ros/composable/setup.sh` evaluates `.dsv` hooks and recursively chains `/opt/ros/upstream`. |
+| **`bloom` Automated Debian Generator** | [`feat/rep159-rules-support`](https://github.com/rep159-testing/bloom/tree/feat/rep159-rules-support) (`7af7034`) | • `0189046`..`2877687` (`jrivero`): `get_binary_import_parents()`, `ParentPrefixes` in `debian/rules.em`, `-DROS_WORKSPACE_PARENT_PREFIX_PATH`, `get_ros_workspace_dependencies()`<br>• `1f62809`..`7af7034`: `get_binary_package_name()`, `get_install_prefix()`, `git tag -f -m` GPG fix | `git-bloom-generate rosdebian` generates `debian/control` and `debian/rules` honoring `binary_rule`, `install_rule`, and multi-tier `ParentPrefixes`. |
+| **Release & Config Repositories** | [`feat/composable-distro`](https://github.com/rep159-testing/rep159-rosdistro/tree/feat/composable-distro)<br>[`feat/cache-lifecycle-test`](https://github.com/rep159-testing/rep159-rosdistro/tree/feat/cache-lifecycle-test) | • `ros_workspace-release`: [`debian/vendor-composable/resolute/ros_workspace`](https://github.com/rep159-testing/ros_workspace-release/tree/debian/vendor-composable/resolute/ros_workspace)<br>• `upstream_{a,b,c}-release`: [`debian/vendor-composable/resolute/upstream_*`](https://github.com/rep159-testing/upstream_a-release/tree/debian/vendor-composable/resolute/upstream_a)<br>• `downstream_bin_a-release`: [`debian/vendor-composablebin/resolute/downstream_bin_a`](https://github.com/rep159-testing/downstream_bin_a-release/tree/debian/vendor-composablebin/resolute/downstream_bin_a) & [`debian/cachechild/resolute/downstream_bin_a`](https://github.com/rep159-testing/downstream_bin_a-release/tree/debian/cachechild/resolute/downstream_bin_a) | End-to-end `Csrc`, `Cbin`, `Crel`, `Cci`, and `*_rosdistro-cache` pipelines verified (see [`STAGE4_COMPOSABLE_WORKSPACE_PLAN.md`](https://github.com/KmoM88/rep159-testing/blob/main/STAGE4_COMPOSABLE_WORKSPACE_PLAN.md) & [`STAGE5_CACHE_AND_BLOOM_PLAN.md`](https://github.com/KmoM88/rep159-testing/blob/main/STAGE5_CACHE_AND_BLOOM_PLAN.md)). |
 
 ---
 
-## Stage 5: Distribution Cache Lifecycle & Bloom Packaging Validation
-
-### Architectural Objectives & Topology
-
-Stage 5 validates two essential operational pillars in hierarchical distributions under REP-159 without unnecessary multi-tier complexity:
-1. **Cache Lifecycle & Hierarchy**: Validating how `rosdistro_build_cache` builds, publishes, isolates, invalidates, and refreshes distribution caches across parent-child boundaries.
-2. **Automated Debian Packaging with Bloom**: Verifying that the REP-159 Bloom fork (`submodules/bloom`) generates complete, valid `debian/control` and `debian/rules` configurations directly from `distribution.yaml` metadata.
+## Phased Upstream PR Progression & Release-Gate Schedule
 
 ```mermaid
-graph TD
-    subgraph MinimalCacheSuite [Stage 5 Minimal Cache Validation Suite]
-        CB["cachebase (Root Distro)<br/>Prefix: /opt/ros/cachebase<br/>binary_rule: vendor-cachebase-@PKG@<br/>Packages: upstream_a, upstream_b, upstream_c"]
-        
-        CC["cachechild (Overlay Distro)<br/>extends: cachebase (binary_import)<br/>Prefix: /opt/ros/cachechild<br/>binary_rule: vendor-cachechild-@PKG@<br/>Packages: downstream_bin_a"]
-
-        CB -->|binary_import| CC
+flowchart LR
+    subgraph W0 ["Wave 0 (No Gate Deps)"]
+        R0["reps#31 & #35 (Merged)<br/>reps install_rule<br/>reprepro-updater:refactor<br/>rosdistro (#1 + install_rule)"]
     end
+    W0 --> G1{{"GATE 1<br/>rosdistro >= 1.2.0"}}
+    subgraph W1 ["Wave 1"]
+        R1["rosdep: feat/rep159-binary-lookup<br/>ros_workspace: feat/rep159-parent-chaining"]
+    end
+    G1 --> W1 --> G2{{"GATE 2<br/>rosdep >= 0.27.0<br/>ros_workspace >= 1.0.4"}}
+    subgraph W23 ["Waves 2 & 3"]
+        R2["bloom: feat/rep159-rules-support<br/>ros_buildfarm: PRs 3A, 3B, 3C"]
+    end
+    G2 --> W23 --> G4{{"GATE 3 & 4<br/>bloom >= 0.15.0<br/>ros_buildfarm >= 4.2.0"}}
 ```
 
-### Key Technical Mechanisms
-
-1. **REP-159 Enabled Cache Generator (`ros_buildfarm`)**:
-   - Upstream `rosdistro_cache_task.Dockerfile.em` relies on Ubuntu Focal APT packages that lack ROSDistro Format 3 support (`extends`, `binary_rule`, `install_rule`).
-   - Branch `feat/cache-job-rep159` injects the REP-159 `rosdistro` engine, allowing `rosdistro_build_cache` to parse extended distribution schemas inside the cache generation container.
-   - Job assignment is directed to Docker-capable agents (`building_repository`), and cache archives (`<distro>-cache.yaml.gz`) are automatically published to the APT/Nginx mirror server via SSH.
-
-2. **Parent Cache Inheritance & Boundary Isolation**:
-   - When building `cachechild-cache.yaml.gz`, the generator fetches both `cachechild-cache.yaml.gz` and parent `cachebase-cache.yaml.gz`.
-   - The engine validates cross-distribution dependencies, then performs clean boundary isolation (`- REMOVE upstream_a`, `- REMOVE upstream_b`, `- REMOVE upstream_c`) ensuring parent packages do not contaminate downstream overlay caches or alter parent ABI definitions.
-
-3. **Cache Invalidation & Automated Reconfiguration**:
-   - When package versions are bumped in `distribution.yaml` (e.g., `upstream_a` `0.1.0` $\to$ `0.1.1`), the cache job detects the change:
-     ```text
-     - updated manifest of package 'upstream_a' to version '0.1.1'
-     ```
-   - The Jenkins Groovy post-build publisher triggers downstream reconfigurations and rebuilds automatically.
-
-4. **Automated Bloom Release Generation (`bloom`)**:
-   - Using `git-bloom-generate rosdebian` on branch `feat/rep159-rules-support`:
-     - **Binary Naming**: Queries `rosdistro.get_binary_package_name()` to generate Debian package names and inter-package dependencies matching `binary_rule`:
-       ```text
-       Package: vendor-cachechild-downstream-bin-a
-       Depends: ${shlibs:Depends}, ${misc:Depends}, libyaml-0-2, vendor-cachebase-upstream-c, vendor-cachechild-ros-workspace
-       ```
-     - **Install Prefix & PKG_CONFIG_PATH**: Automatically parameterizes `CMAKE_INSTALL_PREFIX="/opt/ros/cachechild"` and `PKG_CONFIG_PATH=/opt/ros/cachechild/lib/pkgconfig:/opt/ros/cachebase/lib/pkgconfig`.
-     - **Chained Underlay Sourcing**: Injects recursive sourcing loops into all `debian/rules` debhelper targets:
-       ```make
-       if [ -f "/opt/ros/cachebase/setup.sh" ]; then . "/opt/ros/cachebase/setup.sh"; fi && if [ -f "/opt/ros/cachechild/setup.sh" ]; then . "/opt/ros/cachechild/setup.sh"; fi
-       ```
-
-### Repository & Branch Matrix
-
-| Repository | Branch / Track | Purpose |
-|---|---|---|
-| **`bloom`** | [`feat/rep159-rules-support`](https://github.com/rep159-testing/bloom/tree/feat/rep159-rules-support) | Bloom packaging generator with REP-159 rules and gpgsign fix |
-| **`downstream_bin_a-release`** | [`debian/cachechild/resolute/downstream_bin_a`](https://github.com/rep159-testing/downstream_bin_a-release/tree/debian/cachechild/resolute/downstream_bin_a) | Debian packaging generated by Bloom (`vendor-cachechild-downstream-bin-a`) |
-| **`ros_buildfarm`** | [`feat/cache-job-rep159`](https://github.com/rep159-testing/ros_buildfarm/tree/feat/cache-job-rep159) | Cache job templates updated for REP-159 Docker task & agent assignment |
-| **`rep159-rosdistro`** | [`feat/cache-lifecycle-test`](https://github.com/rep159-testing/rep159-rosdistro/tree/feat/cache-lifecycle-test) | Minimal 2-tier distribution definitions (`cachebase` and `cachechild`) |
-| **`ros_buildfarm_config`** | [`feat/cache-lifecycle-test`](https://github.com/rep159-testing/ros_buildfarm_config/tree/feat/cache-lifecycle-test) | Buildfarm config definitions for `cachebase` and `cachechild` suites |
-
-### Executed Jobs & Verification References
-
-* **Distribution Cache Generation Pipelines**:
-  - `cachebase_rosdistro-cache` (Status: Validated on Local Testfarm, Build #18 SUCCESS) — [Job Template](https://github.com/rep159-testing/ros_buildfarm/blob/feat/cache-job-rep159/ros_buildfarm/templates/misc/rosdistro_cache_job.xml.em)
-  - `cachechild_rosdistro-cache` (Status: Validated on Local Testfarm, Build #18 SUCCESS) — [Job Template](https://github.com/rep159-testing/ros_buildfarm/blob/feat/cache-job-rep159/ros_buildfarm/templates/misc/rosdistro_cache_job.xml.em)
-
-### Verified Invariants
-
-* **Isolated Overlay Caching**: Child distributions cleanly isolate their own packages (`cachechild-cache.yaml.gz`) while successfully inheriting parent dependency resolution without contaminating upstream state.
-* **Deterministic Cache Invalidation**: Version updates in `distribution.yaml` trigger selective manifest refreshes and automated Jenkins build pipelines without full cache wipes.
-* **Automated Packaging Compliance**: Bloom generates 100% compliant Debian packaging files directly from ROSDistro metadata without manual patching, respecting custom binary naming, custom install prefixes, and multi-tier underlay chaining.
-
----
-
-## Phased Upstream PR Progression & Release-Gate Timeline
-
-Upstreaming REP-159 features follows a release-gated dependency progression across Open Robotics repositories to prevent broken dependencies during Debian packaging and CI:
-
-```mermaid
-gantt
-    title REP-159 Phased Upstreaming & Release-Gate Progression Timeline
-    dateFormat YYYY-MM-DD
-    axisFormat %b %Y
-
-    section Wave 0 (Specs & Standalone)
-    reps#35 (binary_rule lowercase spec)    :done, m0_reps, 2026-01-01, 2026-02-15
-    reps (install_rule spec extension)      :done, m0_reps_inst, 2026-01-15, 2026-02-28
-    reprepro-updater (--package-prefix)     :done, m0_reprepro, 2026-02-01, 2026-03-01
-    Standalone fixes (TLS, 403, gpgSign)    :done, m0_fixes, 2026-02-01, 2026-03-01
-
-    section Milestone 1 (rosdistro)
-    rosdistro Format 3 & binary_rule (#1)   :active, m1_rd_pr, 2026-02-15, 2026-03-20
-    rosdistro feat/rep159-install-rule      :active, m1_inst_pr, 2026-02-25, 2026-03-25
-    RELEASE GATE 1 (rosdistro >= 1.2.0)     :milestone, m1_gate, 2026-03-25, 0d
-
-    section Milestone 2 (rosdep & ros_workspace)
-    rosdep feat/rep159-binary-lookup        :active, m2_rdep, after m1_gate, 30d
-    RELEASE GATE 2 (rosdep >= 0.27.0)       :milestone, m2_gate, after m2_rdep, 0d
-    ros_workspace feat/rep159-parent-chain  :active, m2_ws, 2026-03-01, 2026-03-31
-    RELEASE GATE 2B (ros_workspace >= 1.0.4):milestone, m2b_gate, after m2_ws, 0d
-
-    section Milestone 3 (bloom)
-    bloom feat/rep159-rules-support         :active, m3_bloom, after m2_gate, 30d
-    RELEASE GATE 3 (bloom >= 0.15.0)        :milestone, m3_gate, after m3_bloom, 0d
-
-    section Milestone 4 (ros_buildfarm)
-    ros_buildfarm PR 3A (workspace-walk)    :active, m4_3a, after m2_gate, 20d
-    ros_buildfarm PR 3B (dynamic underlays) :active, m4_3b, after m4_3a, 20d
-    ros_buildfarm PR 3C (binary-naming)     :active, m4_3c, after m4_3b, 20d
-    ros_buildfarm PR 5 (cache-job-rep159)   :active, m4_cache, after m4_3c, 15d
-    RELEASE GATE 4 (ros_buildfarm >= 4.2.0) :milestone, m4_gate, after m4_cache, 0d
-
-    section Milestone 5 (Production Deployment)
-    ros_buildfarm_config production distros :active, m5_config, after m4_gate, 30d
-    Full End-to-End Production Active       :milestone, m5_active, after m5_config, 0d
-```
-
-* Comprehensive cross-repository tracking, Gantt milestone schedule, and issue links across all 5 stages are maintained in [`STAGE_PR_AND_ISSUE_MAP.md`](https://github.com/KmoM88/rep159-testing/blob/main/STAGE_PR_AND_ISSUE_MAP.md).
-
-
-
+* Full stacked PR breakdown, commit lineage, and release-gate matrix: **[`ROLLOUT_PLAN.md`](https://github.com/KmoM88/rep159-testing/blob/main/ROLLOUT_PLAN.md)** and **[`STAGE_PR_AND_ISSUE_MAP.md`](https://github.com/KmoM88/rep159-testing/blob/main/STAGE_PR_AND_ISSUE_MAP.md)**.

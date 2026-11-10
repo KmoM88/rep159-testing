@@ -19,9 +19,9 @@ fi
 COMMON_USER="${JENKINS_USER:-kmom88}"
 
 if [ "$TARGET" = "local" ]; then
-    export JENKINS_URL="http://192.168.30.206:8080"
-    export BUILDFARM_CONFIG_URL="http://192.168.30.202:8088/ros_buildfarm_config/index-local.yaml"
-    export APT_REPO_URL="http://192.168.30.202:8088/ubuntu/testing"
+    export JENKINS_URL="http://<local-jenkins-host>:8080"
+    export BUILDFARM_CONFIG_URL="http://<local-apt-host>:8088/ros_buildfarm_config/index-local.yaml"
+    export APT_REPO_URL="http://<local-apt-host>:8088/ubuntu/testing"
     export JENKINS_USER="$COMMON_USER"
     export JENKINS_TOKEN="${LOCAL_JENKINS_TOKEN:-$JENKINS_TOKEN}"
 
@@ -29,7 +29,7 @@ if [ "$TARGET" = "local" ]; then
     echo " Activating Target: LOCAL BUILDFARM CLUSTER"
     echo " Jenkins:     $JENKINS_URL"
     echo " User:        $JENKINS_USER"
-    echo " APT / Nginx: http://192.168.30.202:8088"
+    echo " APT / Nginx: http://<local-apt-host>:8088"
     echo " Config URL:  $BUILDFARM_CONFIG_URL"
     echo "=================================================="
 elif [ "$TARGET" = "remote" ]; then

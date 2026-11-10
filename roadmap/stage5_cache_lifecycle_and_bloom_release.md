@@ -16,8 +16,8 @@ Stage 5 validates both capabilities end-to-end on a dedicated minimal 2-tier dis
 
 ### Decision 1: Minimal 2-Tier Topology (`cachebase` $\to$ `cachechild`)
 * **Context**: Rather than testing cache mechanics on complex multi-tier diamond topologies, a clean, minimal 2-tier hierarchy was established:
-  - `cachebase` (Root Distro): Hosts `upstream_a`, `upstream_b`, `upstream_c` under prefix `/opt/ros/cachebase` with `binary_rule: vendor-cachebase-@PKG@`.
-  - `cachechild` (Overlay Distro): `extends: cachebase (binary_import)`, hosts `downstream_bin_a` under prefix `/opt/ros/cachechild` with `binary_rule: vendor-cachechild-@PKG@`.
+  - `cachebase` (Root Distro): Hosts `upstream_a`, `upstream_b`, `upstream_c` under prefix `/opt/ros/cachebase` with `binary_rule: {search: '^', replace: 'vendor-{distro}-'}`.
+  - `cachechild` (Overlay Distro): `extends: cachebase (binary_import)`, hosts `downstream_bin_a` under prefix `/opt/ros/cachechild` with `binary_rule: {search: '^', replace: 'vendor-{distro}-'}`.
 * **Rationale**: Eliminates extraneous dependency noise, isolating cache inheritance, boundary de-merging, and invalidation mechanics.
 
 ### Decision 2: Cache Boundary Isolation (`- REMOVE`)
@@ -50,7 +50,7 @@ Stage 5 validates both capabilities end-to-end on a dedicated minimal 2-tier dis
    - `rosdistro_cache_task.Dockerfile.em`: Injected `pip3 install https://github.com/rep159-testing/rosdistro/archive/refs/heads/feature/rep159-install-rule.tar.gz` only because Gate 1 was not yet in `ros_bootstrap` APT.
    - `rosdistro_cache_job.xml.em`: Changed `<assignedNode>built-in || master</assignedNode>` to `building_repository` only because the local Jenkins master container lacked a Docker CLI client.
 2. **Reprepro `focal` Suite Export on Local Mirror**:
-   - The cache task container uses base image `ubuntu:focal`. Adding `Codename: focal` and running `reprepro export focal` on the local mirror (`192.168.30.202:8088`) allowed container APT updates to pass cleanly.
+   - The cache task container uses base image `ubuntu:focal`. Adding `Codename: focal` and running `reprepro export focal` on the local mirror (`<local-apt-host>:8088`) allowed container APT updates to pass cleanly.
 3. **Jenkins Groovy Script Approvals & SSH Target**:
    - Approved the Groovy post-build regex scanner signature via `ScriptApproval` and mapped SSH publisher `rosdistro_cache` to `/var/repos/rep159-rosdistro/`.
 
@@ -65,13 +65,13 @@ Stage 5 validates both capabilities end-to-end on a dedicated minimal 2-tier dis
 * **Overlay Distro Cache (`cachechild_rosdistro-cache`)**:
   - Build #18 (**SUCCESS**): Verified child cache execution log:
     ```text
-    DEBUG:rosdistro:Load index from "http://192.168.30.202:8088/rep159-rosdistro/index-v4.yaml"
+    DEBUG:rosdistro:Load index from "http://<local-apt-host>:8088/rep159-rosdistro/index-v4.yaml"
     Build cache for "cachechild"
     - trying to fetch cache
-    DEBUG:rosdistro:Load cache from "http://192.168.30.202:8088/rep159-rosdistro/cachechild-cache.yaml.gz"
-    DEBUG:rosdistro:Load cache from "http://192.168.30.202:8088/rep159-rosdistro/cachebase-cache.yaml.gz"
+    DEBUG:rosdistro:Load cache from "http://<local-apt-host>:8088/rep159-rosdistro/cachechild-cache.yaml.gz"
+    DEBUG:rosdistro:Load cache from "http://<local-apt-host>:8088/rep159-rosdistro/cachebase-cache.yaml.gz"
     - update cache
-    DEBUG:rosdistro:Load file from "http://192.168.30.202:8088/rep159-rosdistro/cachechild/distribution.yaml"
+    DEBUG:rosdistro:Load file from "http://<local-apt-host>:8088/rep159-rosdistro/cachechild/distribution.yaml"
     - removing invalid release package cache entries.
     - REMOVE upstream_a
     - REMOVE upstream_b

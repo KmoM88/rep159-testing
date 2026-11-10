@@ -12,7 +12,7 @@ Previous testing stages (Stages 1 through 5) successfully validated all topologi
 
 > [!NOTE]
 > **Operator / LLM Execution Context**:
-> When running from an environment without direct network routing to the local Jenkins cluster (`192.168.30.206:8080`) or local APT mirror (`192.168.30.202:8088`), use the local Docker test harness (`tests/real_world_gazebo/run_docker_test.sh`).
+> When running from an environment without direct network routing to the local Jenkins cluster (`<local-jenkins-host>:8080`) or local APT mirror (`<local-apt-host>:8088`), use the local Docker test harness (`tests/real_world_gazebo/run_docker_test.sh`).
 > When running from an environment with direct cluster access, follow the turnkey instructions in **Section 4** to execute the pipeline on the Jenkins cluster.
 
 ---
@@ -93,16 +93,16 @@ For quick, hermetic verification without Jenkins, a standalone Docker test harne
 
 ## 4. Local Buildfarm Execution Guide (For Jenkins Operators & Autonomous LLMs)
 
-When executing in an environment that has network access to the Jenkins master (`192.168.30.206:8080`) and APT mirror (`192.168.30.202:8088`), follow these exact instructions.
+When executing in an environment that has network access to the Jenkins master (`<local-jenkins-host>:8080`) and APT mirror (`<local-apt-host>:8088`), follow these exact instructions.
 
 ```mermaid
 sequenceDiagram
     autonumber
     actor LLM as Operator / LLM Agent
     participant Gen as ros_buildfarm Generators
-    participant Jnk as Jenkins Controller (192.168.30.206)
+    participant Jnk as Jenkins Controller (<local-jenkins-host>)
     participant Agt as Docker Agent (ci-agent-amd64)
-    participant Apt as APT Mirror (192.168.30.202)
+    participant Apt as APT Mirror (<local-apt-host>)
 
     LLM->>Gen: Run generate_gazebo_jobs.sh
     Gen->>Jnk: Create GZsrc, GZbin, GZci, Rci jobs
@@ -197,7 +197,7 @@ Because `gz-utils2` depends on `gz-cmake3`, and `gz-math7` depends on both, buil
 #### Step 4: Sync Mirror from `building` to `testing`
 Ensure all built packages (`libgz-cmake3-dev`, `libgz-utils2-dev`, `libgz-math7-dev`) are available in the testing channel:
 ```bash
-ssh buildfarm@192.168.30.202 "reprepro -b /root/config/apt-repo/ubuntu/testing copysrc noble noble libgz-cmake3-dev libgz-utils2-dev libgz-math7-dev"
+ssh buildfarm@<local-apt-host> "reprepro -b /root/config/apt-repo/ubuntu/testing copysrc noble noble libgz-cmake3-dev libgz-utils2-dev libgz-math7-dev"
 ```
 
 #### Step 5: Execute Downstream CI Job (`Rci`)
