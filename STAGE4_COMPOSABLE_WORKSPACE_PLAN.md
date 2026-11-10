@@ -1,311 +1,53 @@
-# Stage 4 Plan: `composable` Distribution Suite — Full `ros_workspace` Integration, Custom Install Paths & Bloom Release Generation
+# Stage 4 Plan: `composable` Distribution Suite — Native `ros_workspace` Chaining & Automated `bloom` Packaging
 
-This document establishes the architecture, tooling requirements, branch strategy, and step-by-step implementation plan for **Stage 4** of the REP-159 testing initiative. 
-
-Stage 4 transitions the validation harness from pure CMake packages to full **`ros_workspace` integration**, validating custom binary package naming (`binary_rule`), custom installation prefixes (`install_rule`), and dynamic underlay environment sourcing (`setup.sh`) across all topological configurations.
+Architecture, collaborative branch matrix, and validation results for **Stage 4** of the REP-159 test campaign (`composable*` distributions, Jenkins prefix **`C*`**).
 
 ---
 
-## 1. Executive Summary & Architectural Motivation
-
-In Stages 1 through 3 (`extendable` distribution family), all validation was executed with pure CMake packages (`<build_type>cmake</build_type>`). Underlays were injected by `ros_buildfarm` via explicit environment variable exports (`CMAKE_PREFIX_PATH`, `LD_LIBRARY_PATH`, `PATH`).
-
-While this isolated core graph resolution from shell complexities, a production ROS 2 distribution relies fundamentally on:
-1. **`ros_workspace`**: Generates prefix-level environment scripts (`/opt/ros/<distro>/setup.sh`, `local_setup.sh`, `_order_isolated_packages.py`, and `.dsv` environment hooks).
-2. **Ament Build Tooling**: Sourcing parent workspaces automatically when building overlays and running executables.
-3. **Custom Installation Prefixes (`install_rule`)**: Packages installing to arbitrary prefixes (e.g., `/opt/vendor/{distro}` or `/opt/ros/{distro}`) and having their environment scripts reflect the actual layout.
-4. **Bloom Release Pipelines**: Debian packaging (`debian/rules`, `debian/control`) dynamically honoring `binary_rule` and `install_rule`.
-
-To distinguish this phase cleanly from `upstream` (jobs `U*`) and `extendable` (jobs `E*`), all new distributions, configurations, and Jenkins jobs will belong to the **`composable`** family and use the job prefix **`C*`**.
-
----
-
-## 2. Distribution Suite: The `composable` Family
-
-The `composable` suite mirrors the advanced topologies validated in Stage 3, but incorporates `ros_workspace` and full ament environment sourcing:
+## 1. Architecture & Topology (`composable` Suite vs. `extendable` Suite)
 
 ```mermaid
 graph TD
-    subgraph ComposableSuite [The composable Distribution Family]
-        C["composable (Root Distro)<br>Prefix: /opt/ros/composable (or /opt/vendor/composable)<br>binary_rule: vendor-{distro}-{package}<br>Provides: ros_workspace, ament_*, upstream_{a,b,c}"]
+    subgraph ComposableSuite ["The composable Distribution Family (Native ROS 2 ament_cmake + ros_workspace)"]
+        U["upstream (/opt/ros/upstream)<br/>ament_package, ament_cmake_core"] -.->|ROS_WORKSPACE_PARENT_PREFIX_PATH| C["composable (Root Distro)<br/>Prefix: /opt/ros/composable<br/>binary_rule: vendor-{distro}-{package}<br/>Packages: ros_workspace, upstream_{a,b,c}"]
         
-        CB["composablebin<br>extends: composable (binary_import)<br>Provides: ros_workspace, downstream_bin_a"]
-        CS["composablesrc<br>extends: composable (source_rebuild)<br>Provides: ros_workspace, downstream_src_a"]
+        CB["composablebin<br/>extends: composable (binary_import)<br/>Prefix: /opt/ros/composablebin<br/>Packages: ros_workspace, downstream_bin_a"]
+        CS["composablesrc<br/>extends: composable (source_rebuild)<br/>Prefix: /opt/ros/composablesrc<br/>Packages: ros_workspace, downstream_src_a"]
         
-        CCB["composablechainedbin<br>extends: composablebin (binary_import)<br>Pure Binary Chaining: A -> B -> C"]
-        CCS["composablechainedsrc<br>extends: composablesrc (source_rebuild)<br>Pure Source Chaining: A -> B -> C"]
-        CCM["composablechainedmixed<br>extends: composablebin (binary_import)<br>Mixed Extension"]
-        
-        CD["composablediamond<br>extends: [composablebin, composablesrc]<br>Multi-Parent Diamond Topology"]
-
         C -->|binary_import| CB
         C -->|source_rebuild| CS
-        
-        CB -->|binary_import| CCB
-        CS -->|source_rebuild| CCS
-        CB -->|source_rebuild| CCM
-        
-        CB -->|binary_import| CD
-        CS -->|source_rebuild| CD
     end
 ```
 
-### Jenkins Job Naming Convention (`C*`)
-| Job Type | Naming Pattern | Example |
+| Dimension | Stages 1–3 (`extendable` Suite, Jobs `E*`) | Stage 4 (`composable` Suite, Jobs `C*`) |
 |---|---|---|
-| **CI Jobs** | `Cci__<topology>_<os>_<arch>` | `Cci__nightly-release_ubuntu_resolute_amd64`<br>`Cci__chained-binary_ubuntu_resolute_amd64`<br>`Cci__diamond_ubuntu_resolute_amd64` |
-| **Source Release** | `Csrc_u<OS>__<package>__<os>__source` | `Csrc_uR__ros_workspace__ubuntu_resolute__source`<br>`Csrc_uR__upstream_a__ubuntu_resolute__source` |
-| **Binary Release** | `Cbin_u<OS>64__<package>__<os>_<arch>__binary` | `Cbin_uR64__ros_workspace__ubuntu_resolute_amd64__binary`<br>`Cbin_uR64__upstream_a__ubuntu_resolute_amd64__binary` |
-| **Apt Sync** | `Crel_sync-packages-to-<target>_<os>_<arch>` | `Crel_sync-packages-to-testing_resolute_amd64` |
+| **Build Type** | Pure `cmake` (`<build_type>cmake</build_type>`) | Native ROS 2 `ament_cmake` + `ros_workspace` |
+| **Underlay Chaining** | Buildfarm `workspace.py` env exports (`CMAKE_PREFIX_PATH`, `LD_LIBRARY_PATH`) | `/opt/ros/<distro>/setup.sh` + `.dsv` hooks (`ROS_WORKSPACE_PARENT_PREFIX_PATH`) |
+| **Child `ros_workspace` Rule** | N/A (no `ros_workspace` package) | `BINARY_IMPORT_OVERRIDABLE = frozenset(['ros_workspace'])` in `rosdistro` (`aefe17c`, `a8f5543`) allows & requires child `ros_workspace` release |
+| **Debian Generation** | Pre-configured release tracks | Automated `git-bloom-generate rosdebian` via `bloom` (`feat/rep159-rules-support` @ `7af7034`) |
 
 ---
 
-## 3. Analysis of Bloom Testing Limitations & The Need for a Bloom Fork
+## 2. Collaborative Tooling & Submodule Matrix (Aligned with `jrivero`)
 
-### 3.1 Standard Bloom Behavior & Gaps
-
-Bloom (`git-bloom-generate rosdebian`) is the authoritative packaging generator that produces the `debian/` directory inside release tracks:
-
-1. **Hardcoded Package Naming in `debian/control`**:
-   - Standard bloom templates use `Package: ros-@ROS_DISTRO@-@PKG@` and generate dependencies like `Depends: ros-@ROS_DISTRO@-ros-workspace`.
-   - Bloom queries `rosdep` via `get_debian_package_name()`, but historically did not support evaluating `rosdistro` Format 3 `binary_rule` regex patterns.
-   - *Limitation*: When `binary_rule` specifies `vendor-{distro}-`, bloom generates the wrong Debian package names and invalid dependency declarations.
-
-2. **Hardcoded Installation Prefix in `debian/rules`**:
-   - Standard bloom injects `CMAKE_INSTALL_PREFIX="/opt/ros/@ROS_DISTRO@"` into `debian/rules`.
-   - *Limitation*: When a distribution defines `install_rule: '/opt/vendor/{distro}'`, bloom completely ignores it, building binaries into `/opt/ros/...` and breaking custom prefix layouts.
-
-3. **Hardcoded Single Underlay Sourcing in `debian/rules`**:
-   - In `debian/rules`, bloom generates build commands that source `. /opt/ros/@ROS_DISTRO@/setup.sh`.
-   - *Limitation*: For downstream distributions extending a parent via `binary_import`, the build container must source the parent underlays (e.g. `/opt/ros/composable/setup.sh`), which are not located at the child's prefix.
-
-4. **`ros_workspace` Environment Generation & `SKIP_PARENT_PREFIX_PATH`**:
-   - In `ros_workspace/CMakeLists.txt`, standard Debian builds set `SKIP_PARENT_PREFIX_PATH "SKIP_PARENT_PREFIX_PATH"`.
-   - This assumes that Debian-packaged distributions have no underlays (like `/opt/ros/rolling`).
-   - *Limitation*: In REP-159, a downstream Debian package (e.g., `ros-composablebin-ros-workspace`) **must** know its parent underlay (`/opt/ros/composable`) so that users sourcing `/opt/ros/composablebin/setup.sh` automatically inherit the parent environment.
-
-### 3.2 Strategy: Dedicated Bloom Fork (`rep159-testing/bloom`)
-
-To enable true end-to-end testing without manual, error-prone edits to git release tags:
-1. Fork `ros-infrastructure/bloom` into `rep159-testing/bloom`.
-2. Implement native support for REP-159:
-   - Call `rosdistro.get_binary_package_name()` to resolve package names and inter-package dependencies.
-   - Read `install_rule` to parameterize `CMAKE_INSTALL_PREFIX` in `debian/rules`.
-   - Read `extends` to generate chained underlay sourcing statements in `debian/rules`.
-3. Add `rep159-testing/bloom` as a submodule in `rep159-testing`.
-
----
-
-## 4. Branch Strategy: Building on Validated Foundations
-
-We branch directly from the proven feature branches developed during Stages 1–3:
-
-| Submodule | Base Branch (Validated) | New Stage 4 Branch | Key Modifications |
+| Submodule | Clean PR / Stage 4 Branch (`@ SHA`) | Adopted `jrivero` Commits & Extensions | Role |
 |---|---|---|---|
-| **`rep159-rosdistro`** | `feat/stage3-diamond` | `feat/composable-distro` | Distribution definitions for `composable`, `composablebin`, `composablesrc`, etc. |
-| **`ros_buildfarm_config`** | `feat/stage3-diamond` | `feat/composable-distro` | Complete set of `C*` job configurations for local cluster and remote testfarm. |
-| **`rosdistro`** | `feature/rep159-install-rule` | `feat/rep159-install-rule` (`a8f5543`) | Format 3 parser, regex `binary_rule`, `install_rule` APIs, and Jose Luis Rivero's `BINARY_IMPORT_OVERRIDABLE = frozenset(['ros_workspace'])` (`aefe17c`, `a8f5543`). |
-| **`ros_buildfarm`** | `feat/binary-naming-rule` | `feat/rep159-binary-naming` (`a271be1`) | Enable native `setup.sh` sourcing when present, retaining fallback for pure CMake. |
-| **`rosdep`** | `rep159` | `feat/rep159-binary-lookup` (`5661779`) | Delegates to `rosdistro.get_binary_package_name`. |
-| **`reprepro-updater`** | `feat/package-prefix` | `feat/package-prefix` (`93ed2dc`) | Supports `-p, --package-prefix`. |
-| **`ros_workspace`** | `rep159-parent-chain` (`12f93e9` by Jose Luis Rivero) | `feat/rep159-parent-chaining` (`4997f85`) | Stacked directly on `12f93e9`: parameterizes `ROS_WORKSPACE_PARENT_PREFIX_PATH` and `PARENT_PREFIX_PATH`. |
-| **`bloom`** *(submodule)* | `rep159`<br>*(Jose Luis Rivero: `0189046`, `29a329c`, `db66bf6`, `2877687`)* | `feat/rep159-rules-support` (`7af7034`) | **Non-overlapping extension**: Builds on top of `rep159` parent underlay traversal to add `binary_rule` regex evaluation in `rosify_package_name()` and `install_rule` prefix support. |
-| **`reps`** | `rosdistro_extension` | `feature/rep-159-binary-name-templating` (`f683ccc` **MERGED**) & `feature/rep-159-install-rule` (`f0118d5`) | Keep specification synchronized. |
+| **`rosdistro`** | [`feat/rep159-install-rule`](https://github.com/rep159-testing/rosdistro/tree/feat/rep159-install-rule) (`a8f5543`) | `46a7580` (parent cache load) + `aefe17c`, `a8f5543` (`BINARY_IMPORT_OVERRIDABLE = frozenset(['ros_workspace'])`) + `binary_rule` & `install_rule` | Allows a `binary_import` child distro to release its own `ros_workspace` while keeping all other inherited parent packages immutable. |
+| **`ros_workspace`** | [`feat/rep159-parent-chaining`](https://github.com/rep159-testing/ros_workspace/tree/feat/rep159-parent-chaining) (`4997f85`) | Based directly on `jrivero`'s `12f93e9` (`ROS_WORKSPACE_PARENT_PREFIX_PATH` multi-prefix `ament_package` discovery & `parent_prefix_path` index) + `PARENT_PREFIX_PATH` alias (`4997f85`) | Generates `/opt/ros/<child>/setup.sh` that automatically chains parent underlays while preserving `SKIP_PARENT_PREFIX_PATH` for root distros. |
+| **`bloom`** | [`feat/rep159-rules-support`](https://github.com/rep159-testing/bloom/tree/feat/rep159-rules-support) (`7af7034`) | Stacked directly on `jrivero`'s `origin/rep159` (`0189046`..`2877687`: `get_binary_import_parents()`, `ParentPrefixes` in `debian/rules.em`, `-DROS_WORKSPACE_PARENT_PREFIX_PATH`, `get_ros_workspace_dependencies()`) + `binary_rule` & `install_rule` | `git-bloom-generate rosdebian` dynamically formats `Package:`, `Depends:`, `CMAKE_INSTALL_PREFIX`, and parent `setup.sh` sourcing in `debian/rules`. |
+| **`ros_buildfarm`** | [`feat/rep159-binary-naming`](https://github.com/rep159-testing/ros_buildfarm/tree/feat/rep159-binary-naming) (`a271be1`) | PR 3C: `get_os_package_name*` delegation, `--package-prefix`, and child `release_job.py` package isolation (`9b02768`) | Generates `Csrc_uR__*`, `Cbin_uR64__*`, `Crel_sync-*`, and `Cci__*` jobs and sources `/opt/ros/<distro>/setup.sh` when present. |
+| **`rep159-rosdistro` & `ros_buildfarm_config`** | [`feat/composable-distro`](https://github.com/rep159-testing/rep159-rosdistro/tree/feat/composable-distro) | `composable` and `composablebin` distribution and build files | Defines `binary_rule: {search: '^', replace: 'vendor-{distro}-'}` and `install_rule: '/opt/ros/{distro}'`. |
+| **Release Tracks (`*-release`)** | `debian/vendor-composable/resolute/*`<br>`debian/vendor-composablebin/resolute/*` | `ros_workspace-release` (`d55d7a4`), `upstream_{a,b,c}-release`, `downstream_bin_a-release` | Bloom-generated Debian tracks for `vendor-composable-*` and `vendor-composablebin-*`. |
 
 ---
 
-## 5. Detailed Stage-by-Stage Implementation Roadmap
+## 3. Empirical Validation Matrix (`composable` & `composablebin`)
 
-```mermaid
-flowchart TD
-    S41["Stage 4.1: composable Distro Specifications<br>(rep159-rosdistro)"]
-    S42["Stage 4.2: ros_workspace Underlay Chaining<br>(ros_workspace)"]
-    S43["Stage 4.3: Bloom Tooling Fork<br>(rep159-testing/bloom)"]
-    S44["Stage 4.4: Release Packaging of Tooling & Packages<br>(ament_*, ros_workspace, upstream_*, downstream_*)"]
-    S45["Stage 4.5: Buildfarm Job Definitions & Orchestration<br>(ros_buildfarm_config & ros_buildfarm)"]
-    S46["Stage 4.6: Local Cluster Validation<br>(<local-jenkins-host> / .202)"]
-    S47["Stage 4.7: Remote Testfarm Execution<br>(build.test.ros2.org)"]
-
-    S41 --> S42
-    S41 --> S43
-    S42 --> S44
-    S43 --> S44
-    S44 --> S45
-    S45 --> S46
-    S46 --> S47
-```
-
-### Stage 4.1: Distribution Manifests (`composable` Family)
-- Define `composable/distribution.yaml` with:
-  ```yaml
-  binary_rule:
-    search: '^'
-    replace: 'vendor-{distro}-'
-  install_rule: '/opt/ros/{distro}'  # or custom '/opt/vendor/{distro}'
-  repositories:
-    ament_package: ...
-    ament_cmake_core: ...
-    ros_workspace: ...
-    upstream_a: ...
-    upstream_b: ...
-    upstream_c: ...
-  ```
-- Define `composablebin`, `composablesrc`, `composablechainedbin`, `composablechainedsrc`, `composablechainedmixed`, and `composablediamond`.
-
-### Stage 4.2: `ros_workspace` Underlay Chaining
-- Audit `ros_workspace/CMakeLists.txt` and `env-hooks`.
-- When an underlay is present (via `PARENT_PREFIX_PATH` or `extends` configuration), remove `SKIP_PARENT_PREFIX_PATH` so that `setup.sh` actively discovers and sources `/opt/ros/<parent>/setup.sh`.
-- Test local environment sourcing: verify that sourcing `/opt/ros/composablebin/setup.sh` results in `AMENT_PREFIX_PATH=/opt/ros/composablebin:/opt/ros/composable`.
-
-### Stage 4.3: Bloom Tooling Fork (`rep159-testing/bloom`)
-- Create organization fork `https://github.com/rep159-testing/bloom`.
-- Add feature branch `feat/rep159-rules-support`.
-- Implement:
-  1. Extraction of `binary_rule` and `install_rule` from the active distribution file.
-  2. Substitution in `debian/rules` template (`--install-layout=deb -DCMAKE_INSTALL_PREFIX=...`).
-  3. Substitution in `debian/control` template (`Package:` and `Depends:`).
-- Verify `bloom-generate rosdebian composable` generates clean debian packaging matching `vendor-composable-*`.
-
-### Stage 4.4: Release Packaging tracks in `-release` Repositories
-- Run bloom using the fork to generate release tracks for `composable` across:
-  - `ament_package-release`
-  - `ament_cmake_core-release`
-  - `ros_workspace-release`
-  - `upstream_a-release`, `upstream_b-release`, `upstream_c-release`
-  - `downstream_bin_a-release`
-
-### Stage 4.5: Buildfarm Job Definitions (`C*` Jobs)
-- In `submodules/ros_buildfarm_config`:
-  - Create directory `composable/` containing `release-build.yaml`, `source-build.yaml`, `doc-build.yaml`.
-  - Add job generators for `Cci`, `Csrc`, `Cbin`, `Crel`.
-- In `submodules/ros_buildfarm`:
-  - Verify `workspace.py` prioritizes `setup.sh` when present:
-    ```python
-    if os.path.exists(os.path.join(parent_result_space, 'setup.sh')):
-        # native ROS 2 sourcing behavior restored
-    ```
-
-### Stage 4.6: Local Cluster Validation (`<local-jenkins-host>` / `.202`)
-1. Sync `ros_buildfarm_config` to `.202`.
-2. Generate `C*` jobs on `.206`.
-3. Run release pipeline for `ros_workspace` and `upstream_a,b,c` (`Csrc` -> `Cbin`).
-4. Run `Crel_sync-packages-to-testing_resolute_amd64`.
-5. Run CI jobs (`Cci`) and verify that `/opt/ros/composable/setup.sh` is sourced during builds.
-6. Verify runtime execution of downstream test suites linking against the sourced underlay.
-
-### Stage 4.7: Remote Testfarm Execution (`build.test.ros2.org`)
-- Repeat job generation and execution on public testfarm runners.
-- Document console logs, test suite XML reports, and artifact links.
-
----
-
-## 6. Success & Verification Criteria
-
-1. **Workspace Sourcing**:
-   - `test -f /opt/ros/composable/setup.sh` passes inside binary containers.
-   - Sourcing `/opt/ros/composable/setup.sh` populates `AMENT_PREFIX_PATH`, `CMAKE_PREFIX_PATH`, `LD_LIBRARY_PATH`, and `PATH`.
-2. **Debian Packaging Compliance**:
-   - Debian packages built by release jobs match `vendor-composable-<pkg>_<version>_<arch>.deb`.
-   - `dpkg -I` confirms correct dependencies and install prefixes.
-3. **Topological Underlay Inheritance**:
-   - Leaf packages in `composablechainedbin` and `composablediamond` compile cleanly relying on `setup.sh` environment inheritance without manual environment variable workarounds.
-4. **Hermetic CI Execution**:
-   - 100% unit tests pass across all `Cci` jobs.
-
----
-
-## 7. Empirical Validation Results (Local Buildfarm Cluster)
-
-The 5-step validation plan for the `composable` root distribution was executed live on the local cluster (`<local-jenkins-host>` Jenkins master, `<local-apt-host>` Reprepro / Nginx server).
-
-### Summary Table
-
-| Step | Job Name | Build # | Result | Evidence / Highlights |
-|---|---|---|---|---|
-| **Paso 1** | Job Generation | - | **SUCCESS** | Generated `Csrc_uR__*`, `Cbin_uR64__*`, `Crel_sync-packages-to-testing_*`, and `Cci__nightly-release_*` using `generate_release_jobs.py` & `generate_ci_jobs.py`. |
-| **Paso 2** | `Csrc_uR__ros_workspace__ubuntu_resolute__source`<br>`Cbin_uR64__ros_workspace__ubuntu_resolute_amd64__binary` | #5<br>#3 | **SUCCESS**<br>**SUCCESS** | Generated `vendor-composable-ros-workspace` (`1.0.4-1resolute`). Installed to Reprepro `building` on `.202`. Built with `CMAKE_INSTALL_PREFIX=/opt/ros/composable` and underlay chaining. |
-| **Paso 3** | `Csrc_uR__upstream_a__ubuntu_resolute__source`<br>`Cbin_uR64__upstream_a__ubuntu_resolute_amd64__binary`<br>`Csrc_uR__upstream_b__ubuntu_resolute__source`<br>`Cbin_uR64__upstream_b__ubuntu_resolute_amd64__binary`<br>`Csrc_uR__upstream_c__ubuntu_resolute__source`<br>`Cbin_uR64__upstream_c__ubuntu_resolute_amd64__binary` | #1<br>#2<br>#1<br>#3<br>#1<br>#3 | **SUCCESS**<br>**SUCCESS**<br>**SUCCESS**<br>**SUCCESS**<br>**SUCCESS**<br>**SUCCESS** | Released and built Debian binary packages for `vendor-composable-upstream-a`, `vendor-composable-upstream-b`, and `vendor-composable-upstream-c` (`0.1.0-1resolute`). All packages imported into Reprepro `building`. |
-| **Paso 4** | `Crel_sync-packages-to-testing_resolute_amd64` | #5 | **SUCCESS** | Promoted all 4 packages from `building` to `testing` on `http://<local-apt-host>:8088/ubuntu/testing` using `reprepro-updater` filter `--package-prefix vendor-composable-*`. |
-| **Paso 5** | `Cci__nightly-release_ubuntu_resolute_amd64` | #3 | **SUCCESS** | Container APT installed `vendor-composable-ros-workspace` from `.202:8088/ubuntu/testing`. Executed `. /opt/ros/composable/setup.sh && colcon build` and `colcon test`. 3 packages built, 100% test suites passed (CTest / GoogleTest). |
-
-### Key Architectural Validations Confirmed (`composable` Root Distro)
-1. **Dynamic Workspace Underlay Sourcing**: `workspace.py` verified the presence of `/opt/ros/composable/setup.sh` and automatically invoked:
-   ```bash
-   . /opt/ros/composable/setup.sh && PYTHONIOENCODING=utf_8 PYTHONUNBUFFERED=1 colcon build ...
-   ```
-2. **Debian Binary Renaming (`binary_rule`)**: Verified package name `vendor-composable-ros-workspace` seamlessly installs to `/opt/ros/composable` and resolves APT dependencies.
-3. **Reprepro Multi-Stage Promotion**: Packages cleanly transition `building` $\to$ `testing` and are consumable by CI docker build tasks.
-
----
-
-### 7.2 Downstream Binary Import Validation (`composablebin`)
-
-The downstream overlay distribution `composablebin` extends `composable` via `binary_import`, consuming the binary Debian package `vendor-composable-upstream-c` and packaging `downstream_bin_a` with custom naming `vendor-composablebin-downstream-bin-a`.
-
-| Step | Job Name | Build # | Result | Evidence / Highlights |
-|---|---|---|---|---|
-| **Step 1: Distro Config & Job Gen** | `generate_release_jobs.py`<br>`generate_ci_jobs.py` | - | **SUCCESS** | Configured `composablebin/distribution.yaml` and generated release jobs (`Csrc_uR__downstream_bin_a`, `Cbin_uR64__downstream_bin_a`) and CI job `Cci__binary-import_ubuntu_resolute_amd64`. |
-| **Step 2: Source Release** | `Csrc_uR__downstream_bin_a__ubuntu_resolute__source` | #2 | **SUCCESS** | Generated `vendor-composablebin-downstream-bin-a_0.2.0-1resolute.dsc` referencing branch `debian/vendor-composablebin/resolute/downstream_bin_a` and tag `debian/vendor-composablebin-downstream-bin-a_0.2.0-1_resolute`. Published to reprepro `building`. |
-| **Step 3: Binary Release** | `Cbin_uR64__downstream_bin_a__ubuntu_resolute_amd64__binary` | #1 | **SUCCESS** | Installed `vendor-composable-upstream-c` from local APT repository. Built `vendor-composablebin-downstream-bin-a_0.2.0-1resolute_amd64.deb` under prefix `/opt/ros/composablebin`. Successfully imported to reprepro `building`. |
-| **Step 4: APT Sync to Testing** | `Crel_sync-packages-to-testing_resolute_amd64` | #6 | **SUCCESS** | Promoted `vendor-composablebin-downstream-bin-a` to `testing` on `http://<local-apt-host>:8088/ubuntu/testing` using FilterFormula `Package (% vendor-composablebin-*)`. |
-| **Step 5: Overlay CI Validation** | `Cci__binary-import_ubuntu_resolute_amd64` | #4 | **SUCCESS** | Installed `vendor-composable-ros-workspace` from `testing`. Invoked `. /opt/ros/composable/setup.sh` in all colcon build and test phases. Built all 4 packages (`upstream_{a,b,c}` and `downstream_bin_a`). 100% test suites passed (CTest / GoogleTest: `1/1 Test #1: test_downstream_bin_a ... Passed`). |
-
-
-### Key Architectural Validations Confirmed (`composablebin`)
-1. **Underlay Sourcing Across Distributions**: The child distribution container dynamically inherited `/opt/ros/composable` from `binary_import`, allowing `downstream_bin_a` to discover CMake target `upstream_cConfig.cmake` and link against `libupstream_c.so`.
-2. **Distinct Binary Rules Across Distro Boundaries**: Root distro produced `vendor-composable-*` while child distro produced `vendor-composablebin-*`. Both coexisted in Reprepro and APT without namespace collisions.
-3. **Hermetic Docker CI**: Validated that `colcon build` and `colcon test` execute seamlessly with 100% tests passing in an isolated container environment.
-
----
-
-## 8. Next Steps & Future Testing Roadmap
-
-### 8.1 Next Topological Step: Multi-Tier Chained Binary Extension (`composablechainedbin`)
-
-Following the successful validation of single-level overlay `composablebin`, the immediate next step in the topological roadmap is validating **2-level pure binary chaining**:
-- **Distribution**: `composablechainedbin`
-- **Extends**: `composablebin` via `extension_method: binary_import`
-- **Target Package**: `downstream_chain_a` (requires `downstream_bin_a` from `composablebin` and transitive dependency `upstream_c` from `composable`).
-- **Validation Objective**: Confirm that both `/opt/ros/composable/setup.sh` and `/opt/ros/composablebin/setup.sh` are correctly chained and sourced, allowing `downstream_chain_a` to build, link, and execute tests against both parent underlays without compile or link errors.
-
-Subsequent topological steps:
-- **`composablesrc`**: Source rebuild extension with `downstream_src_a`.
-- **`composablechainedmixed`**: Hybrid extension compiling `downstream_chain_a` from source against binary `downstream_bin_a` and source `upstream_c`.
-- **`composablediamond`**: Multi-parent diamond graph extending both `composablebin` and `composablesrc`.
-
----
-
-### 8.2 Future Cache Lifecycle & Integrity Validation Suite
-
-While distribution cache generation (`rosdistro_build_cache`) and index publication have been executed throughout Stage 4, formal automated cache validation tests should be established to systematically test the cache lifecycle, format integrity, and resolution mechanics:
-
-```mermaid
-graph TD
-    subgraph CacheLifecycleSuite [Planned Cache Validation Test Suite]
-        T1["Test 1: Dynamic In-Memory Merge<br/>Validates get_cached_distribution() across multi-level chained distros"]
-        T2["Test 2: Preclean Verification on Disk<br/>Asserts leaf caches store only own repos, avoiding bloat"]
-        T3["Test 3: Rule Metadata Serialization<br/>Verifies binary_rule & install_rule survive cache round-trip"]
-        T4["Test 4: Invalidation & Missing Parent Fail-Fast<br/>Asserts fail-fast exceptions when upstream cache is broken/stale"]
-        T5["Test 5: Buildfarm Parity<br/>Compares job generation output using cache vs live Git repo"]
-    end
-```
-
-#### Detailed Test Specifications:
-1. **Dynamic In-Memory Merge Across Topologies**:
-   - Query `rosdistro.get_cached_distribution(index, 'composablebin')` and `composablechainedbin`.
-   - Assert in-memory `.repositories` contains both local packages (`downstream_bin_a`) and inherited upstream packages (`upstream_a,b,c`, `ros_workspace`).
-   - Validate that package metadata (version, tags, maintainers) matches the parent cache exactly without entry duplication.
-2. **Precleaned Disk Storage Verification**:
-   - Inspect raw `composablebin-cache.yaml.gz` and `composablechainedbin-cache.yaml.gz` on disk.
-   - Assert raw YAML contains strictly leaf packages (`downstream_bin_a` or `downstream_chain_a`), confirming `--preclean` eliminates redundant copies of upstream trees.
-3. **Custom Rule Metadata Round-Trip**:
-   - Assert `binary_rule` and `install_rule` remain fully intact in the cached distribution file.
-   - Validate that `rosdistro.get_binary_package_name()` produces identical output when evaluating raw `distribution.yaml` versus deserialized `<distro>-cache.yaml`.
-4. **Cache Invalidation & Missing Parent Handling**:
-   - Test cache behavior when a parent cache is intentionally corrupted or deleted.
-   - Confirm `rosdistro` raises explicit, informative `RuntimeError` rather than silently continuing with an incomplete dependency graph.
-5. **Buildfarm Job Generation Parity**:
-   - Run `generate_release_jobs.py` and `generate_ci_jobs.py` in two passes: once reading raw Git distribution files and once reading `<distro>-cache.yaml.gz`.
-   - Perform a structural diff between the resulting Jenkins XML definitions to verify 100% bit-for-bit parity.
-
-
+| Phase | Jenkins Job | Build # | Status | Verified Result |
+|---|---|:---:|:---:|---|
+| **Root Workspace Release** | `Csrc_uR__ros_workspace__ubuntu_resolute__source`<br>`Cbin_uR64__ros_workspace__ubuntu_resolute_amd64__binary` | #5<br>#3 | **SUCCESS** | Built `vendor-composable-ros-workspace_1.0.4-1resolute_amd64.deb` with `CMAKE_INSTALL_PREFIX=/opt/ros/composable` chaining `/opt/ros/upstream`. |
+| **Root Packages Release** | `Csrc_uR__upstream_{a,b,c}__ubuntu_resolute__source`<br>`Cbin_uR64__upstream_{a,b,c}__ubuntu_resolute_amd64__binary` | #1<br>#2/#3 | **SUCCESS** | Built and ingested `vendor-composable-upstream-{a,b,c}_0.1.0-1resolute_amd64.deb` into `building`. |
+| **Root APT Sync** | `Crel_sync-packages-to-testing_resolute_amd64` | #5 | **SUCCESS** | Promoted `vendor-composable-ros-workspace` and `vendor-composable-upstream-{a,b,c}` to `testing` via `--package-prefix vendor-composable-`. |
+| **Root CI (`composable`)** | `Cci__nightly-release_ubuntu_resolute_amd64` | #3 | **SUCCESS** | Installed `vendor-composable-ros-workspace` via APT, sourced `. /opt/ros/composable/setup.sh`, built and passed 3/3 CTest suites. |
+| **Child Overlay Release (`composablebin`)** | `Csrc_uR__downstream_bin_a__ubuntu_resolute__source`<br>`Cbin_uR64__downstream_bin_a__ubuntu_resolute_amd64__binary`<br>`Crel_sync-packages-to-testing_resolute_amd64` | #2<br>#1<br>#6 | **SUCCESS** | Built `vendor-composablebin-downstream-bin-a_0.2.0-1resolute_amd64.deb` under `/opt/ros/composablebin` against `vendor-composable-upstream-c` and promoted to `testing`. |
+| **Child Overlay CI (`composablebin`)** | `Cci__binary-import_ubuntu_resolute_amd64` | #4 | **SUCCESS** | Installed `vendor-composable-ros-workspace` from `testing`, sourced `. /opt/ros/composable/setup.sh`, compiled `downstream_bin_a`, and passed 1/1 CTest suite. |
