@@ -60,15 +60,15 @@ flowchart TD
 
 ---
 
-## 2. Distribution Suite Scope Across Validation Stages
+## 2. Unified `extendable*` (`E*`) Distribution Suite Across All Validation Stages
 
-The validation campaign is divided into two distinct distribution families across the testing stages:
+All validation stages (Stages 1–5) execute inside the unified **`extendable*` (`E*`)** namespace on `https://build.test.ros2.org`, keeping zero overlap with `cargotest` (`C*`) and `jrivero` (`U*`/`S*`/`B*`):
 
-| Distribution Suite | Stage Scope | Jenkins Job Prefix | Build System & Environment | Verification Objectives |
+| Distribution Suite (`extendable*`) | Stage Scope | Jenkins Job Prefix | Build System & Environment | Verification Objectives |
 |---|---|:---:|---|---|
-| **`extendable` Family**<br>(`extendable`, `extendablesrc`, `extendablebin`, `extendablechain`, `extendablechainedsrc`, `extendablechainedbin`, `extendablemixed`, `extendablediamond`) | **Stages 1–3** | **`E*`** (`Eci`, `Esrc`, `Ebin`, `Erel`) | **Pure CMake** (`<build_type>cmake</build_type>`). Underlays injected via buildfarm environment exports (`CMAKE_PREFIX_PATH`, `LD_LIBRARY_PATH`). | Validates core REP-159 algorithms in isolation without ROS shell scripts: APT package naming (`binary_rule`), custom prefix installation (`install_rule`), recursive DAG traversal, workspace checkout boundary pruning, and multi-tier chaining. |
-| **`composable` Family**<br>(`composable`, `composablebin`, `composablesrc`, etc.) | **Stage 4** | **`C*`** (`Cci`, `Csrc`, `Cbin`, `Crel`) | **Native ROS 2 Environment** (`ros_workspace`, `setup.sh`, `.dsv` hooks, `AMENT_PREFIX_PATH`) + Automated **`bloom`** packaging generator. | Validates complete ROS 2 runtime lifecycle: recursive bash setup sourcing of parent underlays, package-level environment hooks, and automated Debian packaging respecting `binary_rule` and `install_rule`. |
-| **`cachebase` / `cachechild` Family** | **Stage 5** | **`misc_rosdistro-cache`** | Distribution cache generation (`rosdistro_build_cache`). | Validates cache inheritance across Format 3 hierarchies, boundary package stripping (`- REMOVE`), and cache invalidation. |
+| **`extendable*` Pure-CMake Topologies**<br>(`extendable`, `extendablesrc`, `extendablebin`, `extendablechain`, `extendablechainedsrc`, `extendablechainedbin`, `extendablemixed`, `extendablediamond`) | **Stages 1–3** | **`E*`** (`Eci`, `Esrc`, `Ebin`, `Erel`) | **Pure CMake** (`<build_type>cmake</build_type>`). Underlays injected via buildfarm environment exports (`CMAKE_PREFIX_PATH`, `LD_LIBRARY_PATH`). | Validates core REP-159 algorithms in isolation: APT package naming (`binary_rule`), custom prefix installation (`install_rule`), recursive DAG traversal, workspace checkout boundary pruning, and multi-tier/diamond chaining. |
+| **`extendable` & `extendablebin` (`extbin`) Workspace Stack** | **Stage 4** | **`E*`** (`Eci__workspace-*`, `Esrc_uR__*`, `Ebin_uR64__*`, `Erel_extbin_sync-*`) | **Native ROS 2 Environment** (`ament_package`, `ament_cmake_core`, `ros_workspace`, `setup.sh`, `.dsv` hooks, `AMENT_PREFIX_PATH`) + Automated **`bloom`** packaging generator. | Validates complete ROS 2 runtime lifecycle: recursive bash setup sourcing of parent underlays (`ROS_WORKSPACE_PARENT_PREFIX_PATH`), child `ros_workspace` release override, and automated Debian packaging via `bloom`. |
+| **`extendable` & `extendablebin` Cache Lifecycle** | **Stage 5** | **`extendable_rosdistro-cache`**<br>**`extendablebin_rosdistro-cache`** | Distribution cache generation (`rosdistro_build_cache`). | Validates cache inheritance across Format 3 hierarchies, boundary package stripping (`- REMOVE`), and child `ros_workspace` retention. |
 
 ---
 
@@ -85,7 +85,7 @@ The validation campaign is divided into two distinct distribution families acros
 | **Wave 1** | [`ros2/ros_workspace`](https://github.com/ros2/ros_workspace) *(currently `1.0.3`)* | `feat/rep159-parent-chaining` (`4997f85`, PR-ready stacked on `jrivero`'s `12f93e9`) | `main` | Stacked directly on `12f93e9` (`rep159-parent-chain`) + 5-line `PARENT_PREFIX_PATH` alias; 0 hacks, ready to PR upstream | None (CMake-only); packaging child `.deb` needs Gate 3 | **Unblocks Gate 2B**: Tag & release **`ros_workspace >= 1.0.4`** |
 | **Wave 2** | [`ros-infrastructure/bloom`](https://github.com/ros-infrastructure/bloom) *(currently `0.14.4`)* | `feat/rep159-rules-support` (`7af7034`, PR-ready stacked on `jrivero`'s `rep159`) | `master` *(org fork: `rep159`)* | Stacked on `0189046`..`2877687` with `binary_rule`, `install_rule`, and lowercase `{distro}` fixtures; 26/26 tests passing, blocked on Gates 1 & 2 | **Gate 1 (`rosdistro >= 1.2.0`) + Gate 2 (`rosdep >= 0.27.0`)** | **Unblocks Gate 3**: Release **`bloom >= 0.15.0`** to PyPI + `ros_bootstrap` APT (`python3-bloom >= 0.15.0`) |
 | **Wave 3** | [`ros-infrastructure/ros_buildfarm`](https://github.com/ros-infrastructure/ros_buildfarm) *(currently `4.1.1+master`)* | • `feat/rep159-workspace-walk` (`486b579`)<br>• `feat/rep159-underlays` (`a4a5bbd`)<br>• `feat/rep159-binary-naming` (`a271be1`) | `master` | All 3 PR-ready branches cut clean off `master` (`7daa2b1`, adopting `jrivero`'s `1334bf9`..`486b579` & `83fd534`, 0 Dockerfile pip hacks, 100% test coverage) | **Gate 1 + Gate 2 (in `ros_bootstrap` APT & PyPI) + `reprepro-updater:refactor`** | **Unblocks Gate 4**: Release **`ros_buildfarm >= 4.2.0`** to PyPI + `ros_bootstrap` APT (zero Dockerfile pip hacks) |
-| **Wave 4** | [`ros2/ros_buildfarm_config`](https://github.com/ros2/ros_buildfarm_config) & Distro Data | `feat/composable-distro`, `feat/cache-lifecycle-test`, `feat/stage3-diamond` | `ros2` / `master` | Testbed validated | **Gates 1–4 deployed** | Production extended ROS 2 distributions |
+| **Wave 4** | [`ros2/ros_buildfarm_config`](https://github.com/ros2/ros_buildfarm_config) & Distro Data | `feat/extendable-workspace`, `feat/diamond-extensions` | `ros2` / `master` | Testbed validated on `build.test.ros2.org` (`E*`) | **Gates 1–4 deployed** | Production extended ROS 2 distributions |
 
 ---
 
@@ -123,15 +123,14 @@ To ensure clean upstream Pull Requests, every repository beyond `rosdistro` is d
 
 ---
 
-### 3.3 `ros_workspace` (`rep159-testing/ros_workspace` — `rep159-parent-chain` @ `12f93e9` & `feat/composable-underlay-chaining` @ `032d161`)
+### 3.3 `ros_workspace` (`rep159-testing/ros_workspace` — `feat/rep159-parent-chaining` @ `4997f85` stacked on `rep159-parent-chain` @ `12f93e9`)
 
 * **(A) Core Feature Implementation**:
   - Allows Debian packages of `ros_workspace` built for an extended `binary_import` child distribution to record parent underlay prefixes in the ament resource index (`parent_prefix_path`) instead of unconditionally setting `SKIP_PARENT_PREFIX_PATH`, so sourcing `/opt/ros/<child>/setup.sh` automatically chains `/opt/ros/<parent>/local_setup.sh`.
-* **(B) Required Fixes Before Creating Upstream PR**:
-  - **Reconcile Two Divergent Feature Branches** (`origin/rep159-parent-chain` @ `12f93e9` vs. `origin/feat/composable-underlay-chaining` @ `032d161`, both off `main` `db49f0a` v`1.0.3`):
-    1. **Preserve Parent `ament_package` Discovery (`12f93e9`)**: `rep159-parent-chain` searches `${CMAKE_INSTALL_PREFIX};${ROS_WORKSPACE_PARENT_PREFIX_PATH}` for `ament_package` Python templates/egg-links. Without this loop, building `ros_workspace` in a `binary_import` child distro that inherits `ament_package` from its parent underlay fails during `cmake` configure.
-    2. **Preserve Root Distro Hermetic Default (`12f93e9`)**: Keep `SKIP_PARENT_PREFIX_PATH="SKIP_PARENT_PREFIX_PATH"` by default when neither `ROS_WORKSPACE_PARENT_PREFIX_PATH` nor `PARENT_PREFIX_PATH` is set (whereas `032d161` flipped the default via `DISABLE_PARENT_PREFIX_PATH=OFF`, which would alter standard non-extended ROS 2 Debian builds).
-    3. **Unify CMake Variable Contract with Bloom (`12f93e9` + `032d161`)**: Accept `ROS_WORKSPACE_PARENT_PREFIX_PATH` (passed by `bloom`) and `PARENT_PREFIX_PATH`, convert `;` to `:`, and register the `parent_prefix_path` resource cleanly.
+* **(B) Reconciled Upstream PR Branch (`feat/rep159-parent-chaining` @ `4997f85`)**:
+  1. **Preserves Parent `ament_package` Discovery (`12f93e9`)**: Searches `${CMAKE_INSTALL_PREFIX};${ROS_WORKSPACE_PARENT_PREFIX_PATH}` for `ament_package` Python templates/egg-links so building `ros_workspace` in a `binary_import` child distro that inherits `ament_package` from its parent underlay succeeds during `cmake` configure.
+  2. **Preserves Root Distro Hermetic Default (`12f93e9`)**: Keeps `SKIP_PARENT_PREFIX_PATH="SKIP_PARENT_PREFIX_PATH"` by default when neither `ROS_WORKSPACE_PARENT_PREFIX_PATH` nor `PARENT_PREFIX_PATH` is set.
+  3. **Unifies CMake Variable Contract with Bloom (`12f93e9` + `4997f85`)**: Accepts `ROS_WORKSPACE_PARENT_PREFIX_PATH` (passed by `bloom`) and `PARENT_PREFIX_PATH`, converts `;` to `:`, and registers the `parent_prefix_path` resource cleanly.
 * **(C) Temporary Pre-Release Overrides**:
   - None. Pure `CMakeLists.txt` logic.
 

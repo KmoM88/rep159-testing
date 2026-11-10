@@ -1,120 +1,45 @@
-# Stage 4: Composable Suite, Native Sourcing & Bloom Integration
+# Stage 4: `extendable` & `extendablebin` (`E*`) — Native `ros_workspace` Sourcing & Bloom Integration
 
 ## 1. Executive Summary & Problem Statement
 
-> [!IMPORTANT]
-> **Distribution Suite Shift (`extendable` $\to$ `composable`)**:
-> - **Stages 1–3 (`extendable` family, Jenkins jobs `E*`)**: Validated pure graph traversal, custom binary naming (`binary_rule`), and installation prefixes (`install_rule`) using pure CMake packages with buildfarm-injected environment fallbacks (`CMAKE_PREFIX_PATH`, `LD_LIBRARY_PATH`).
-> - **Stage 4 (`composable` family, Jenkins jobs `C*`)**: Validates the native ROS 2 runtime stack by packaging `ros_workspace` (`/opt/ros/<distro>/setup.sh`, `.dsv` hooks, `AMENT_PREFIX_PATH`), verifying recursive bash underlay chaining, and automating Debian packaging via an enhanced `bloom` fork.
-
-In Stages 1 through 3, topological validation relied on pure CMake packages and environment variable injection by `ros_buildfarm` (`CMAKE_PREFIX_PATH`, `LD_LIBRARY_PATH`).
-However, a standard ROS 2 distribution requires two critical elements:
-1. **Native Shell Environment (`ros_workspace`)**: ROS 2 packages rely on `/opt/ros/<distro>/setup.sh`, which parses `.dsv` environment hooks, sets up `AMENT_PREFIX_PATH`, and recursively sources parent distribution underlays.
-2. **Automated Packaging Tooling (`bloom`)**: Upstream `bloom` hardcodes Debian package names as `ros-<distro>-<pkg>` and installation prefixes as `/opt/ros/<distro>`, making it impossible to release REP-159 compliant packages without manual packaging overrides.
-
-Stage 4 establishes the **`composable` distribution suite**, integrates **`ros_workspace` underlay chaining**, and enhances **`bloom`** to natively generate Debian packaging complying with `binary_rule` and `install_rule`.
+- **Stages 1–3 (`extendable*` family, Jenkins jobs `E*`)**: Validated pure graph traversal, custom binary naming (`binary_rule`), and installation prefixes (`install_rule`) using pure CMake packages with buildfarm-injected environment fallbacks (`CMAKE_PREFIX_PATH`, `LD_LIBRARY_PATH`).
+- **Stage 4 (`extendable` & `extendablebin`, Jenkins jobs `E*`)**: Evolves `extendable*` (`E*`) onto the native ROS 2 runtime stack by packaging `ament_package`, `ament_cmake_core`, and `ros_workspace` (`/opt/ros/<distro>/setup.sh`, `.dsv` hooks, `AMENT_PREFIX_PATH`), verifying recursive bash underlay chaining (`ROS_WORKSPACE_PARENT_PREFIX_PATH`), and automating Debian packaging via `bloom`.
 
 ---
 
 ## 2. Design Decisions & Technical Rationale
 
-### Decision 1: Native Setup Sourcing vs. Buildfarm Variable Injection
-* **Evaluation**: While injecting environment variables at the buildfarm level worked for pure CMake packages, it does not evaluate package-specific `.dsv` environment hooks, ament resource index paths, or Python module paths.
-* **Adopted Solution**: Package `ros_workspace` as a foundational Debian package installed into `/opt/ros/<distro>`. Buildfarm CI jobs detect the presence of `/opt/ros/<distro>/setup.sh` and execute all build and test steps within that native shell context:
-  ```bash
-  . /opt/ros/<distro>/setup.sh && colcon build ...
-  . /opt/ros/<distro>/setup.sh && colcon test ...
-  ```
-
-### Decision 2: Underlay Chaining in `ros_workspace`
-* **Mechanism**: In `submodules/ros_workspace` on branch `feat/composable-underlay-chaining`, configuration was added to chain `/opt/ros/upstream` as a parent underlay. When `/opt/ros/composable/setup.sh` is sourced, it automatically sources `/opt/ros/upstream/setup.sh`, propagating the entire environment recursively.
-
-### Decision 3: Forking Bloom to Support REP-159 Rules
-* **Modifications in `bloom/generators/debian/generator.py`**:
-  1. **Binary Name Resolution**: Queries `rosdistro.get_binary_package_name()` to populate `Package:` and `Depends:` in `debian/control`.
-  2. **Install Prefix Resolution**: Queries `rosdistro.get_distribution_install_prefix()` to populate `-DCMAKE_INSTALL_PREFIX` in `debian/rules`.
-  3. **Chained Underlay Sourcing in `debian/rules`**: Automatically generates sourcing loops in debhelper overrides:
-     ```make
-     if [ -f "/opt/ros/<parent>/setup.sh" ]; then . "/opt/ros/<parent>/setup.sh"; fi
-     ```
+| Decision | Mechanism | Verified Invariant on `build.test.ros2.org` |
+|---|---|---|
+| **1. Native Setup Sourcing (`ros_workspace`)** | Package `ros_workspace` as `vendor-extendable-ros-workspace` (`/opt/ros/extendable`) and `vendor-extendablebin-ros-workspace` (`/opt/ros/extendablebin`). | Buildfarm CI and release jobs detect `/opt/ros/<distro>/setup.sh` and execute build/test steps inside that native shell environment. |
+| **2. Child `ros_workspace` Override (`rosdistro`)** | `BINARY_IMPORT_OVERRIDABLE = frozenset(['ros_workspace'])` (`aefe17c`, `a8f5543`). | Allows `extendablebin` (`binary_import`) to release its own `ros_workspace` while keeping all other inherited parent packages immutable. |
+| **3. Underlay Chaining (`ROS_WORKSPACE_PARENT_PREFIX_PATH`)** | `ros_workspace` (`12f93e9` + `4997f85`) discovers `ament_package` across `${CMAKE_INSTALL_PREFIX};${ROS_WORKSPACE_PARENT_PREFIX_PATH}` and writes the `parent_prefix_path` ament index. | Sourcing `/opt/ros/extendablebin/setup.sh` automatically chains `/opt/ros/extendable/local_setup.sh`. |
+| **4. Automated `bloom` Packaging** | `bloom` (`0189046`..`2877687` + `7af7034`) evaluates `get_binary_package_name()`, `get_install_prefix()`, and `get_binary_import_parents()`. | `git-bloom-generate rosdebian` generates `debian/control` (`Package: vendor-extendablebin-downstream-bin-a`) and `debian/rules` (`ParentPrefixes` sourcing loop). |
 
 ---
 
-## 3. Implementation Breakdown: Core Code vs. Required Fixes vs. Testing Tweaks
+## 3. Implementation Breakdown: Clean Branches vs. Testbed Branches
 
-### Core Feature Implementation & PR-Ready Branches (To Be Merged Upstream)
-
-1. **`ros-infrastructure/rosdistro` (Branch: `feat/rep159-install-rule` @ `a8f5543`)**:
-   - Adopts Jose Luis Rivero's commits `aefe17c` & `a8f5543` (from `origin/rep159-child-ros-workspace` `4a89ac4` & `78c7db8`) defining `BINARY_IMPORT_OVERRIDABLE = frozenset(['ros_workspace'])` so a `binary_import` child distribution is allowed and required to release its own `ros_workspace` package while keeping all other inherited parent packages immutable.
-
-2. **`ros2/ros_workspace` (Branch: `feat/rep159-parent-chaining` @ `4997f85`)**:
-   - Stacked directly on Jose Luis Rivero's commit `12f93e9` (`origin/rep159-parent-chain` off `origin/main` `db49f0a`), adding a 5-line `PARENT_PREFIX_PATH` CMake variable alias (`4997f85`).
-   - Parameterizes `ROS_WORKSPACE_PARENT_PREFIX_PATH` / `PARENT_PREFIX_PATH` in `CMakeLists.txt`, iterates over parent prefixes to discover `ament_package`, and registers parent underlay prefixes into the `parent_prefix_path` ament resource index. Zero hacks.
-
-3. **`ros-infrastructure/bloom` (Branch: `feat/rep159-rules-support` @ `7af7034`)**:
-   - Clean PR branch stacked directly on Jose Luis Rivero's `origin/rep159` (`0189046`..`2877687` off `origin/master`).
-   - `bloom/rosdistro_api.py`: Implements `get_binary_import_parents()`, `get_ros_workspace_dependencies()`, `get_binary_package_name()`, and `get_install_prefix()` (delegating directly to `dist_file.get_install_prefix()` to support regex dict rules).
-   - `bloom/generators/rosdebian.py`: Parameterizes `InstallationPrefix`, `ParentPrefixes`, and `rosify_package_name()` (`Package:` and `Depends:`) using `install_rule` and `binary_rule`.
-   - `bloom/generators/debian/templates/{ament_cmake,cmake}/rules.em`: Injects parent `<prefix>/setup.sh` sourcing loops, chains `CMAKE_PREFIX_PATH` & `PKG_CONFIG_PATH`, and passes `-DROS_WORKSPACE_PARENT_PREFIX_PATH=...`.
-   - `bloom/generators/debian/generator.py`: Supplies `-m` message to `git tag -f` for environments with `tag.gpgSign=true`. 26/26 unit tests passing (strictly canonical lowercase `{distro}` fixtures).
-
-4. **`ros-infrastructure/ros_buildfarm` (Branch: `feat/rep159-binary-naming` @ `a271be1` — PR 3C)**:
-   - Clean PR branch cut directly off `origin/master` (`7daa2b1`).
-   - Propagates `binary_rule` naming to `sourcedeb`, `binarydeb`, passes `--package-prefix` to `reprepro-updater` in sync jobs, and isolates child release jobs (`release_job.py` `9b02768`).
-   - `ros_buildfarm/workspace.py`: Automatically sources `<prefix>/setup.sh` when present on disk (`vendor-composable-ros-workspace`) while retaining pure-CMake environment exports as a fallback. 6/6 unit tests and flake8 passing with 0 errors, zero Dockerfile tarball hacks.
-
-### Resolved Engineering Fixes Before Creating Upstream PRs
-
-1. **`ros_workspace` Direct Alignment on `jrivero`'s `12f93e9` (`4997f85`)**:
-   - Preserves `12f93e9` intact (multi-prefix search for `ament_package` across `ROS_WORKSPACE_PARENT_PREFIX_PATH`, default `SKIP_PARENT_PREFIX_PATH` when no parent prefix is passed, and `ament_index_register_resource("parent_prefix_path" ...)`) plus `4997f85` (`PARENT_PREFIX_PATH` CMake variable alias).
-2. **`bloom` Regex Dictionary `install_rule` Fix & Lowercase Alignment (`45fb575`, `7af7034`)**:
-   - Updated `get_install_prefix()` to delegate directly to `dist_file.get_install_prefix()`, fully supporting regex dict rules without `AttributeError`, and standardized all test fixtures on lowercase `{distro}`.
-3. **`bloom` Version Pins (Post-Gates 1 & 2)**:
-   - Bump `rosdistro >= 1.2.0` and `rosdep >= 0.27.0` in `setup.py` and `stdeb.cfg`.
-
-### Testing Tweaks & Local Workarounds (Test Harness Only — Do NOT Upstream)
-
-1. **Local Python Environment Overwrite**:
-   - Installing bloom via `pip install -e submodules/bloom` pulled `rosdistro` from PyPI/git, overwriting the local editable `submodules/rosdistro` before Gate 1 existed.
-   - *Fix for testing*: Explicitly re-installed the local fork (`pip install -e submodules/rosdistro`). Solved permanently once Gate 1 (`rosdistro >= 1.2.0`) is published to PyPI.
-2. **Dedicated Suite Prefix `C*`**:
-   - Jenkins jobs were named with prefix `C*` (`Cci`, `Csrc`, `Cbin`, `Crel_sync`); local cluster details are documented in [`LOCAL_BUILDFARM_SETUP.md`](../LOCAL_BUILDFARM_SETUP.md).
+| Repository | Clean Upstream PR Branch (`@ SHA`) | Testfarm Branch (`@ SHA`) | Summary |
+|---|---|---|---|
+| **`ros-infrastructure/rosdistro`** | [`feat/rep159-install-rule`](https://github.com/rep159-testing/rosdistro/tree/feat/rep159-install-rule) (`a8f5543`) | `feat/rep159-install-rule` (`a8f5543`) | Adopts `jrivero`'s `BINARY_IMPORT_OVERRIDABLE = frozenset(['ros_workspace'])` (`aefe17c`, `a8f5543`) + `binary_rule` & `install_rule` (96/96 tests). |
+| **`ros2/ros_workspace`** | [`feat/rep159-parent-chaining`](https://github.com/rep159-testing/ros_workspace/tree/feat/rep159-parent-chaining) (`4997f85`) | `feat/rep159-parent-chaining` (`4997f85`) | Stacked directly on `jrivero`'s `12f93e9` (`ROS_WORKSPACE_PARENT_PREFIX_PATH` & `parent_prefix_path` index) + `PARENT_PREFIX_PATH` alias. |
+| **`ros-infrastructure/bloom`** | [`feat/rep159-rules-support`](https://github.com/rep159-testing/bloom/tree/feat/rep159-rules-support) (`7af7034`) | `feat/rep159-rules-support` (`7af7034`) | Stacked directly on `jrivero`'s `origin/rep159` (`0189046`..`2877687`) + `binary_rule`, `install_rule`, and `git tag -f -m` GPG fix (26/26 tests). |
+| **`ros-infrastructure/ros_buildfarm`** | [`feat/rep159-binary-naming`](https://github.com/rep159-testing/ros_buildfarm/tree/feat/rep159-binary-naming) (`a271be1` — PR 3C) | [`feat/extendable-workspace`](https://github.com/rep159-testing/ros_buildfarm/tree/feat/extendable-workspace) (`ca13954`) | Propagates `binary_rule` to `sourcedeb`/`binarydeb`, passes `--package-prefix` to sync jobs, and isolates child release jobs (`9b02768`). |
+| **`rep159-rosdistro` & `ros_buildfarm_config`** | [`feat/extendable-workspace`](https://github.com/rep159-testing/rep159-rosdistro/tree/feat/extendable-workspace) (`ab0400c` / `3322225`) | `feat/extendable-workspace` (`ab0400c` / `3322225`) | `extendable` and `extendablebin` (`extbin`) workspace release and CI configurations on `build.test.ros2.org`. |
 
 ---
 
-## 4. Empirical Validation & Test Evidence
+## 4. Empirical Validation on `https://build.test.ros2.org` (`E*` Namespace)
 
-*(For the complete 5-step local pipeline execution log, see [`LOCAL_BUILDFARM_SETUP.md`](../LOCAL_BUILDFARM_SETUP.md)).*
-
-1. **Workspace Package Release**:
-   - `Csrc_uR__ros_workspace` (#5) & `Cbin_uR64__ros_workspace` (#3): **SUCCESS**. Built `vendor-composable-ros-workspace_1.0.4-1resolute_amd64.deb` under prefix `/opt/ros/composable` and exported to `building`.
-2. **Root Distribution Package Release (`composable`)**:
-   - `Csrc` & `Cbin` for `upstream_a` (#1, #2), `upstream_b` (#1, #3), `upstream_c` (#1, #3): **SUCCESS**. Built all binary debs (`vendor-composable-upstream-{a,b,c}`) under `/opt/ros/composable`.
-3. **Repository Promotion**:
-   - `Crel_sync-packages-to-testing_resolute_amd64` (#5): **SUCCESS**. Promoted all 4 debian packages to the `testing` APT repository.
-4. **Native Shell CI Validation**:
-   - `Cci__nightly-release_ubuntu_resolute_amd64` (#3): **SUCCESS**. Installed `vendor-composable-ros-workspace` from APT, sourced `. /opt/ros/composable/setup.sh`, compiled `upstream_{a,b,c}` natively, and passed 100% of unit tests.
-5. **Downstream Extension Release & CI (`composablebin`)**:
-   - `Csrc_uR__downstream_bin_a` (#2) & `Cbin_uR64__downstream_bin_a` (#1): **SUCCESS**. Built `vendor-composablebin-downstream-bin-a_0.2.0-1resolute_amd64.deb`.
-   - `Crel_sync-packages-to-testing_resolute_amd64` (#6): **SUCCESS**. Promoted downstream package to `testing`.
-   - `Cci__binary-import_ubuntu_resolute_amd64` (#4): **SUCCESS**. Sourced `. /opt/ros/composable/setup.sh` across all build and test phases, compiled `downstream_bin_a` against `vendor-composable-upstream-c`, and passed all CTest/GoogleTest suites 100% green.
-
----
-
-## 5. Release-Gated Upstream PR & Release Sequence
-
-1. **Wave 1 — `ros2/ros_workspace` (Independent CMake PR; Packaging Child `.deb` Requires Gate 3)**:
-   - *Title*: `feat: support parent underlay prefix chaining and parent ament_package discovery for REP-159`
-   - *Branch*: `feat/rep159-parent-chaining` (commits `12f93e9`, `4997f85` off `origin/main` `db49f0a`).
-   - *Target Base*: `main`.
-   - *Unblocks Release Gate 2B*: **`ros_workspace >= 1.0.4`**.
-2. **Wave 2 — `ros-infrastructure/bloom` (Blocked Until Gate 1 `rosdistro >= 1.2.0` + Gate 2 `rosdep >= 0.27.0`)**:
-   - *Title*: `feat(debian): support REP-159 binary_rule, install_rule, and parent underlay chaining`
-   - *Branch*: `feat/rep159-rules-support` (commits `0189046`..`7af7034` on top of `origin/master`).
-   - *Target Base*: `master` (org base: `rep159`).
-   - *Unblocks Release Gate 3*: **`bloom >= 0.15.0`** (PyPI + `ros_bootstrap` APT).
-3. **Wave 3 (PR 3C) — `ros-infrastructure/ros_buildfarm` (Blocked on Gates 1 & 2 + reprepro-updater)**:
-   - *Title*: `feat(release): delegate binary package naming, isolate child release jobs, and pass sync prefix`
-   - *Branch*: `feat/rep159-binary-naming` (commits `a1f57c6`..`a271be1` cut directly off `origin/master`).
-   - *Target Base*: `master`.
-   - *Unblocks Release Gate 4*: **`ros_buildfarm >= 4.2.0`**.
+| Pipeline Phase | Jenkins Job (`build.test.ros2.org`) | Build # | Status | Verified Artifact / Outcome |
+|---|---|:---:|:---:|---|
+| **Root `ament_package` Release** | `Esrc_uR__ament_package__ubuntu_resolute__source`<br>`Ebin_uR64__ament_package__ubuntu_resolute_amd64__binary` | `#1`<br>`#1` | **SUCCESS** | `vendor-extendable-ament-package_0.18.3-1resolute_amd64.deb` in `/opt/ros/extendable` |
+| **Root `ament_cmake_core` Release** | `Esrc_uR__ament_cmake_core__ubuntu_resolute__source`<br>`Ebin_uR64__ament_cmake_core__ubuntu_resolute_amd64__binary` | `#1`<br>`#2` | **SUCCESS** | `vendor-extendable-ament-cmake-core_2.8.8-2resolute_amd64.deb` in `/opt/ros/extendable` |
+| **Root `ros_workspace` Release** | `Esrc_uR__ros_workspace__ubuntu_resolute__source`<br>`Ebin_uR64__ros_workspace__ubuntu_resolute_amd64__binary` | `#1`<br>`#1` | **SUCCESS** | `vendor-extendable-ros-workspace_1.0.4-1resolute_amd64.deb` in `/opt/ros/extendable` |
+| **Root APT Sync (`extendable`)** | `Erel_sync-packages-to-testing_resolute_amd64` | `#12` | **SUCCESS** | Promoted all 6 `vendor-extendable-*` packages to `http://repo.test.ros2.org/ubuntu/testing` |
+| **Child `ros_workspace` Release (`extbin`)** | `Esrc_uR__extbin_ros_workspace__ubuntu_resolute__source`<br>`Ebin_uR64__extbin_ros_workspace__ubuntu_resolute_amd64__binary` | `#1`<br>`#2` | **SUCCESS** | `vendor-extendablebin-ros-workspace_1.0.4-1resolute_amd64.deb` (`ROS_WORKSPACE_PARENT_PREFIX_PATH=/opt/ros/extendable`) |
+| **Child `downstream_bin_a` Release (`extbin`)** | `Esrc_uR__extbin_downstream_bin_a__ubuntu_resolute__source`<br>`Ebin_uR64__extbin_downstream_bin_a__ubuntu_resolute_amd64__binary` | `#1`<br>`#2` | **SUCCESS** | `vendor-extendablebin-downstream-bin-a_0.2.0-1resolute_amd64.deb` generated via `bloom` |
+| **Child APT Sync (`extendablebin`)** | `Erel_extbin_sync-packages-to-testing_resolute_amd64` | `#3` | **SUCCESS** | Promoted `vendor-extendablebin-*` packages to `http://repo.test.ros2.org/ubuntu/testing` |
+| **Child Binary Import CI (`extendablebin`)** | `Eci__workspace-binary-import_ubuntu_resolute_amd64` | `#1` | **SUCCESS** | Installed `vendor-extendablebin-ros-workspace` & `vendor-extendable-upstream-c` from APT, sourced `/opt/ros/extendablebin/setup.sh`, built & tested `downstream_bin_a` (1/1 CTest green) |
+| **Root Workspace CI (`extendable`)** | `Eci__workspace-release_ubuntu_resolute_amd64` | `#2` | **SUCCESS** | Builds and tests `ament_package`, `ament_cmake_core`, `upstream_{a,b,c}` in `extendable` (5/5 packages green) |
