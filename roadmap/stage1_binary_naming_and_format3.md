@@ -108,11 +108,24 @@ Stage 1 establishes the **Format 3 ROSDistro specification**, introduces declara
   - `Ubin_uR64__upstream_a__ubuntu_resolute_amd64__binary` (#7): Built `vendor-upstream-upstream-a_0.1.0-1resolute_amd64.deb` and ingested to reprepro.
   - `Urel_sync-packages-to-testing_resolute_amd64` (#8): Synchronized vendor package to `testing` using prefix filter `Package (% vendor-upstream-*)`.
 
-* **Remote Testfarm (`build.test.ros2.org`)**:
-  - `Usrc_uR__upstream_a` (#4): **SUCCESS** — Built sourcedeb in OSRF environment.
-  - `Ubin_uR64__upstream_a` (#4): **SUCCESS** — Built binarydeb and triggered package import.
-  - `Ubin_uR64__upstream_b` (#8) & `Ubin_uR64__upstream_c` (#9): **SUCCESS** — Validated multi-package dependency chain with vendor prefixing.
-  - `Urel_sync-packages-to-testing_resolute_amd64` (#10): **SUCCESS** — Confirmed all vendor packages available in `building`.
+* **Remote Testfarm (`https://build.test.ros2.org` & `http://repo.test.ros2.org`)**:
+  - ** Pure CMake `extendable` Suite (`E*` jobs)**:
+    - **Source Release Jobs**:
+      - [`Esrc_uR__upstream_a__ubuntu_resolute__source #2`](https://build.test.ros2.org/job/Esrc_uR__upstream_a__ubuntu_resolute__source/2/) ([Console](https://build.test.ros2.org/job/Esrc_uR__upstream_a__ubuntu_resolute__source/2/console)): **SUCCESS** — Built `vendor-extendable-upstream-a_0.1.0-1resolute.dsc` and triggered downstream binary/sync pipeline via [`Erel_import-package #26`](https://build.test.ros2.org/job/Erel_import-package/26/).
+      - [`Esrc_uR__upstream_b__ubuntu_resolute__source #1`](https://build.test.ros2.org/job/Esrc_uR__upstream_b__ubuntu_resolute__source/1/) ([Console](https://build.test.ros2.org/job/Esrc_uR__upstream_b__ubuntu_resolute__source/1/console)): **SUCCESS** — Built `vendor-extendable-upstream-b_0.1.0-1resolute.dsc`.
+      - [`Esrc_uR__upstream_c__ubuntu_resolute__source #1`](https://build.test.ros2.org/job/Esrc_uR__upstream_c__ubuntu_resolute__source/1/) ([Console](https://build.test.ros2.org/job/Esrc_uR__upstream_c__ubuntu_resolute__source/1/console)): **SUCCESS** — Built `vendor-extendable-upstream-c_0.1.0-1resolute.dsc`.
+    - **Binary Packaging Jobs (auto-triggered & topologically ordered)**:
+      - [`Ebin_uR64__upstream_a__ubuntu_resolute_amd64__binary #1`](https://build.test.ros2.org/job/Ebin_uR64__upstream_a__ubuntu_resolute_amd64__binary/1/) ([Console](https://build.test.ros2.org/job/Ebin_uR64__upstream_a__ubuntu_resolute_amd64__binary/1/console)): **SUCCESS** — Built and imported [`vendor-extendable-upstream-a_0.1.0-1resolute.20261109.233112_amd64.deb`](http://repo.test.ros2.org/ubuntu/testing/pool/main/v/vendor-extendable-upstream-a/vendor-extendable-upstream-a_0.1.0-1resolute.20261109.233112_amd64.deb).
+      - [`Ebin_uR64__upstream_b__ubuntu_resolute_amd64__binary #1`](https://build.test.ros2.org/job/Ebin_uR64__upstream_b__ubuntu_resolute_amd64__binary/1/) ([Console](https://build.test.ros2.org/job/Ebin_uR64__upstream_b__ubuntu_resolute_amd64__binary/1/console)): **SUCCESS** — Resolved `vendor-extendable-upstream-a` from `building` and built [`vendor-extendable-upstream-b_0.1.0-1resolute.20261109.233710_amd64.deb`](http://repo.test.ros2.org/ubuntu/testing/pool/main/v/vendor-extendable-upstream-b/vendor-extendable-upstream-b_0.1.0-1resolute.20261109.233710_amd64.deb).
+      - [`Ebin_uR64__upstream_c__ubuntu_resolute_amd64__binary #1`](https://build.test.ros2.org/job/Ebin_uR64__upstream_c__ubuntu_resolute_amd64__binary/1/) ([Console](https://build.test.ros2.org/job/Ebin_uR64__upstream_c__ubuntu_resolute_amd64__binary/1/console)): **SUCCESS** — Resolved `vendor-extendable-upstream-b` from `building` and built [`vendor-extendable-upstream-c_0.1.0-1resolute.20261109.233949_amd64.deb`](http://repo.test.ros2.org/ubuntu/testing/pool/main/v/vendor-extendable-upstream-c/vendor-extendable-upstream-c_0.1.0-1resolute.20261109.233949_amd64.deb).
+    - **Repository Sync & APT Artifacts**:
+      - [`Erel_sync-packages-to-testing_resolute_amd64 #8`](https://build.test.ros2.org/job/Erel_sync-packages-to-testing_resolute_amd64/8/) ([Console](https://build.test.ros2.org/job/Erel_sync-packages-to-testing_resolute_amd64/8/console)): **SUCCESS** — Waited for all 3 upstream packages in [`building/Packages.gz`](http://repo.test.ros2.org/ubuntu/building/dists/resolute/main/binary-amd64/Packages.gz) and promoted them to [`testing/Packages.gz`](http://repo.test.ros2.org/ubuntu/testing/dists/resolute/main/binary-amd64/Packages.gz) using `FilterFormula: Package (% vendor-extendable-*)`.
+    - **Root Distribution CI Jobs (`extendable`)**:
+      - [`Eci__nightly-release_ubuntu_resolute_amd64 #2`](https://build.test.ros2.org/job/Eci__nightly-release_ubuntu_resolute_amd64/2/) ([Console](https://build.test.ros2.org/job/Eci__nightly-release_ubuntu_resolute_amd64/2/console)): **SUCCESS** (3/3 CTest suites passed, 0 warnings).
+      - [`Eci__source-branches_ubuntu_resolute_amd64 #2`](https://build.test.ros2.org/job/Eci__source-branches_ubuntu_resolute_amd64/2/) ([Console](https://build.test.ros2.org/job/Eci__source-branches_ubuntu_resolute_amd64/2/console)): **SUCCESS** (3/3 CTest suites passed, 0 warnings).
+      - [`Eci__release-branches_ubuntu_resolute_amd64 #2`](https://build.test.ros2.org/job/Eci__release-branches_ubuntu_resolute_amd64/2/) ([Console](https://build.test.ros2.org/job/Eci__release-branches_ubuntu_resolute_amd64/2/console)): **SUCCESS** (3/3 CTest suites passed, 0 warnings).
+  - **AMENT `upstream` Suite (`U*` jobs)**:
+    - `Usrc_uR__upstream_a` (#4), `Ubin_uR64__upstream_a` (#4), `Ubin_uR64__upstream_b` (#8), `Ubin_uR64__upstream_c` (#9), `Urel_sync-packages-to-testing_resolute_amd64` (#10): **SUCCESS** — Validated multi-package dependency chain with `vendor-upstream-*` prefixing.
 
 ---
 

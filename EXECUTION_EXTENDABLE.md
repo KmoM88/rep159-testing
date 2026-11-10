@@ -529,64 +529,106 @@ export JENKINS_TOKEN="<TU_TOKEN_DE_JENKINS_REMOTO>"
 
 INDEX_URL="https://raw.githubusercontent.com/rep159-testing/ros_buildfarm_config/feat/extendable-binary-naming/index-rep159.yaml"
 
-# 1. Regenerar Release Pipeline en Jenkins remoto
+# 1. Regenerar Release Pipeline en Jenkins remoto (usando --package-names para no eliminar jobs downstream)
 .venv/bin/python3 submodules/ros_buildfarm/scripts/release/generate_release_jobs.py \
-  "$INDEX_URL" extendable default
+  "$INDEX_URL" extendable default \
+  --package-names upstream_a upstream_b upstream_c
 
-# 2. Regenerar CI Jobs en Jenkins remoto
+# 2. Regenerar CI Jobs en Jenkins remoto (root extendable + extensiones)
+.venv/bin/python3 submodules/ros_buildfarm/scripts/ci/generate_ci_jobs.py \
+  "$INDEX_URL" extendable nightly-release
+.venv/bin/python3 submodules/ros_buildfarm/scripts/ci/generate_ci_jobs.py \
+  "$INDEX_URL" extendable source-branches
+.venv/bin/python3 submodules/ros_buildfarm/scripts/ci/generate_ci_jobs.py \
+  "$INDEX_URL" extendable release-branches
 .venv/bin/python3 submodules/ros_buildfarm/scripts/ci/generate_ci_jobs.py \
   "$INDEX_URL" extendablebin binary-import
-
 .venv/bin/python3 submodules/ros_buildfarm/scripts/ci/generate_ci_jobs.py \
   "$INDEX_URL" extendablesrc source-rebuild
 ```
 
 ---
 
-#### 4. Lanzar Jobs en Remoto (Staged Trigger Instructions)
+#### 4. Lanzar Jobs en Remoto y Secuencia de Disparo Automático (`Esrc` $\to$ `Ebin` $\to$ `Erel_sync`)
 
-##### Stage 1: Build Debian Packages for `upstream_a` (`vendor-extendable-upstream-a`)
+> [!NOTE]
+> **Secuencia Automática de Release y Sync**:
+> Al disparar los 3 jobs de código fuente (`Esrc_uR__upstream_{a,b,c}`), cada uno invoca `Erel_import-package` (`include_folder.py --invalidate`), el cual encola automáticamente los jobs binarios (`Ebin_uR64__upstream_{a,b,c}`) y el job de sincronización (`Erel_sync-packages-to-testing_resolute_amd64`).
+> Gracias a `<blockBuildWhenUpstreamBuilding>true</blockBuildWhenUpstreamBuilding>` y `check_sync_criteria.py`, Jenkins ejecuta en orden topológico `Ebin_uR64__upstream_a` $\to$ `Ebin_uR64__upstream_b` $\to$ `Ebin_uR64__upstream_c` y **solo ejecuta `Erel_sync-packages-to-testing_resolute_amd64` una vez que los 3 paquetes renombrados están en `building`**.
+
+##### Step 1: Trigger Source Package Builds (`Esrc_uR__upstream_{a,b,c}`)
 ```bash
-# Step 1.1: Build source package (.dsc)
-.venv/bin/python3 tools/trigger_buildfarm_job.py --url https://build.test.ros2.org --job Esrc_uR__upstream_a__ubuntu_resolute__source
-
-# Step 1.2: Build binary package (.deb)
-.venv/bin/python3 tools/trigger_buildfarm_job.py --url https://build.test.ros2.org --job Ebin_uR64__upstream_a__ubuntu_resolute_amd64__binary
+.venv/bin/python3 tools/trigger_buildfarm_job.py --url https://build.test.ros2.org --jobs \
+  Esrc_uR__upstream_a__ubuntu_resolute__source \
+  Esrc_uR__upstream_b__ubuntu_resolute__source \
+  Esrc_uR__upstream_c__ubuntu_resolute__source
 ```
-*(Wait until `Ebin_uR64__upstream_a` completes with status **SUCCESS**. Verify `vendor-extendable-upstream-a` in `http://repo.test.ros2.org/ubuntu/building/pool/main/v/vendor-extendable-upstream-a/`).*
 
-##### Stage 2: Build Debian Packages for `upstream_b`
+##### Step 2: Wait for Auto-Triggered Binary Builds & Sync to `testing`
 ```bash
-# Step 2.1: Build source package (.dsc)
-.venv/bin/python3 tools/trigger_buildfarm_job.py --url https://build.test.ros2.org --job Esrc_uR__upstream_b__ubuntu_resolute__source
+# Verificar estado de los builds binarios y sync disparados automáticamente
+.venv/bin/python3 tools/trigger_buildfarm_job.py --url https://build.test.ros2.org --wait-only \
+  --job Erel_sync-packages-to-testing_resolute_amd64
 
-# Step 2.2: Build binary package (.deb)
-.venv/bin/python3 tools/trigger_buildfarm_job.py --url https://build.test.ros2.org --job Ebin_uR64__upstream_b__ubuntu_resolute_amd64__binary
+# Verificar artefactos publicados en repo.test.ros2.org/ubuntu/{building,testing}
+.venv/bin/python3 tools/trigger_buildfarm_job.py --verify-apt-prefix vendor-extendable-
 ```
-*(Wait until `Ebin_uR64__upstream_b` completes with status **SUCCESS**).*
 
-##### Stage 3: Build Debian Packages for `upstream_c`
+##### Step 3: Trigger Root `extendable` CI Validation Jobs
 ```bash
-# Step 3.1: Build source package (.dsc)
-.venv/bin/python3 tools/trigger_buildfarm_job.py --url https://build.test.ros2.org --job Esrc_uR__upstream_c__ubuntu_resolute__source
-
-# Step 3.2: Build binary package (.deb)
-.venv/bin/python3 tools/trigger_buildfarm_job.py --url https://build.test.ros2.org --job Ebin_uR64__upstream_c__ubuntu_resolute_amd64__binary
+.venv/bin/python3 tools/trigger_buildfarm_job.py --url https://build.test.ros2.org --jobs \
+  Eci__nightly-release_ubuntu_resolute_amd64 \
+  Eci__source-branches_ubuntu_resolute_amd64 \
+  Eci__release-branches_ubuntu_resolute_amd64
 ```
-*(Wait until `Ebin_uR64__upstream_c` completes with status **SUCCESS**).*
 
-##### Stage 4: Sync Renamed Packages to Remote Testing Repository
-Promotes `vendor-extendable-upstream-{a,b,c}` to `repo.test.ros2.org/ubuntu/testing`:
-```bash
-.venv/bin/python3 tools/trigger_buildfarm_job.py --url https://build.test.ros2.org --job Erel_sync-packages-to-testing_resolute_amd64
-```
-*(Verify packages are published in `http://repo.test.ros2.org/ubuntu/testing/dists/resolute/main/binary-amd64/Packages.gz`).*
-
-##### Stage 5: Trigger CI `binary_import` Validation Job on Remote
+##### Step 4: Trigger Downstream `binary_import` CI Validation Job
 ```bash
 .venv/bin/python3 tools/trigger_buildfarm_job.py --url https://build.test.ros2.org --job Eci__binary-import_ubuntu_resolute_amd64
 ```
-*(Verify in Jenkins console log that `rosdep` installs `vendor-extendable-upstream-c` from `repo.test.ros2.org/ubuntu/testing` and `downstream_bin_a` compiles and tests successfully).*
+
+---
+
+#### 5. Evidencia de Ejecución en Testfarm Remoto (`build.test.ros2.org` & `repo.test.ros2.org`)
+
+* **Builds Ejecutados en Jenkins (`https://build.test.ros2.org`)**:
+  - **Source Builds**:
+    - [`Esrc_uR__upstream_a__ubuntu_resolute__source #2`](https://build.test.ros2.org/job/Esrc_uR__upstream_a__ubuntu_resolute__source/2/) — **SUCCESS** ([Console Log](https://build.test.ros2.org/job/Esrc_uR__upstream_a__ubuntu_resolute__source/2/console))
+    - [`Esrc_uR__upstream_b__ubuntu_resolute__source #1`](https://build.test.ros2.org/job/Esrc_uR__upstream_b__ubuntu_resolute__source/1/) — **SUCCESS** ([Console Log](https://build.test.ros2.org/job/Esrc_uR__upstream_b__ubuntu_resolute__source/1/console))
+    - [`Esrc_uR__upstream_c__ubuntu_resolute__source #1`](https://build.test.ros2.org/job/Esrc_uR__upstream_c__ubuntu_resolute__source/1/) — **SUCCESS** ([Console Log](https://build.test.ros2.org/job/Esrc_uR__upstream_c__ubuntu_resolute__source/1/console))
+  - **Binary Builds (disparados automáticamente por `Esrc_uR__*` vía [`Erel_import-package #26–#31`](https://build.test.ros2.org/job/Erel_import-package/))**:
+    - [`Ebin_uR64__upstream_a__ubuntu_resolute_amd64__binary #1`](https://build.test.ros2.org/job/Ebin_uR64__upstream_a__ubuntu_resolute_amd64__binary/1/) — **SUCCESS** ([Console Log](https://build.test.ros2.org/job/Ebin_uR64__upstream_a__ubuntu_resolute_amd64__binary/1/console))
+    - [`Ebin_uR64__upstream_b__ubuntu_resolute_amd64__binary #1`](https://build.test.ros2.org/job/Ebin_uR64__upstream_b__ubuntu_resolute_amd64__binary/1/) — **SUCCESS** ([Console Log](https://build.test.ros2.org/job/Ebin_uR64__upstream_b__ubuntu_resolute_amd64__binary/1/console))
+    - [`Ebin_uR64__upstream_c__ubuntu_resolute_amd64__binary #1`](https://build.test.ros2.org/job/Ebin_uR64__upstream_c__ubuntu_resolute_amd64__binary/1/) — **SUCCESS** ([Console Log](https://build.test.ros2.org/job/Ebin_uR64__upstream_c__ubuntu_resolute_amd64__binary/1/console))
+  - **Repository Sync (`building` $\to$ `testing` con `--package-prefix vendor-extendable-`)**:
+    - [`Erel_sync-packages-to-testing_resolute_amd64 #8`](https://build.test.ros2.org/job/Erel_sync-packages-to-testing_resolute_amd64/8/) — **SUCCESS** ([Console Log](https://build.test.ros2.org/job/Erel_sync-packages-to-testing_resolute_amd64/8/console))
+  - **Root `extendable` CI Builds**:
+    - [`Eci__nightly-release_ubuntu_resolute_amd64 #2`](https://build.test.ros2.org/job/Eci__nightly-release_ubuntu_resolute_amd64/2/) — **SUCCESS** ([Console Log](https://build.test.ros2.org/job/Eci__nightly-release_ubuntu_resolute_amd64/2/console))
+    - [`Eci__source-branches_ubuntu_resolute_amd64 #2`](https://build.test.ros2.org/job/Eci__source-branches_ubuntu_resolute_amd64/2/) — **SUCCESS** ([Console Log](https://build.test.ros2.org/job/Eci__source-branches_ubuntu_resolute_amd64/2/console))
+    - [`Eci__release-branches_ubuntu_resolute_amd64 #2`](https://build.test.ros2.org/job/Eci__release-branches_ubuntu_resolute_amd64/2/) — **SUCCESS** ([Console Log](https://build.test.ros2.org/job/Eci__release-branches_ubuntu_resolute_amd64/2/console))
+
+* **Artefactos Publicados en el Repositorio APT (`http://repo.test.ros2.org`)**:
+  - **Índices de Paquetes (`resolute` / `amd64`)**:
+    - `building`: [`http://repo.test.ros2.org/ubuntu/building/dists/resolute/main/binary-amd64/Packages.gz`](http://repo.test.ros2.org/ubuntu/building/dists/resolute/main/binary-amd64/Packages.gz)
+    - `testing`: [`http://repo.test.ros2.org/ubuntu/testing/dists/resolute/main/binary-amd64/Packages.gz`](http://repo.test.ros2.org/ubuntu/testing/dists/resolute/main/binary-amd64/Packages.gz)
+  - **Paquetes `.deb` en `testing`**:
+    - [`pool/main/v/vendor-extendable-upstream-a/`](http://repo.test.ros2.org/ubuntu/testing/pool/main/v/vendor-extendable-upstream-a/) — [`vendor-extendable-upstream-a_0.1.0-1resolute.20261109.233112_amd64.deb`](http://repo.test.ros2.org/ubuntu/testing/pool/main/v/vendor-extendable-upstream-a/vendor-extendable-upstream-a_0.1.0-1resolute.20261109.233112_amd64.deb)
+    - [`pool/main/v/vendor-extendable-upstream-b/`](http://repo.test.ros2.org/ubuntu/testing/pool/main/v/vendor-extendable-upstream-b/) — [`vendor-extendable-upstream-b_0.1.0-1resolute.20261109.233710_amd64.deb`](http://repo.test.ros2.org/ubuntu/testing/pool/main/v/vendor-extendable-upstream-b/vendor-extendable-upstream-b_0.1.0-1resolute.20261109.233710_amd64.deb)
+    - [`pool/main/v/vendor-extendable-upstream-c/`](http://repo.test.ros2.org/ubuntu/testing/pool/main/v/vendor-extendable-upstream-c/) — [`vendor-extendable-upstream-c_0.1.0-1resolute.20261109.233949_amd64.deb`](http://repo.test.ros2.org/ubuntu/testing/pool/main/v/vendor-extendable-upstream-c/vendor-extendable-upstream-c_0.1.0-1resolute.20261109.233949_amd64.deb)
+
+* **Extracto de Log de Sincronización ([`Erel_sync-packages-to-testing_resolute_amd64 #8`](https://build.test.ros2.org/job/Erel_sync-packages-to-testing_resolute_amd64/8/console))**:
+  ```text
+  Creating updates file /var/repos/ubuntu/testing/conf/updates
+    Name: vendor-extendableresolute-amd64
+    Method: file:///var/repos/ubuntu/building
+    Suite: resolute
+    Components: main
+    Architectures: amd64
+    FilterFormula: Package (% vendor-extendable-*)
+  aptmethod got 'file:///var/repos/ubuntu/building/pool/main/v/vendor-extendable-upstream-a/vendor-extendable-upstream-a_0.1.0-1resolute.20261109.233112_amd64.deb'
+  aptmethod got 'file:///var/repos/ubuntu/building/pool/main/v/vendor-extendable-upstream-b/vendor-extendable-upstream-b_0.1.0-1resolute.20261109.233710_amd64.deb'
+  aptmethod got 'file:///var/repos/ubuntu/building/pool/main/v/vendor-extendable-upstream-c/vendor-extendable-upstream-c_0.1.0-1resolute.20261109.233949_amd64.deb'
+  ```
 
 ---
 
