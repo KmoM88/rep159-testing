@@ -77,3 +77,12 @@
 [submodule "submodules/bloom"]
 	path = submodules/bloom
 	url = git@github.com:rep159-testing/bloom.git
+[submodule "submodules/ros_workspace_shell"]
+	path = submodules/ros_workspace_shell
+	url = git@github.com:rep159-testing/ros_workspace_shell.git
+[submodule "submodules/ros_workspace_shell-release"]
+	path = submodules/ros_workspace_shell-release
+	url = git@github.com:rep159-testing/ros_workspace_shell-release.git
+[submodule "submodules/rosdistro-reviewer"]
+	path = submodules/rosdistro-reviewer
+	url = git@github.com:rep159-testing/rosdistro-reviewer.git

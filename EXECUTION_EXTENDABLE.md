@@ -7,6 +7,7 @@ Procedimiento secuencial, diagramas de arquitectura y matriz de evidencia empír
 > - **Plan de Rollout & Alineación con `jrivero`**: **[`ROLLOUT_PLAN.md`](ROLLOUT_PLAN.md)**
 > - **Stage 4 (`ros_workspace` + `ament_cmake` + `bloom` en `E*`)**: **[`STAGE4_COMPOSABLE_WORKSPACE_PLAN.md`](STAGE4_COMPOSABLE_WORKSPACE_PLAN.md)**
 > - **Stage 5 (`rosdistro_build_cache` + `bloom` en `E*`)**: **[`STAGE5_CACHE_AND_BLOOM_PLAN.md`](STAGE5_CACHE_AND_BLOOM_PLAN.md)**
+> - **Stage 6 (`ROS + Gazebo`: `lyrical/jetty` & `rolling/rotary` en `E*`)**: **[`STAGE6_ROS_GAZEBO_PLAN.md`](STAGE6_ROS_GAZEBO_PLAN.md)**
 
 ---
 
@@ -22,8 +23,8 @@ flowchart LR
         C["ament_cmake + ros_workspace + bloom + rosdistro_build_cache<br/>Adopta commits de jrivero: child ros_workspace override,<br/>ROS_WORKSPACE_PARENT_PREFIX_PATH y ParentPrefixes"]
     end
 
-    subgraph RosGazebo ["Stage 6: ROS + Gazebo en extendable*"]
-        G["Extensión binaria sobre bibliotecas Gazebo<br/>con binary_rule e install_rule"]
+    subgraph RosGazebo ["Stage 6: ROS + Gazebo con workspace_package (ros_workspace_shell, jrivero)"]
+        G["Adopta ros_workspace_shell (a89cc7b) y workspace_package (bc0600f, 2cb93dc, 146d05f)<br/>Demo 1: Gazebo -> ROS 2 hasta ros_gz_bridge (sin vendor pkgs)<br/>Demo 2: Extensión 3rd-party de ROS 2"]
     end
 
     PureCMake --> RosWorkspace --> RosGazebo
@@ -38,6 +39,9 @@ flowchart LR
 | **`extendablechain` (Option B)** | `extendablebin` | `binary_import` | `downstream_chain_a` | `/opt/ros/extendablechain` | `Eci__chained-import_ubuntu_resolute_amd64` (`#4`) |
 | **`extendablemixed`** | `extendablebin` | `binary_import` (+ `upstream_c` en CI) | `downstream_chain_a` | `/opt/ros/extendablemixed` | `Eci__mixed-chain_ubuntu_resolute_amd64` (`#1`, `#2`) |
 | **`extendablediamond`** | `[extendablebin, extendablesrc]` | `binary_import` + `source_rebuild` | `downstream_chain_a` | `/opt/ros/extendablediamond` | `Eci__diamond-chain_ubuntu_resolute_amd64` (`#1`, `#3`) |
+| **`extendablejetty` (Stage 6 Step 6B-1)** | *(Raíz Gazebo LTS)* | *(Base)* | `ros_workspace_shell` (`0.1.0`), `gz-cmake` (`5.1.1`), `gz-utils` (`4.0.0`), `gz-math` (`9.3.0`) | `/opt/ros/extendablejetty` (`ros-extendablejetty-*`) | `Esrc_uR__extjetty_*`, `Ebin_uR64__extjetty_*`, `Erel_extjetty_sync-*`, `Eci__gazebo-jetty-release` |
+| **`extendablelyricalsrc` (Stage 6 Step 6B-1)** | `extendablejetty` | `source_rebuild` | `gz-demo-math` (`1.0.1`) (+ `ros_workspace_shell`, `gz-cmake`, `gz-utils`, `gz-math` desde git) | `/opt/ros/extendablelyricalsrc` | `Eci__gazebo-lyrical-source-rebuild` |
+| **`extendablelyrical` (Stage 6 Step 6B-1)** | `extendablejetty` | `binary_import` | `ros_workspace_shell` (`0.1.0`, override), `gz-demo-math` (`1.0.1`) | `/opt/ros/extendablelyrical` (`ros-extendablelyrical-*`) | `Esrc_uR__extlyrical_*`, `Ebin_uR64__extlyrical_*`, `Erel_extlyrical_sync-*`, `Eci__gazebo-lyrical-binary-import` |
 
 ---
 
@@ -101,3 +105,39 @@ flowchart LR
 | **Stage 4 Root Sync & CI (`extendable`)** | `Erel_sync-packages-to-testing_resolute_amd64`<br>`Eci__workspace-release_ubuntu_resolute_amd64` | [#12](https://build.test.ros2.org/job/Erel_sync-packages-to-testing_resolute_amd64/12/) ([Log](https://build.test.ros2.org/job/Erel_sync-packages-to-testing_resolute_amd64/12/console))<br>[#2](https://build.test.ros2.org/job/Eci__workspace-release_ubuntu_resolute_amd64/2/) ([Log](https://build.test.ros2.org/job/Eci__workspace-release_ubuntu_resolute_amd64/2/console)) | **SUCCESS** | Promueve los 6 paquetes `vendor-extendable-*` a `testing` y valida CI del workspace raíz (5/5 paquetes green) |
 | **Stage 4 Child Release (`extendablebin` / `extbin`)** | `Esrc_uR__extbin_ros_workspace__ubuntu_resolute__source` $\to$ `Ebin_uR64__extbin_ros_workspace__ubuntu_resolute_amd64__binary`<br>`Esrc_uR__extbin_downstream_bin_a__ubuntu_resolute__source` $\to$ `Ebin_uR64__extbin_downstream_bin_a__ubuntu_resolute_amd64__binary` | [#1](https://build.test.ros2.org/job/Esrc_uR__extbin_ros_workspace__ubuntu_resolute__source/1/) $\to$ [#2](https://build.test.ros2.org/job/Ebin_uR64__extbin_ros_workspace__ubuntu_resolute_amd64__binary/2/)<br>[#1](https://build.test.ros2.org/job/Esrc_uR__extbin_downstream_bin_a__ubuntu_resolute__source/1/) $\to$ [#2](https://build.test.ros2.org/job/Ebin_uR64__extbin_downstream_bin_a__ubuntu_resolute_amd64__binary/2/) | **SUCCESS** | Empaqueta `vendor-extendablebin-ros-workspace` (`ROS_WORKSPACE_PARENT_PREFIX_PATH=/opt/ros/extendable`) y `vendor-extendablebin-downstream-bin-a` (`bloom` con `ParentPrefixes`) |
 | **Stage 4 Child Sync & CI (`extendablebin` / `extbin`)** | `Erel_extbin_sync-packages-to-testing_resolute_amd64`<br>`Eci__workspace-binary-import_ubuntu_resolute_amd64` | [#3](https://build.test.ros2.org/job/Erel_extbin_sync-packages-to-testing_resolute_amd64/3/) ([Log](https://build.test.ros2.org/job/Erel_extbin_sync-packages-to-testing_resolute_amd64/3/console))<br>[#1](https://build.test.ros2.org/job/Eci__workspace-binary-import_ubuntu_resolute_amd64/1/) ([Log](https://build.test.ros2.org/job/Eci__workspace-binary-import_ubuntu_resolute_amd64/1/console)) | **SUCCESS** | Promueve `vendor-extendablebin-*` a `testing` y valida sourcing recursivo `/opt/ros/extendablebin/setup.sh` $\to$ `/opt/ros/extendable` en CI |
+
+---
+
+### 3.5 Stage 6 Step 6B-1: `workspace_package: ros_workspace_shell` + Gazebo (`extendablejetty` $\to$ `extendablelyrical` / `extendablelyricalsrc`)
+
+| Fase | Job en `build.test.ros2.org` | Build & Consola | Estado | Invariante Verificado |
+|---|---|---|:---:|---|
+| **Root Gazebo Sourcedeb (`extendablejetty` / `extjetty`)** | `Esrc_uR__extjetty_ros_workspace_shell__ubuntu_resolute__source`<br>`Esrc_uR__extjetty_gz-cmake__ubuntu_resolute__source`<br>`Esrc_uR__extjetty_gz-utils__ubuntu_resolute__source`<br>`Esrc_uR__extjetty_gz-math__ubuntu_resolute__source` | [#1](https://build.test.ros2.org/job/Esrc_uR__extjetty_ros_workspace_shell__ubuntu_resolute__source/1/) ([Log](https://build.test.ros2.org/job/Esrc_uR__extjetty_ros_workspace_shell__ubuntu_resolute__source/1/console))<br>[#1](https://build.test.ros2.org/job/Esrc_uR__extjetty_gz-cmake__ubuntu_resolute__source/1/) ([Log](https://build.test.ros2.org/job/Esrc_uR__extjetty_gz-cmake__ubuntu_resolute__source/1/console))<br>[#1](https://build.test.ros2.org/job/Esrc_uR__extjetty_gz-utils__ubuntu_resolute__source/1/) ([Log](https://build.test.ros2.org/job/Esrc_uR__extjetty_gz-utils__ubuntu_resolute__source/1/console))<br>[#1](https://build.test.ros2.org/job/Esrc_uR__extjetty_gz-math__ubuntu_resolute__source/1/) ([Log](https://build.test.ros2.org/job/Esrc_uR__extjetty_gz-math__ubuntu_resolute__source/1/console)) | **SUCCESS** | Genera `.dsc` de `ros-extendablejetty-{ros-workspace-shell,gz-cmake,gz-utils,gz-math}` sin paquetes `ament` |
+| **Root Gazebo Binarydeb & Sync (`extendablejetty` / `extjetty`)** | `Ebin_uR64__extjetty_ros_workspace_shell__ubuntu_resolute_amd64__binary`<br>`Ebin_uR64__extjetty_gz-cmake__ubuntu_resolute_amd64__binary`<br>`Ebin_uR64__extjetty_gz-utils__ubuntu_resolute_amd64__binary`<br>`Ebin_uR64__extjetty_gz-math__ubuntu_resolute_amd64__binary`<br>`Erel_extjetty_sync-packages-to-testing_resolute_amd64` | [#1](https://build.test.ros2.org/job/Ebin_uR64__extjetty_ros_workspace_shell__ubuntu_resolute_amd64__binary/1/) ([Log](https://build.test.ros2.org/job/Ebin_uR64__extjetty_ros_workspace_shell__ubuntu_resolute_amd64__binary/1/console))<br>[#2](https://build.test.ros2.org/job/Ebin_uR64__extjetty_gz-cmake__ubuntu_resolute_amd64__binary/2/) ([Log](https://build.test.ros2.org/job/Ebin_uR64__extjetty_gz-cmake__ubuntu_resolute_amd64__binary/2/console))<br>[#2](https://build.test.ros2.org/job/Ebin_uR64__extjetty_gz-utils__ubuntu_resolute_amd64__binary/2/) ([Log](https://build.test.ros2.org/job/Ebin_uR64__extjetty_gz-utils__ubuntu_resolute_amd64__binary/2/console))<br>[#2](https://build.test.ros2.org/job/Ebin_uR64__extjetty_gz-math__ubuntu_resolute_amd64__binary/2/) ([Log](https://build.test.ros2.org/job/Ebin_uR64__extjetty_gz-math__ubuntu_resolute_amd64__binary/2/console))<br>[#2](https://build.test.ros2.org/job/Erel_extjetty_sync-packages-to-testing_resolute_amd64/2/) ([Log](https://build.test.ros2.org/job/Erel_extjetty_sync-packages-to-testing_resolute_amd64/2/console)) | **SUCCESS** | Compila y sincroniza `ros-extendablejetty-*` en `/opt/ros/extendablejetty` a `repo.test.ros2.org/ubuntu/testing` |
+| **Child Release & Sync (`extendablelyrical` / `extlyrical`)** | `Esrc_uR__extlyrical_ros_workspace_shell__ubuntu_resolute__source` $\to$ `Ebin_uR64__extlyrical_ros_workspace_shell__ubuntu_resolute_amd64__binary`<br>`Esrc_uR__extlyrical_gz-demo-math__ubuntu_resolute__source` $\to$ `Ebin_uR64__extlyrical_gz-demo-math__ubuntu_resolute_amd64__binary`<br>`Erel_extlyrical_sync-packages-to-testing_resolute_amd64` | [#1](https://build.test.ros2.org/job/Esrc_uR__extlyrical_ros_workspace_shell__ubuntu_resolute__source/1/) $\to$ [#2](https://build.test.ros2.org/job/Ebin_uR64__extlyrical_ros_workspace_shell__ubuntu_resolute_amd64__binary/2/)<br>[#1](https://build.test.ros2.org/job/Esrc_uR__extlyrical_gz-demo-math__ubuntu_resolute__source/1/) $\to$ [#3](https://build.test.ros2.org/job/Ebin_uR64__extlyrical_gz-demo-math__ubuntu_resolute_amd64__binary/3/)<br>[#2](https://build.test.ros2.org/job/Erel_extlyrical_sync-packages-to-testing_resolute_amd64/2/) ([Log](https://build.test.ros2.org/job/Erel_extlyrical_sync-packages-to-testing_resolute_amd64/2/console)) | **SUCCESS** | Empaqueta `ros-extendablelyrical-ros-workspace-shell` (`-DROS_WORKSPACE_PARENT_PREFIX_PATH="/opt/ros/extendablejetty"`) y `ros-extendablelyrical-gz-demo-math` consumiendo `ros-extendablejetty-gz-math` vía `binary_import` |
+| **CI Suite (`extendablejetty`, `extendablelyricalsrc`, `extendablelyrical`)** | `Eci__gazebo-jetty-release_ubuntu_resolute_amd64`<br>`Eci__gazebo-lyrical-source-rebuild_ubuntu_resolute_amd64`<br>`Eci__gazebo-lyrical-binary-import_ubuntu_resolute_amd64` | [#1](https://build.test.ros2.org/job/Eci__gazebo-jetty-release_ubuntu_resolute_amd64/1/) ([Log](https://build.test.ros2.org/job/Eci__gazebo-jetty-release_ubuntu_resolute_amd64/1/console))<br>[#1](https://build.test.ros2.org/job/Eci__gazebo-lyrical-source-rebuild_ubuntu_resolute_amd64/1/) ([Log](https://build.test.ros2.org/job/Eci__gazebo-lyrical-source-rebuild_ubuntu_resolute_amd64/1/console))<br>[#2](https://build.test.ros2.org/job/Eci__gazebo-lyrical-binary-import_ubuntu_resolute_amd64/2/) ([Log](https://build.test.ros2.org/job/Eci__gazebo-lyrical-binary-import_ubuntu_resolute_amd64/2/console)) | **SUCCESS** | Valida CI raíz de Gazebo (4 paquetes), `source_rebuild` completo (5 paquetes) y `binary_import` de `gz-demo-math` consumiendo `ros-extendablejetty-gz-math` desde APT |
+
+---
+
+## 4. Herramientas de Automatización por Etapa en [`tools/`](tools/)
+
+Todos los scripts de configuración de ramas, generación de paquetes Debian con `bloom`, y orquestación de jobs en `https://build.test.ros2.org` están versionados en el directorio [`tools/`](tools/) del repositorio base:
+
+```bash
+# Listar todas las etapas REP-159, sus ramas de submódulos y olas de jobs en Jenkins
+./tools/stage_runner.py --list-stages
+
+# Verificar o hacer checkout de las ramas exactas de una etapa
+./tools/stage_runner.py --stage stage6-gazebo-step1 --verify-branches
+./tools/stage_runner.py --stage stage6-gazebo-step1 --checkout
+
+# Consultar el estado en vivo de todos los jobs de la etapa en build.test.ros2.org
+./tools/stage_runner.py --stage stage6-gazebo-step1 --status
+
+# Regenerar jobs de Jenkins (--dry-run para previsualizar) y ejecutar la pipeline completa por olas
+./tools/stage_runner.py --stage stage6-gazebo-step1 --generate-jobs --dry-run
+./tools/stage_runner.py --stage stage6-gazebo-step1 --run-pipeline
+
+# Regenerar los tracks GBP / Debian de Stage 6 con bloom y publicarlos en origin
+./tools/bloom_stage6_gazebo.py --push
+```
