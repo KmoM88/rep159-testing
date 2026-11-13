@@ -63,7 +63,7 @@ rep-159: document design explorations, regex decision rationale, and binary rena
 * **Base Branch**: `rep159` (`46a7580` in org fork, including Jose Luis Rivero's Format 3 parser & parent cache loading) / `master` (upstream, currently v`1.1.0`)
 * **Head Branch**: `feature/rep159-binary-naming-regex` (`bfde799`)
 * **Live Org PR**: [`rep159-testing/rosdistro#1`](https://github.com/rep159-testing/rosdistro/pull/1) (**OPEN**)
-* **Release Gate Unblocked**: Together with `rep159` Format 3 base and Section 3 (`feat/rep159-install-rule`, `feat/rep159-eol-date`, `feat/rep159-workspace-package`), merging and releasing **`rosdistro >= 1.2.0`** to PyPI and OSRF `ros_bootstrap` APT (`python3-rosdistro-modules >= 1.2.0`) satisfies **Release Gate 1**.
+* **Release Gate Unblocked**: Together with `rep159` Format 3 base and Section 3 (`feat/rep159-install-rule`, `feat/rep159-eol-date`, `feat/rep159-workspace-package`), merging and publishing a new **`rosdistro`** release to PyPI and OSRF `ros_bootstrap` APT (`python3-rosdistro-modules`) satisfies **Release Gate 1**.
 
 ### Proposed PR Title
 ```text
@@ -106,7 +106,7 @@ During the prototyping phase, three distinct naming engines were evaluated on de
   1. `feat/rep159-install-rule` (`a8f5543`, based on `feature/rep159-binary-naming-regex` `bfde799` — **96/96 unit tests pass**)
   2. `feat/rep159-eol-date` (`5ec62f9`, stacked on `a8f5543` — **100/100 unit tests pass**)
   3. `feat/rep159-workspace-package` (`3670bd8`, stacked on `5ec62f9` — **106/106 unit tests pass**)
-* **Release Gate Prerequisite**: **None (Wave 0 — ships inside Release Gate 1 `rosdistro >= 1.2.0`)**
+* **Release Gate Prerequisite**: **None (Wave 0 — ships inside Release Gate 1 `rosdistro` release)**
 
 ### Commits Included Across the Stack (`a8f5543` $\to$ `5ec62f9` $\to$ `3670bd8`)
 - `db021b9` & `4916cae`: Declarative `install_rule` prefix evaluation (canonical lowercase `{distro}`, `{package}`, `{origin_distro}`) and recursive `get_binary_import_underlays()`.
@@ -136,7 +136,7 @@ During the prototyping phase, three distinct naming engines were evaluated on de
 * **Repository**: `ros-infrastructure/rosdistro-reviewer` (org fork `rep159-testing/rosdistro-reviewer`)
 * **Base Branch**: `main` (`6287250`)
 * **Head Branch**: `feat/rep159-eol-date` (`3e6ab56`)
-* **Release Gate Prerequisite**: **None (Wave 0)** — Zero dependency on `rosdistro >= 1.2.0` (**200/200 unit & linter tests pass**).
+* **Release Gate Prerequisite**: **None (Wave 0)** — Zero dependency on `rosdistro` (**200/200 unit & linter tests pass**).
 * **Core Implementation Commit**: `3e6ab56` (`rosdistro_reviewer/index_yaml_check.py`, `test/rosdistro_reviewer/test_index_yaml_check.py`).
 
 ### Proposed PR Title
@@ -174,12 +174,12 @@ These three bugfixes have **zero dependency on `rosdistro` Format 3** and can be
 
 ---
 
-## 7. [Wave 1 — Gated on `rosdistro >= 1.2.0`] Pull Request for `ros-infrastructure/rosdep`
+## 7. [Wave 1 — Gated on `rosdistro` REP-159 Release] Pull Request for `ros-infrastructure/rosdep`
 
 * **Repository**: `ros-infrastructure/rosdep` (org fork `rep159-testing/rosdep`, currently v`0.26.0`)
 * **Base Branch**: `master`
 * **Clean PR-Ready Branch**: `feat/rep159-binary-lookup` (`5661779`, cut directly off `origin/master` `c2eb4b0`; org PR [`rosdep#2`](https://github.com/rep159-testing/rosdep/pull/2))
-* **Release Gate Prerequisite**: **BLOCKED until Release Gate 1 (`rosdistro >= 1.2.0` published on PyPI and OSRF `ros_bootstrap` APT)**.
+* **Release Gate Prerequisite**: **BLOCKED until Release Gate 1 (`rosdistro` REP-159 release published on PyPI and OSRF `ros_bootstrap` APT)**.
 * **Core Implementation Commit**:
   - `5661779` (distilled from `2d5a548`, `3d52dad`, `07b6647` on `rep159`): `src/rosdep2/gbpdistro_support.py` delegating binary package name resolution to `repo.release_repository.get_binary_package_name(pkg)` / `distro_file.get_binary_package_name(pkg)` with `extension_method == 'binary_import'` fallback, plus `test/test_rosdep_gbpdistro_support.py` and `test/fake_rosdistro/` fixtures (including `derived_naming`).
 * **Temporary Pre-Release Overrides Excluded**:
@@ -217,21 +217,21 @@ feat(rep159): delegate OS binary package name resolution to rosdistro binary_rul
 
 ---
 
-## 9. [Wave 2 — Gated on `rosdistro >= 1.2.0` + `rosdep >= 0.27.0`] Pull Requests for `ros-infrastructure/bloom`
+## 9. [Wave 2 — Gated on `rosdistro` + `rosdep` REP-159 Releases] Pull Requests for `ros-infrastructure/bloom`
 
 * **Repository**: `ros-infrastructure/bloom` (org fork `rep159-testing/bloom`, currently v`0.14.4`)
 * **Base Branch**: `master` (`98be0c5`)
 * **Clean PR-Ready Stack**:
   1. `feat/rep159-rules-support` (`7af7034`, stacked on Jose Luis Rivero's `origin/rep159` `0189046`..`2877687` — **26/26 unit tests pass**)
   2. `feat/rep159-workspace-package` (`ec0bcca`, stacked on `7af7034` — **37/37 unit tests pass**)
-* **Release Gate Prerequisite**: **BLOCKED until Release Gate 1 (`rosdistro >= 1.2.0`) AND Release Gate 2 (`rosdep >= 0.27.0`) are published on PyPI & APT**.
+* **Release Gate Prerequisite**: **BLOCKED until Release Gate 1 (`rosdistro` release) AND Release Gate 2 (`rosdep` release) are published on PyPI & APT**.
 * **Commits Included**:
   - `0189046`..`2877687` (**Jose Luis Rivero**, `origin/rep159`): `get_binary_import_parents()` and `get_ros_workspace_dependencies()` in `bloom/rosdistro_api.py`; `ParentPrefixes` underlay sourcing loops, `CMAKE_PREFIX_PATH`/`PKG_CONFIG_PATH` chaining, and `-DROS_WORKSPACE_PARENT_PREFIX_PATH` injection in `bloom/generators/debian/templates/{ament_cmake,cmake}/rules.em`.
   - `1f62809`..`7af7034` (`feat/rep159-rules-support`): `get_binary_package_name()` and `get_install_prefix()` (including `dist_file.get_install_prefix()` delegation in `45fb575`), `InstallationPrefix` and `rosify_package_name()` delegation in `bloom/generators/rosdebian.py`, and `git tag -f -m` GPG fix (`d6fdf9e`).
   - `aa5133e` (**Jose Luis Rivero**, cherry-picked from `origin/rep159-shell` `2cb93dc`): Adds `get_workspace_package(distro)` and generalizes `get_ros_workspace_dependencies()` and `rules.em` for `ros_workspace_shell` / `ros_workspace`.
   - `ebfa37a`: Uses `rosdistro.get_distribution_file()` in `bloom/rosdistro_api.py` so `extends` and `workspace_package` metadata are preserved when generating Debian tracks for extended distributions without a pre-built child cache.
   - `ec0bcca`: Adds `unset AMENT_CURRENT_PREFIX;` after sourcing each parent `setup.sh` in `bloom/generators/debian/templates/{ament_cmake,cmake}/rules.em`.
-* **Release Gate Unblocked**: Publishing **`bloom >= 0.15.0`** satisfies **Release Gate 3**.
+* **Release Gate Unblocked**: Publishing a new **`bloom`** release satisfies **Release Gate 3**.
 
 ### Proposed PR Title
 ```text

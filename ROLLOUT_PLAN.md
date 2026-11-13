@@ -27,7 +27,7 @@ flowchart TD
         RD4 --> RD5["rosdistro Layer 5: feat/rep159-workspace-package (3670bd8)"]
     end
 
-    RD5 --> GATE1{{"RELEASE GATE 1: rosdistro >= 1.2.0 (PyPI + ros_bootstrap APT)"}}
+    RD5 --> GATE1{{"RELEASE GATE 1: rosdistro REP-159 release (PyPI + ros_bootstrap APT)"}}
 
     subgraph Wave1 ["Wave 1: Dependency Lookup & Workspace Chaining"]
         ROSDEP["rosdep: feat/rep159-binary-lookup (5661779 -> master)"]
@@ -35,8 +35,8 @@ flowchart TD
         WSS["ros_workspace_shell: feat/rep159-unset-current-prefix (b6a8195 -> main)"]
     end
 
-    GATE1 --> ROSDEP --> GATE2{{"RELEASE GATE 2: rosdep >= 0.27.0 (PyPI + ros_bootstrap APT)"}}
-    WS --> GATE2B{{"RELEASE GATE 2B: ros_workspace >= 1.0.4 & ros_workspace_shell >= 0.1.0"}}
+    GATE1 --> ROSDEP --> GATE2{{"RELEASE GATE 2: rosdep REP-159 release (PyPI + ros_bootstrap APT)"}}
+    WS --> GATE2B{{"RELEASE GATE 2B: ros_workspace & ros_workspace_shell REP-159 releases"}}
     WSS --> GATE2B
 
     subgraph Wave2 ["Wave 2: Automated Debian Packaging (bloom)"]
@@ -47,7 +47,7 @@ flowchart TD
     GATE1 --> BL1
     GATE2 --> BL1
     GATE2B -.-> BL1
-    BL3 --> GATE3{{"RELEASE GATE 3: bloom >= 0.15.0 (PyPI + ros_bootstrap APT)"}}
+    BL3 --> GATE3{{"RELEASE GATE 3: bloom REP-159 release (PyPI + ros_bootstrap APT)"}}
 
     subgraph Wave3 ["Wave 3: Buildfarm Engine (ros_buildfarm Clean PR Branches)"]
         BF1["PR 3A: feat/rep159-workspace-walk (486b579, Jose)"] --> BF2["PR 3B: feat/rep159-underlays (274640b)"]
@@ -58,7 +58,7 @@ flowchart TD
     GATE1 --> BF1
     GATE2 --> BF1
     REPREPRO --> BF3
-    BF4 --> GATE4{{"RELEASE GATE 4: ros_buildfarm >= 4.2.0"}}
+    BF4 --> GATE4{{"RELEASE GATE 4: ros_buildfarm REP-159 release"}}
 
     subgraph Wave4 ["Wave 4: Vendorless ROS + Gazebo & Distro Configs"]
         ROSGZ["ros_gz: feat/rep159-vendorless-bridge (08645e3)"]

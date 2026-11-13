@@ -284,15 +284,15 @@ flowchart LR
     subgraph W0 ["Wave 0 (No Gate Deps)"]
         R0["reps#31 & #35 (Merged) + install_rule + workspace_package, reprepro-updater:refactor, rosdistro-reviewer (3e6ab56), rosdistro (#1 + 3670bd8)"]
     end
-    W0 --> G1{{"GATE 1: rosdistro >= 1.2.0"}}
+    W0 --> G1{{"GATE 1: rosdistro REP-159 release"}}
     subgraph W1 ["Wave 1"]
         R1["rosdep: feat/rep159-binary-lookup (5661779), ros_workspace (4997f85) & ros_workspace_shell (b6a8195)"]
     end
-    G1 --> W1 --> G2{{"GATE 2: rosdep >= 0.27.0 & ros_workspace >= 1.0.4"}}
+    G1 --> W1 --> G2{{"GATE 2: rosdep & ros_workspace REP-159 releases"}}
     subgraph W23 ["Waves 2 & 3"]
         R2["bloom: feat/rep159-workspace-package (ec0bcca), ros_buildfarm: PRs 3A (486b579), 3B (274640b), 3C (a271be1), 3D (e54594c)"]
     end
-    G2 --> W23 --> G4{{"GATE 3 & 4: bloom >= 0.15.0 & ros_buildfarm >= 4.2.0"}}
+    G2 --> W23 --> G4{{"GATE 3 & 4: bloom & ros_buildfarm REP-159 releases"}}
     subgraph W4 ["Wave 4"]
         R4["ros_gz: feat/rep159-vendorless-bridge (08645e3) & Production Extended Distros"]
     end

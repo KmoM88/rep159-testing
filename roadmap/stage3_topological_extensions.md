@@ -92,7 +92,7 @@ flowchart TD
 ### Testing Tweaks & Harness Configurations (Testfarm Only — Do NOT Upstream)
 
 1. **Container Tarball `pip3 install` Commits on Testbed Branch (`feat/binary-naming-rule` @ `797d771`)**:
-   - Temporary pre-release overrides dropped once **Gate 1 (`rosdistro >= 1.2.0`)** and **Gate 2 (`rosdep >= 0.27.0`)** land in `ros_bootstrap` APT.
+   - Temporary pre-release overrides dropped once **Gate 1 (`rosdistro` REP-159 release)** and **Gate 2 (`rosdep` REP-159 release)** land in `ros_bootstrap` APT.
 2. **Test Harness Chained Distributions**:
    - `extendablechain`, `extendablemixed`, and `extendablediamond` distribution specifications and `downstream_chain_a` (`2e31db1`) in `rep159-testing`.
 

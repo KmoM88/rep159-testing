@@ -16,10 +16,10 @@ flowchart TD
     REVIEWER["Wave 0: rosdistro-reviewer (feat/rep159-eol-date @ 3e6ab56)"]
     UTIL["Wave 0: Standalone Fixes (git.py TLS, jenkins.py 403, bloom gpgSign)"]
     ROSDISTRO["Wave 0: rosdistro (#1 Open + install_rule + eol_date + workspace_package @ 3670bd8)"]
-    G1{{"GATE 1: rosdistro >= 1.2.0 (PyPI + ros_bootstrap APT)"}}
+    G1{{"GATE 1: rosdistro REP-159 release (PyPI + ros_bootstrap APT)"}}
     ROSDEP["Wave 1: rosdep (feat/rep159-binary-lookup @ 5661779)"]
     WORKSPACE["Wave 1: ros_workspace (4997f85) & ros_workspace_shell (b6a8195)"]
-    G2{{"GATE 2: rosdep >= 0.27.0 (PyPI + ros_bootstrap APT)"}}
+    G2{{"GATE 2: rosdep REP-159 release (PyPI + ros_bootstrap APT)"}}
     BLOOM["Wave 2: bloom (feat/rep159-rules-support @ 7af7034 & feat/rep159-workspace-package @ ec0bcca)"]
     BUILDFARM["Wave 3: ros_buildfarm (PR 3A: 486b579, PR 3B: 274640b, PR 3C: a271be1, PR 3D: e54594c)"]
     ROSGZ["Wave 4: ros_gz (feat/rep159-vendorless-bridge @ 08645e3)"]
@@ -54,14 +54,14 @@ flowchart TD
 | **M0** | Resilience Fixes | `ros_buildfarm`: `ae8826b` (git TLS), `199fd98` (Jenkins 403)<br>`bloom`: `d6fdf9e` (`git tag -f -m`) | Respective `master` | None | Standalone bugfix branches | **BRANCH READY** |
 | **M1** | Core Parser & Regex | [`rep159-testing/rosdistro`](https://github.com/rep159-testing/rosdistro): `feature/rep159-binary-naming-regex` (`bfde799`) | `ros-infrastructure/rosdistro:master` | M0 Specs | [`rep159-testing/rosdistro#1`](https://github.com/rep159-testing/rosdistro/pull/1) (Format 3, `extends`, `binary_rule`) | **OPEN** |
 | **M1** | Install Prefixes, EOL Date & `workspace_package` | [`rep159-testing/rosdistro`](https://github.com/rep159-testing/rosdistro):<br>• `feat/rep159-install-rule` (`a8f5543`)<br>• `feat/rep159-eol-date` (`5ec62f9`)<br>• `feat/rep159-workspace-package` (`3670bd8`) | Stacked on `rosdistro#1` | `rosdistro#1` | `install_rule`, `BINARY_IMPORT_OVERRIDABLE`, Index v4 `distribution_eol_date`, `workspace_package` (`5d4a392`), and hyphenated package lookup (`3670bd8`) | **BRANCH READY** (106/106 tests) |
-| **G1** | **RELEASE GATE 1** | **`ros-infrastructure/rosdistro`** | Tag `1.2.0` | M1 Merge | **PyPI `rosdistro >= 1.2.0` + `ros_bootstrap` APT `python3-rosdistro-modules >= 1.2.0`** | **HOLD ON M1** |
+| **G1** | **RELEASE GATE 1** | **`ros-infrastructure/rosdistro`** | New Release Tag | M1 Merge | **PyPI `rosdistro` + `ros_bootstrap` APT `python3-rosdistro-modules` REP-159 release** | **HOLD ON M1** |
 | **M2** | Binary Lookup | [`rep159-testing/rosdep`](https://github.com/rep159-testing/rosdep): `feat/rep159-binary-lookup` (`5661779`) | `ros-infrastructure/rosdep:master` | **GATE 1** | Clean `gbpdistro_support.py` delegation + Format 3 tests (0 CI hacks, [`rosdep#2`](https://github.com/rep159-testing/rosdep/pull/2)) | **BRANCH READY** |
 | **M2** | Workspace Chaining | • [`ros_workspace`](https://github.com/rep159-testing/ros_workspace): `feat/rep159-parent-chaining` (`4997f85`)<br>• [`ros_workspace_shell`](https://github.com/rep159-testing/ros_workspace_shell): `feat/rep159-unset-current-prefix` (`b6a8195`) | `ros2/ros_workspace:main` & `ros_workspace_shell:main` | None (CMake) | Stacked on `jrivero`'s `12f93e9` (`ros_workspace`) and `a89cc7b` (`ros_workspace_shell` + `unset AMENT_CURRENT_PREFIX`) | **BRANCH READY** |
-| **G2** | **RELEASE GATE 2** | **`ros-infrastructure/rosdep`, `ros2/ros_workspace` & `ros_workspace_shell`** | Tags `0.27.0`, `1.0.4`, `0.1.0` | M2 Merge | **PyPI `rosdep >= 0.27.0` + `ros_bootstrap` APT `python3-rosdep-modules >= 0.27.0`** | **HOLD ON M2** |
+| **G2** | **RELEASE GATE 2** | **`ros-infrastructure/rosdep`, `ros2/ros_workspace` & `ros_workspace_shell`** | New Release Tags | M2 Merge | **PyPI `rosdep` + `ros_bootstrap` APT `python3-rosdep-modules` REP-159 release** | **HOLD ON M2** |
 | **M3** | Debian Generator | [`rep159-testing/bloom`](https://github.com/rep159-testing/bloom):<br>• `feat/rep159-rules-support` (`7af7034`)<br>• `feat/rep159-workspace-package` (`ec0bcca`) | `ros-infrastructure/bloom:master` | **GATES 1 & 2** | Stacked on `jrivero`'s `rep159` (`2877687`) + `binary_rule`, `install_rule`, `workspace_package`, `get_distribution_file` `extends`, and `unset AMENT_CURRENT_PREFIX` | **BRANCH READY** (37/37 tests) |
-| **G3** | **RELEASE GATE 3** | **`ros-infrastructure/bloom`** | Tag `0.15.0` | M3 Merge | **PyPI `bloom >= 0.15.0` + `ros_bootstrap` APT `python3-bloom >= 0.15.0`** | **HOLD ON M3** |
+| **G3** | **RELEASE GATE 3** | **`ros-infrastructure/bloom`** | New Release Tag | M3 Merge | **PyPI `bloom` + `ros_bootstrap` APT `python3-bloom` REP-159 release** | **HOLD ON M3** |
 | **M4** | Buildfarm Engine | [`rep159-testing/ros_buildfarm`](https://github.com/rep159-testing/ros_buildfarm):<br>• **PR 3A**: `feat/rep159-workspace-walk` (`486b579`)<br>• **PR 3B**: `feat/rep159-underlays` (`274640b`)<br>• **PR 3C**: `feat/rep159-binary-naming` (`a271be1`)<br>• **PR 3D**: `feat/rep159-workspace-package` (`e54594c`) | `ros-infrastructure/ros_buildfarm:master` | **GATES 1 & 2 + `reprepro:refactor`** | 4 clean branches off `master` (`7daa2b1`, 0 Dockerfile pip hacks): `jrivero` workspace walk (`486b579`, 7/7), underlays + CMake/`AMENT_CURRENT_PREFIX` fixes (`274640b`, 11/11), release naming (`a271be1`, 6/6), and `get_workspace_package()` (`e54594c`) | **BRANCH READY** (100% tests) |
-| **G4** | **RELEASE GATE 4** | **`ros-infrastructure/ros_buildfarm`** | Tag `4.2.0` | M4 Merge | **PyPI `ros_buildfarm >= 4.2.0` + APT `python3-ros-buildfarm >= 4.2.0`** | **HOLD ON M4** |
+| **G4** | **RELEASE GATE 4** | **`ros-infrastructure/ros_buildfarm`** | New Release Tag | M4 Merge | **PyPI `ros_buildfarm` + APT `python3-ros-buildfarm` REP-159 release** | **HOLD ON M4** |
 | **M5** | Vendorless ROS + Gazebo Bridge | [`rep159-testing/ros_gz`](https://github.com/rep159-testing/ros_gz): `feat/rep159-vendorless-bridge` (`08645e3`) | `gazebosim/ros_gz:ros2` | **GATES 3 & 4** | Clean 3-file diff off `3.0.12` (`04a4544`) replacing `gz_*_vendor` with direct `gz-cmake`, `gz-math`, `gz-msgs`, `gz-transport` dependencies (0 deleted sibling dirs) | **BRANCH READY** |
 
 ---
@@ -84,7 +84,7 @@ flowchart TD
 ```markdown
 ### REP-159 Cross-Repository & Release-Gate Tracking
 - **Target Repo & Base**: <owner>/<repo> (Base: `<rep159|master|main|refactor>`)
-- **Release Gate Prerequisite**: <None (Wave 0) | Gate 1: rosdistro >= 1.2.0 | Gate 2: rosdep >= 0.27.0>
+- **Release Gate Prerequisite**: <None (Wave 0) | Gate 1: rosdistro REP-159 release | Gate 2: rosdep REP-159 release>
 - **Specification**: openrobotics/reps#32 / openrobotics/reps#35 (Merged baseline: openrobotics/reps#31) + `feature/rep-159-install-rule` (`1aef980`) + `feature/rep-159-workspace-package` (`0905caa`)
 - **Core Parser & Rules**: rep159-testing/rosdistro#1 (+ stacked `feat/rep159-install-rule` @ `a8f5543`, `feat/rep159-eol-date` @ `5ec62f9`, `feat/rep159-workspace-package` @ `3670bd8`)
 - **Index Reviewer (Wave 0)**: rep159-testing/rosdistro-reviewer (`feat/rep159-eol-date` @ `3e6ab56` -> upstream `main`)

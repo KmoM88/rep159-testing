@@ -16,19 +16,19 @@ flowchart TD
     BF_UTIL["Wave 0: Standalone Utility Fixes (ros_buildfarm git TLS & jenkins 403; bloom gpgSign)"]
     ROSDISTRO["Wave 0: ros-infrastructure/rosdistro (Format 3 extends, binary_rule, install_rule, eol_date, workspace_package)"]
 
-    GATE1{{"RELEASE GATE 1: rosdistro >= 1.2.0 (PyPI + ros_bootstrap APT)"}}
+    GATE1{{"RELEASE GATE 1: rosdistro REP-159 release (PyPI + ros_bootstrap APT)"}}
 
     ROSDEP["Wave 1: ros-infrastructure/rosdep (feat/rep159-binary-lookup @ 5661779)"]
     WORKSPACE["Wave 1: ros2/ros_workspace (4997f85) & ros_workspace_shell (b6a8195)"]
 
-    GATE2{{"RELEASE GATE 2: rosdep >= 0.27.0 (PyPI + ros_bootstrap APT)"}}
-    GATE2B{{"RELEASE GATE 2B: ros_workspace >= 1.0.4 & ros_workspace_shell >= 0.1.0"}}
+    GATE2{{"RELEASE GATE 2: rosdep REP-159 release (PyPI + ros_bootstrap APT)"}}
+    GATE2B{{"RELEASE GATE 2B: ros_workspace & ros_workspace_shell REP-159 releases"}}
 
     BLOOM["Wave 2: ros-infrastructure/bloom (feat/rep159-rules-support @ 7af7034 & feat/rep159-workspace-package @ ec0bcca)"]
-    GATE3{{"RELEASE GATE 3: bloom >= 0.15.0 (PyPI + ros_bootstrap APT)"}}
+    GATE3{{"RELEASE GATE 3: bloom REP-159 release (PyPI + ros_bootstrap APT)"}}
 
     BUILDFARM["Wave 3: ros-infrastructure/ros_buildfarm (PR 3A: 486b579, PR 3B: 274640b, PR 3C: a271be1, PR 3D: e54594c)"]
-    GATE4{{"RELEASE GATE 4: ros_buildfarm >= 4.2.0 (PyPI + ros_bootstrap APT)"}}
+    GATE4{{"RELEASE GATE 4: ros_buildfarm REP-159 release (PyPI + ros_bootstrap APT)"}}
 
     ROS_GZ["Wave 4: gazebosim/ros_gz (feat/rep159-vendorless-bridge @ 08645e3)"]
     CONFIG["Wave 4: ros2/ros_buildfarm_config & Extended Distro Data"]
@@ -80,11 +80,11 @@ All validation stages (Stages 1–6) execute inside the unified **`extendable*` 
 | **Wave 0** | [`ros-infrastructure/rosdistro-reviewer`](https://github.com/ros-infrastructure/rosdistro-reviewer) | `feat/rep159-eol-date` (`3e6ab56`) | `main` | **Branch Ready** (200/200 unit & linter tests pass) | None | Enforces ISO 8601 `YYYY-MM-DD` `distribution_eol_date` validation in `index-v4.yaml` PRs |
 | **Wave 0** | [`ros-infrastructure/ros_buildfarm`](https://github.com/ros-infrastructure/ros_buildfarm) | Cherry-picks `ae8826b` (`wrapper/git.py`) & `199fd98` (`jenkins.py`) | `master` | **Ready** (standalone bugfixes) | None | Standalone resilience (`wrapper/git.py` TLS retry; `jenkins.py` 403 view skip) |
 | **Wave 0** | [`ros-infrastructure/bloom`](https://github.com/ros-infrastructure/bloom) | Cherry-pick `d6fdf9e` from `feat/rep159-rules-support` | `master` | **Ready** (standalone bugfix) | None | Fixes `git tag -f -m` abort when `tag.gpgSign=true` |
-| **Wave 0** | [`ros-infrastructure/rosdistro`](https://github.com/ros-infrastructure/rosdistro) *(currently `1.1.0`)* | • `rep159` (`46a7580`)<br>• `feature/rep159-binary-naming-regex` (`bfde799`)<br>• `feat/rep159-install-rule` (`a8f5543`)<br>• `feat/rep159-eol-date` (`5ec62f9`)<br>• `feat/rep159-workspace-package` (`3670bd8`) | `master` *(org fork: `rep159`)* | Org PR [`rosdistro#1`](https://github.com/rep159-testing/rosdistro/pull/1) **OPEN** + stacked `a8f5543` (96/96), `5ec62f9` (`distribution_eol_date`), and `3670bd8` (`workspace_package` + hyphenated package lookup, **106/106 tests pass**) | REP-159 spec alignment | **Unblocks Gate 1**: Release **`rosdistro >= 1.2.0`** to PyPI + `ros_bootstrap` APT (`python3-rosdistro-modules >= 1.2.0`) |
-| **Wave 1** | [`ros-infrastructure/rosdep`](https://github.com/ros-infrastructure/rosdep) *(currently `0.26.0`)* | `feat/rep159-binary-lookup` (`5661779`, PR-ready clean off `master`)<br>*(testbed: `rep159` @ `3d52dad`)* | `master` | Org PR [`rosdep#2`](https://github.com/rep159-testing/rosdep/pull/2) **OPEN** (zero CI hacks); upstream PR blocked on Gate 1 PyPI publication | **Gate 1 (`rosdistro >= 1.2.0`)** | **Unblocks Gate 2**: Release **`rosdep >= 0.27.0`** to PyPI + `ros_bootstrap` APT (`python3-rosdep-modules >= 0.27.0`) |
-| **Wave 1** | [`ros2/ros_workspace`](https://github.com/ros2/ros_workspace) & `ros_workspace_shell` | • `ros_workspace:feat/rep159-parent-chaining` (`4997f85`, stacked on `12f93e9`)<br>• `ros_workspace_shell:feat/rep159-unset-current-prefix` (`b6a8195`, stacked on `a89cc7b`) | `main` | **Branches Ready** (0 hacks): `ros_workspace` (`4997f85`) for Ament distros; `ros_workspace_shell` (`b6a8195`) for non-Ament plain-CMake distros (`unset AMENT_CURRENT_PREFIX`) | None (CMake-only) | **Unblocks Gate 2B**: Tag & release **`ros_workspace >= 1.0.4`** and **`ros_workspace_shell >= 0.1.0`** |
-| **Wave 2** | [`ros-infrastructure/bloom`](https://github.com/ros-infrastructure/bloom) *(currently `0.14.4`)* | • `feat/rep159-rules-support` (`7af7034`, 26/26 tests)<br>• `feat/rep159-workspace-package` (`ec0bcca`, stacked, **37/37 tests**) | `master` *(org fork: `rep159`)* | Stacked on `jrivero`'s `rep159` (`2877687`) + `binary_rule`, `install_rule`, `workspace_package`, `get_distribution_file` `extends` resolution, and `unset AMENT_CURRENT_PREFIX` | **Gate 1 (`rosdistro >= 1.2.0`) + Gate 2 (`rosdep >= 0.27.0`)** | **Unblocks Gate 3**: Release **`bloom >= 0.15.0`** to PyPI + `ros_bootstrap` APT (`python3-bloom >= 0.15.0`) |
-| **Wave 3** | [`ros-infrastructure/ros_buildfarm`](https://github.com/ros-infrastructure/ros_buildfarm) *(currently `4.1.1+master`)* | • **PR 3A**: `feat/rep159-workspace-walk` (`486b579`, 7/7 tests)<br>• **PR 3B**: `feat/rep159-underlays` (`274640b`, 11/11 tests)<br>• **PR 3C**: `feat/rep159-binary-naming` (`a271be1`, 6/6 tests)<br>• **PR 3D**: `feat/rep159-workspace-package` (`e54594c`, stacked on `a271be1`) | `master` | All 4 PR-ready branches clean off `master` (`7daa2b1`, 0 Dockerfile pip hacks, 100% test coverage; includes `CMAKE_PREFIX_PATH` & `unset AMENT_CURRENT_PREFIX` fixes in `274640b` and `get_workspace_package()` in `e54594c`) | **Gate 1 + Gate 2 (in `ros_bootstrap` APT & PyPI) + `reprepro-updater:refactor`** | **Unblocks Gate 4**: Release **`ros_buildfarm >= 4.2.0`** to PyPI + `ros_bootstrap` APT |
+| **Wave 0** | [`ros-infrastructure/rosdistro`](https://github.com/ros-infrastructure/rosdistro) | • `rep159` (`46a7580`)<br>• `feature/rep159-binary-naming-regex` (`bfde799`)<br>• `feat/rep159-install-rule` (`a8f5543`)<br>• `feat/rep159-eol-date` (`5ec62f9`)<br>• `feat/rep159-workspace-package` (`3670bd8`) | `master` *(org fork: `rep159`)* | Org PR [`rosdistro#1`](https://github.com/rep159-testing/rosdistro/pull/1) **OPEN** + stacked `a8f5543` (96/96), `5ec62f9` (`distribution_eol_date`), and `3670bd8` (`workspace_package` + hyphenated package lookup, **106/106 tests pass**) | REP-159 spec alignment | **Unblocks Gate 1**: New `rosdistro` release published to PyPI + `ros_bootstrap` APT (`python3-rosdistro-modules`) |
+| **Wave 1** | [`ros-infrastructure/rosdep`](https://github.com/ros-infrastructure/rosdep) | `feat/rep159-binary-lookup` (`5661779`, PR-ready clean off `master`)<br>*(testbed: `rep159` @ `3d52dad`)* | `master` | Org PR [`rosdep#2`](https://github.com/rep159-testing/rosdep/pull/2) **OPEN** (zero CI hacks); upstream PR blocked on Gate 1 PyPI publication | **Gate 1 (`rosdistro` REP-159 release)** | **Unblocks Gate 2**: New `rosdep` release published to PyPI + `ros_bootstrap` APT (`python3-rosdep-modules`) |
+| **Wave 1** | [`ros2/ros_workspace`](https://github.com/ros2/ros_workspace) & `ros_workspace_shell` | • `ros_workspace:feat/rep159-parent-chaining` (`4997f85`, stacked on `12f93e9`)<br>• `ros_workspace_shell:feat/rep159-unset-current-prefix` (`b6a8195`, stacked on `a89cc7b`) | `main` | **Branches Ready** (0 hacks): `ros_workspace` (`4997f85`) for Ament distros; `ros_workspace_shell` (`b6a8195`) for non-Ament plain-CMake distros (`unset AMENT_CURRENT_PREFIX`) | None (CMake-only) | **Unblocks Gate 2B**: Tag & release `ros_workspace` and `ros_workspace_shell` |
+| **Wave 2** | [`ros-infrastructure/bloom`](https://github.com/ros-infrastructure/bloom) | • `feat/rep159-rules-support` (`7af7034`, 26/26 tests)<br>• `feat/rep159-workspace-package` (`ec0bcca`, stacked, **37/37 tests**) | `master` *(org fork: `rep159`)* | Stacked on `jrivero`'s `rep159` (`2877687`) + `binary_rule`, `install_rule`, `workspace_package`, `get_distribution_file` `extends` resolution, and `unset AMENT_CURRENT_PREFIX` | **Gate 1 (`rosdistro` release) + Gate 2 (`rosdep` release)** | **Unblocks Gate 3**: New `bloom` release published to PyPI + `ros_bootstrap` APT (`python3-bloom`) |
+| **Wave 3** | [`ros-infrastructure/ros_buildfarm`](https://github.com/ros-infrastructure/ros_buildfarm) | • **PR 3A**: `feat/rep159-workspace-walk` (`486b579`, 7/7 tests)<br>• **PR 3B**: `feat/rep159-underlays` (`274640b`, 11/11 tests)<br>• **PR 3C**: `feat/rep159-binary-naming` (`a271be1`, 6/6 tests)<br>• **PR 3D**: `feat/rep159-workspace-package` (`e54594c`, stacked on `a271be1`) | `master` | All 4 PR-ready branches clean off `master` (`7daa2b1`, 0 Dockerfile pip hacks, 100% test coverage; includes `CMAKE_PREFIX_PATH` & `unset AMENT_CURRENT_PREFIX` fixes in `274640b` and `get_workspace_package()` in `e54594c`) | **Gate 1 + Gate 2 (in `ros_bootstrap` APT & PyPI) + `reprepro-updater:refactor`** | **Unblocks Gate 4**: New `ros_buildfarm` release published to PyPI + `ros_bootstrap` APT |
 | **Wave 4** | [`gazebosim/ros_gz`](https://github.com/gazebosim/ros_gz) & [`ros2/ros_buildfarm_config`](https://github.com/ros2/ros_buildfarm_config) | • `ros_gz:feat/rep159-vendorless-bridge` (`08645e3`, clean 3-file diff off `3.0.12`)<br>• `ros_buildfarm_config:feat/extendable-*` | `ros2` / `master` | Validated end-to-end on `build.test.ros2.org` (`E*` jobs) | **Gates 1–4 deployed** | Production extended ROS 2 + Gazebo distributions without `gz_*_vendor` wrapper packages |
 
 ---
@@ -94,7 +94,7 @@ All validation stages (Stages 1–6) execute inside the unified **`extendable*` 
 To ensure clean upstream Pull Requests, every repository beyond `rosdistro` is decomposed below into three strict categories:
 - **(A) Core Feature Implementation**: New REP-159 capabilities that belong in upstream feature PRs.
 - **(B) Required Engineering & Integration Fixes**: Bugfixes discovered during topological/buildfarm validation (already committed on clean PR branches).
-- **(C) Temporary Pre-Release Bootstrap / Harness Overrides**: Workarounds used only on testbed branches because `rosdistro >= 1.2.0` and `rosdep >= 0.27.0` were not yet published to PyPI / `ros_bootstrap` APT (must **NOT** be included in upstream PRs).
+- **(C) Temporary Pre-Release Bootstrap / Harness Overrides**: Workarounds used only on testbed branches because the REP-159 releases of `rosdistro` and `rosdep` were not yet published to PyPI / `ros_bootstrap` APT (must **NOT** be included in upstream PRs).
 
 ---
 
@@ -116,7 +116,7 @@ To ensure clean upstream Pull Requests, every repository beyond `rosdistro` is d
 * **(B) Required Fixes**:
   - None.
 * **(C) Temporary Pre-Release Overrides**:
-  - None. Zero dependency on `rosdistro >= 1.2.0`. Can be submitted in **Wave 0**.
+  - None. Zero dependency on a new `rosdistro` release. Can be submitted in **Wave 0**.
 
 ---
 
@@ -126,7 +126,7 @@ To ensure clean upstream Pull Requests, every repository beyond `rosdistro` is d
   - `src/rosdep2/gbpdistro_support.py` (`5661779`): Replaces hardcoded `'ros-%s-%s' % (release_name, pkg)` with dynamic delegation to `repo.release_repository.get_binary_package_name(pkg)` or `distro_file.get_binary_package_name(pkg)`, retaining a fallback checking `extension_method == 'binary_import'` (`origin_distro` vs. `release_name`) for older objects.
   - `test/test_rosdep_gbpdistro_support.py` & `test/fake_rosdistro/` (`5661779`): Unit tests and Format 3 fixtures (`base`, `derived_binary`, `derived_source`, `derived_naming`) verifying `binary_import`, `source_rebuild`, and `binary_rule` package resolution.
 * **(B) Post-Gate 1 Dependency Pin**:
-  - Once **Gate 1 (`rosdistro >= 1.2.0`)** is published, bump `rosdistro >= 1.2.0` in `setup.py` and `python3-rosdistro-modules (>= 1.2.0)` in `stdeb.cfg`.
+  - Once **Gate 1 (`rosdistro` REP-159 release)** is published, pin the minimum `rosdistro` version in `setup.py` and `python3-rosdistro-modules` in `stdeb.cfg`.
 * **(C) Temporary Pre-Release Overrides Excluded from `feat/rep159-binary-lookup`**:
   - Commits `a83d852`..`b436f33` on testbed branch `rep159` (`3d52dad`) that modified `setup.py` and `.github/workflows/ci.yaml` to install `rosdistro` from a git URL are completely excluded from `feat/rep159-binary-lookup` (`5661779`).
 
