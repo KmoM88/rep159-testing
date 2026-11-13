@@ -68,6 +68,47 @@ flowchart TD
     GATE4 --> ROSGZ
 ```
 
+### 1.2 Release-Gated Rollout Gantt Diagram (Relative Waves, Date-Free)
+
+The following Gantt chart illustrates the parallelization and release-gate dependencies across Waves 0–4 using relative sequence steps (`Step 00` through `Step 06`) with no calendar dates:
+
+```mermaid
+gantt
+    title REP-159 Release-Gated Upstream Rollout Sequence (Relative Waves, Date-Free)
+    dateFormat X
+    axisFormat Step %S
+    todayMarker off
+
+    section Wave 0 (Foundation & Spec)
+    openrobotics/reps (#31 & #35 Merged)                        :done, reps_merged, 0, 1
+    openrobotics/reps (install-rule & workspace-package)        :active, reps_spec, 0, 1
+    reprepro-updater (feat/package-prefix -> refactor)          :active, reprepro, 0, 1
+    rosdistro-reviewer (feat/rep159-eol-date)                   :active, reviewer, 0, 1
+    rosdistro Layer 1-2 (Format 3 & binary-naming-regex)        :active, rd_l12, 0, 1
+    rosdistro Layer 3-5 (install-rule, eol, workspace-package)  :rd_l35, 1, 2
+    GATE 1 - Publish rosdistro (PyPI + ros_bootstrap APT)       :milestone, gate1, 2, 2
+
+    section Wave 1 (Lookup & Workspaces)
+    ros_workspace (feat/rep159-parent-chaining)                 :active, ws, 0, 2
+    ros_workspace_shell (feat/rep159-unset-current-prefix)      :active, wss, 0, 2
+    rosdep (feat/rep159-binary-lookup)                          :rosdep, 2, 3
+    GATE 2 - Publish rosdep & workspace packages                :milestone, gate2, 3, 3
+
+    section Wave 2 (Debian Generator)
+    bloom Layer 1-2 (rep159 & feat/rep159-rules-support)        :bloom12, 3, 4
+    bloom Layer 3 (feat/rep159-workspace-package)               :bloom3, 4, 5
+    GATE 3 - Publish bloom (PyPI + ros_bootstrap APT)           :milestone, gate3, 5, 5
+
+    section Wave 3 (Buildfarm Engine)
+    ros_buildfarm PR 3A (workspace-walk) & PR 3B (underlays)    :bf_ab, 3, 4
+    ros_buildfarm PR 3C (binary-naming) & PR 3D (workspace-pkg) :bf_cd, 4, 5
+    GATE 4 - Publish ros_buildfarm (PyPI + ros_bootstrap APT)   :milestone, gate4, 5, 5
+
+    section Wave 4 (Distros & Gazebo)
+    ros_gz (feat/rep159-vendorless-bridge)                      :rosgz, 5, 6
+    ros_buildfarm_config & Extended ROS 2 + Gazebo Distros      :config, 5, 6
+```
+
 ---
 
 ## 2. Adoption & Alignment with Jose Luis Rivero's (`jrivero`) Implementations
