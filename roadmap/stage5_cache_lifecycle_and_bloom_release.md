@@ -8,9 +8,38 @@ Stage 5 validates two core operational capabilities of `ros_buildfarm` and `bloo
 2. **Automated Packaging Verification with Bloom (`git-bloom-generate rosdebian`)**:
    Verifies that `submodules/bloom` (`feat/rep159-rules-support` @ `7af7034`) generates `debian/control` and `debian/rules` honoring `binary_rule`, `install_rule`, and `ParentPrefixes`.
 
+Reproduction commands via the repository stage runner:
+```bash
+./tools/stage_runner.py --stage stage5 --verify-branches
+./tools/stage_runner.py --stage stage5 --status
+```
+
 ---
 
-## 2. Design Decisions & Technical Rationale
+## 2. Implementation Architecture: Core PR Code vs. Testbed Overrides
+
+```mermaid
+flowchart TD
+    subgraph Core ["Core Implementation & Fixes (Clean PR Branches - Upstream Bound)"]
+        RD5["rosdistro: feat/rep159-install-rule (a8f5543, includes 46a7580 parent cache load & - REMOVE)"]
+        BL5["bloom: feat/rep159-rules-support (7af7034, includes d6fdf9e git tag -f -m gpgSign fix)"]
+    end
+
+    subgraph Hacks ["Testbed Overrides & Harness Configs (build.test.ros2.org Only - Do NOT Upstream)"]
+        BF_TEST5["ros_buildfarm testbed: feat/extendable-workspace (ca13954) - rosdistro_cache_task.Dockerfile.em pip install"]
+        DIST5["rep159-rosdistro: feat/extendable-workspace (19aedba) - extendable & extendablebin caches"]
+        CFG5["ros_buildfarm_config: feat/extendable-workspace (c80b6f7)"]
+
+        BF_TEST5 --> CFG5
+        DIST5 --> CFG5
+    end
+
+    RD5 -.->|"Pinned in rosdistro_cache_task container until Gate 1 APT"| BF_TEST5
+```
+
+---
+
+## 3. Design Decisions & Technical Rationale
 
 | Decision | Mechanism | Verified Invariant on `build.test.ros2.org` |
 |---|---|---|
@@ -20,16 +49,16 @@ Stage 5 validates two core operational capabilities of `ros_buildfarm` and `bloo
 
 ---
 
-## 3. Empirical Validation on `https://build.test.ros2.org`
+## 4. Empirical Validation on `https://build.test.ros2.org`
 
-### 3.1 Cache Generation & SSH Publishing (`extendable*_rosdistro-cache`)
+### 4.1 Cache Generation & SSH Publishing (`extendable*_rosdistro-cache`)
 
 | Job on `build.test.ros2.org` | Build & Console | Status | Verified Console Output & Artifact |
 |---|---|:---:|---|
 | `extendable_rosdistro-cache` | [#139](https://build.test.ros2.org/job/extendable_rosdistro-cache/139/) ([Log](https://build.test.ros2.org/job/extendable_rosdistro-cache/139/console)) | **SUCCESS** | Loaded all 6 manifests (`ament_package`, `ament_cmake_core`, `ros_workspace`, `upstream_{a,b,c}`), wrote `extendable-cache.yaml.gz`, and transferred 1 file via SSH (`rosdistro_cache`). |
 | `extendablebin_rosdistro-cache` | [#138](https://build.test.ros2.org/job/extendablebin_rosdistro-cache/138/) ([Log](https://build.test.ros2.org/job/extendablebin_rosdistro-cache/138/console)) | **SUCCESS** | Loaded parent `extendable-cache.yaml.gz`, stripped `- REMOVE ament_cmake_core, ament_package, upstream_a, upstream_b, upstream_c`, kept `downstream_bin_a` + `ros_workspace`, and transferred `extendablebin-cache.yaml.gz` via SSH. |
 
-### 3.2 Automated Bloom Debian Generation & Binary Build (`downstream_bin_a-release`)
+### 4.2 Automated Bloom Debian Generation & Binary Build (`downstream_bin_a-release`)
 
 - Generated branch [`debian/vendor-extendablebin/resolute/downstream_bin_a`](https://github.com/rep159-testing/downstream_bin_a-release/tree/debian/vendor-extendablebin/resolute/downstream_bin_a) (`9f8ba47`) and tag `debian/vendor-extendablebin-downstream-bin-a_0.2.0-1_resolute`:
   - `debian/control`: `Package: vendor-extendablebin-downstream-bin-a`, `Depends: ... vendor-extendable-upstream-c, vendor-extendablebin-ros-workspace`

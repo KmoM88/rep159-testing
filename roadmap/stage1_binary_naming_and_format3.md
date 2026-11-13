@@ -5,14 +5,55 @@
 In standard ROS 2, binary Debian and RPM package names are hardcoded to the strict pattern `ros-{distro}-{pkg_name}` (with underscores replaced by dashes).
 This assumption breaks in three major operational scenarios:
 1. **Vendor & Corporate Namespaces**: Organizations building proprietary or domain-specific overlays require packages under distinct prefixes (e.g., `vendor-{distro}-{pkg_name}`).
-2. **Independent / Standalone Ecosystems**: Integration with software that publishes without a `ros-` prefix (e.g., Gazebo libraries publishing as `gz-sim10`).
+2. **Independent / Standalone Ecosystems**: Integration with software that publishes without a `ros-` prefix or under custom distribution names.
 3. **Cross-Distribution Inheritance (`binary_import`)**: When distribution `B` extends distribution `A` via `binary_import`, package managers and buildfarms must resolve the exact binary package name published by parent `A` from APT repositories.
 
 Stage 1 establishes the **Format 3 ROSDistro specification**, introduces declarative binary package name transformation via **`binary_rule`**, and integrates resolution across `rosdistro`, `rosdep`, `reprepro-updater`, and `ros_buildfarm`.
 
+Reproduction command via the repository stage runner:
+```bash
+./tools/stage_runner.py --stage stage1 --verify-branches
+./tools/stage_runner.py --stage stage1 --status
+```
+
 ---
 
-## 2. Design Decisions & Technical Rationale
+## 2. Implementation Architecture: Core PR Code vs. Testbed Overrides
+
+```mermaid
+flowchart TD
+    subgraph Core ["Core Implementation & Fixes (Clean PR Branches - Upstream Bound)"]
+        REPS1["reps: feature/rep-159-binary-name-templating (f683ccc, Merged #35)"]
+        RD1["rosdistro: feature/rep159-binary-naming-regex (bfde799, PR #1)"]
+        RDEP1["rosdep: feat/rep159-binary-lookup (5661779, PR #2)"]
+        REP1["reprepro-updater: feat/package-prefix (93ed2dc -> refactor)"]
+        BF1["ros_buildfarm: feat/rep159-binary-naming (a271be1, PR 3C)"]
+
+        REPS1 --> RD1
+        RD1 -->|"get_binary_package_name(pkg)"| RDEP1
+        RD1 -->|"get_os_package_name(dist_file)"| BF1
+        REP1 -->|"--package-prefix vendor-extendable-"| BF1
+    end
+
+    subgraph Hacks ["Testbed Overrides & Harness Configs (build.test.ros2.org Only - Do NOT Upstream)"]
+        RDEP_TEST["rosdep testbed: rep159 (3d52dad) with git URL in setup.py"]
+        BF_TEST["ros_buildfarm testbed: feat/binary-naming-rule (797d771) with Dockerfile pip tarball installs"]
+        DIST1["rep159-rosdistro: feat/extendable-binary-naming (b2882ed)"]
+        CFG1["ros_buildfarm_config: feat/extendable-binary-naming (f8efb6e)"]
+        REL1["upstream_{a,b,c}-release: debian/vendor-extendable/resolute/upstream_*"]
+
+        BF_TEST --> CFG1
+        DIST1 --> CFG1
+        REL1 --> CFG1
+    end
+
+    BF1 -.->|"Mirrored on testbed branch"| BF_TEST
+    RDEP1 -.->|"Mirrored on testbed branch"| RDEP_TEST
+```
+
+---
+
+## 3. Design Decisions & Technical Rationale
 
 ### Decision 1: Declarative Regex (`re.sub`) vs. Templating Engines (EmPy / Jinja2)
 * **Exploration**: Prototypes were built on dedicated exploration branches using EmPy (`exploration/binary-naming-empy`) and Jinja2 (`exploration/binary-naming-jinja`).
@@ -39,7 +80,7 @@ Stage 1 establishes the **Format 3 ROSDistro specification**, introduces declara
 
 ---
 
-## 3. Implementation Breakdown: Core Code vs. Required Fixes vs. Pre-Release Overrides
+## 4. Implementation Breakdown: Core Code vs. Required Fixes vs. Pre-Release Overrides
 
 ### Core Feature Implementation (To Be Merged Upstream)
 
@@ -53,118 +94,61 @@ Stage 1 establishes the **Format 3 ROSDistro specification**, introduces declara
    - `scripts/sync_ros_packages.py` & `src/reprepro_updater/helpers.py`: Adds `-p / --package-prefix` CLI option (defaulting to `ros-<rosdistro>-`, auto-appending `-`) for `UpdateElement` naming, `FilterFormula: Package (% <prefix>*)`, `_clear_ros_distro()`, and `run_cleanup()`.
    - Zero `rosdistro` dependency; targets **`refactor`** upstream (which `ros_buildfarm` clones directly at sync job runtime).
 
-3. **`ros-infrastructure/rosdep` (Branch: `rep159` @ `3d52dad`)**:
-   - `src/rosdep2/gbpdistro_support.py` (`2d5a548`, `3d52dad`): Delegates binary package queries to `repo.release_repository.get_binary_package_name(pkg)` or `distro_file.get_binary_package_name(pkg)`, with fallback checking `extension_method == 'binary_import'`.
-   - `test/test_rosdep_gbpdistro_support.py` & `test/fake_rosdistro/` (`07b6647`): Format 3 extended distribution unit tests.
+3. **`ros-infrastructure/rosdep` (Clean PR Branch: `feat/rep159-binary-lookup` @ `5661779`; Org PR [`rosdep#2`](https://github.com/rep159-testing/rosdep/pull/2))**:
+   - `src/rosdep2/gbpdistro_support.py`: Delegates binary package queries to `repo.release_repository.get_binary_package_name(pkg)` or `distro_file.get_binary_package_name(pkg)`, with fallback checking `extension_method == 'binary_import'`.
+   - `test/test_rosdep_gbpdistro_support.py` & `test/fake_rosdistro/`: Format 3 extended distribution unit tests (including `derived_naming`).
+   - Leaves `setup.py` and `.github/workflows/ci.yaml` untouched from upstream `master`.
 
-4. **`ros-infrastructure/ros_buildfarm` (Branch: `feat/binary-naming-rule` @ `4062a66`)**:
-   - `ros_buildfarm/common.py` (`857b025`): Updates `get_os_package_name()` and `get_os_package_name_prefix()` to accept optional `dist_file=dist_file` and query `dist_file.get_binary_package_name()`.
-   - Release & sync pipeline (`argument.py`, `release_job.py`, `sourcedeb_job.py`, `sourcerpm_job.py`, `binarydeb_job.py`, `binaryrpm_job.py`, `trigger_job.py`, `append_build_timestamp.py`, `build_binarydeb.py`, `check_sync_criteria.py`, `create_binarydeb_task_generator.py`, `binarypkg_task.Dockerfile.em`, `sync_packages_to_{testing,main}_job.xml.em` in commits `61b8d29`, `ceaaef7`, `c907db2`): Propagates `dist_file`, `--debian-package-name`, and `--package-prefix`.
+4. **`ros-infrastructure/ros_buildfarm` (Clean PR Branch: `feat/rep159-binary-naming` @ `a271be1` — PR 3C)**:
+   - `ros_buildfarm/common.py`: Updates `get_os_package_name()` and `get_os_package_name_prefix()` to accept optional `dist_file=dist_file` and query `dist_file.get_binary_package_name()`.
+   - Release & sync pipeline (`argument.py`, `release_job.py`, `sourcedeb_job.py`, `sourcerpm_job.py`, `binarydeb_job.py`, `binaryrpm_job.py`, `trigger_job.py`, `append_build_timestamp.py`, `build_binarydeb.py`, `check_sync_criteria.py`, `create_binarydeb_task_generator.py`, `binarypkg_task.Dockerfile.em`, `sync_packages_to_{testing,main}_job.xml.em`): Propagates `dist_file`, `--debian-package-name`, and `--package-prefix`.
+   - 6/6 unit tests in `test/test_binary_naming_rule.py` passing.
 
 ### Required Engineering Fixes Discovered During Validation
 
-1. **Child Release Job Isolation in `ros_buildfarm` (`release_job.py`, commit `4062a66`)**:
+1. **Child Release Job Isolation in `ros_buildfarm` (`release_job.py`, commit `9b02768` on `feat/rep159-binary-naming`)**:
    - Skips packages in `ordered_pkg_tuples` not present in `dist_file.release_packages`, preventing a `binary_import` child distribution from generating duplicate `*src_*` / `*bin_*` jobs for inherited parent packages.
-2. **Renamed Package Subfolder & Assertion Lookup in `ros_buildfarm` (`binarydeb_job.py`, `binaryrpm_job.py`, `get_binarydeb.py`, commit `3397a12`)**:
+2. **Renamed Package Subfolder & Assertion Lookup in `ros_buildfarm` (`binarydeb_job.py`, `binaryrpm_job.py`, `get_binarydeb.py`, commit `0547082`)**:
    - Fixes assertion variable formatting (`debian_package_name`) and workspace subfolder / `.src.rpm` lookup when `binary_rule` renames packages away from `ros-<distro>-<pkg>`.
 3. **Standalone Buildfarm Resilience Fixes (`wrapper/git.py` `ae8826b`; `jenkins.py` `199fd98`)**:
    - Retries transient TLS/GnuTLS container git errors and gracefully skips Jenkins view creation on `403 Forbidden` (Wave 0 standalone PRs).
-4. **Clean PR-Ready Branch Prepared in `rosdep` (`feat/rep159-binary-lookup` @ `5661779`)**:
-   - Branched directly from `origin/master`, implementing `gbpdistro_support.py` delegation to `rosdistro.get_binary_package_name(pkg)` with safe fallbacks.
-   - Adds Format 3 test fixtures (`base`, `derived_binary`, `derived_source`, `derived_naming`) and unit tests in `test/test_rosdep_gbpdistro_support.py` (including `binary_rule` regex substitution verification).
-   - Leaves `setup.py` (`rosdistro >= 0.7.5`) and `stdeb.cfg` untouched without speculative version bumps; pinning will occur once the official release version is published upstream.
-   - Completely eliminates testbed CI hacks (`setup.py` git URLs and `.github/workflows/ci.yaml` manual pytest step are untouched from upstream `master`).
-   - Staged and ready to open as an upstream PR against `ros-infrastructure/rosdep:master` once Release Gate 1 (`rosdistro >= 1.2.0`) is published to PyPI.
-5. **Clean PR-Ready Branch Prepared in `ros_buildfarm` (`feat/rep159-binary-naming` @ `a271be1`)**:
-   - Branched directly from `origin/master` (`7daa2b1`), isolating the 7 core Stage 1 binary naming and sync commits (`a1f57c6`..`a271be1`, strictly lowercase `{distro}`).
-   - Propagates `dist_file`, `debian_package_name`, and `--package-prefix` across common, release, sourcedeb, binarydeb, and sync jobs.
-   - Includes child release job isolation (`4062a66` / `9b02768`), skipping cached packages not in current distro `release_packages`.
-   - Completely strips all Dockerfile `pip3 install` overrides (will use native APT dependencies from Gates 1 & 2).
-   - In sync job templates, retains the canonical upstream repository URL (`ros-infrastructure/reprepro-updater.git`) and branch (`refactor`).
-   - Leaves `setup.py` and `stdeb.cfg` untouched without speculative version bumps.
-   - 6/6 unit tests in `test/test_binary_naming_rule.py` passing 100% green.
 
 ### Temporary Pre-Release Overrides (Test Harness Only — Do NOT Upstream)
 
-1. **`rosdep` Fork Git URL in `setup.py` & `.github/workflows/ci.yaml`** (commits `a83d852`..`b436f33`):
-   - Hardcoded `rosdistro @ git+https://github.com/KmoM88/rosdistro.git@feature/rep-2015-v3-parser` and `ROSDEP_LOCAL_DEV`. Revert to standard `rosdistro >= 1.2.0` and `ros-infrastructure/ci/.github/workflows/pytest.yaml@main` once Gate 1 is published.
-2. **Direct Tarball `pip3 install` & Fork URLs in `ros_buildfarm`**:
-   - Tarball `pip3 install` blocks in `sourcepkg_task.Dockerfile.em`, `binarypkg_create_task.Dockerfile.em`, `binarypkg_task.Dockerfile.em`, and `release_check_sync_criteria_task.Dockerfile.em` (`1fd12c0`, `4b3072b`, `68369e9`, `efcbab3`), plus the `rep159-testing/reprepro-updater` URL in `sync_packages_to_{testing,main}_job.xml.em` (`c907db2`). Replace with `rosdistro >= 1.2.0` / `rosdep >= 0.27.0` APT dependencies and `ros-infrastructure/reprepro-updater -b refactor`.
-3. **Target Repository Hostname Overrides**:
-   - Local replica configuration (`release-build-local.yaml`) documented in [`LOCAL_BUILDFARM_SETUP.md`](../LOCAL_BUILDFARM_SETUP.md).
+1. **`rosdep` Testbed Branch (`rep159` @ `3d52dad`)**:
+   - Hardcoded git URL for `rosdistro` in `setup.py` and `ROSDEP_LOCAL_DEV` in `.github/workflows/ci.yaml`. Excluded from clean PR branch `feat/rep159-binary-lookup` (`5661779`).
+2. **Direct Tarball `pip3 install` & Fork URLs in `ros_buildfarm` Testbed Branch (`feat/binary-naming-rule` @ `797d771`)**:
+   - Tarball `pip3 install` blocks in `sourcepkg_task.Dockerfile.em`, `binarypkg_create_task.Dockerfile.em`, `binarypkg_task.Dockerfile.em`, and `release_check_sync_criteria_task.Dockerfile.em`, plus the `rep159-testing/reprepro-updater` URL in `sync_packages_to_{testing,main}_job.xml.em`. Excluded from clean PR branch `feat/rep159-binary-naming` (`a271be1`).
 
 ---
 
-## 4. Empirical Validation & Test Evidence
+## 5. Empirical Validation & Test Evidence (`https://build.test.ros2.org`)
 
 ### Local Test Suites
 * **`tools/validate_binary_naming.py` (Suite 6)**: 100% pass across all regex replacement edge cases (prefixing, suffixing, token substitution, hyphen normalization).
 * **`test/test_binary_naming_rule.py`**: 6/6 unit tests passed in `ros_buildfarm`.
 
-### Jenkins Release Pipeline Evidence (`https://build.test.ros2.org` & `http://repo.test.ros2.org`)
-
-* *(For historical local cluster builds, see [`LOCAL_BUILDFARM_SETUP.md`](../LOCAL_BUILDFARM_SETUP.md)).*
-* **Remote Testfarm (`https://build.test.ros2.org` & `http://repo.test.ros2.org`)**:
-  - **Pure CMake `extendable` Suite (`E*` jobs)**:
-    - **Source Release Jobs**:
-      - [`Esrc_uR__upstream_a__ubuntu_resolute__source #2`](https://build.test.ros2.org/job/Esrc_uR__upstream_a__ubuntu_resolute__source/2/) ([Console](https://build.test.ros2.org/job/Esrc_uR__upstream_a__ubuntu_resolute__source/2/console)): **SUCCESS** — Built `vendor-extendable-upstream-a_0.1.0-1resolute.dsc` and triggered downstream binary/sync pipeline via [`Erel_import-package #26`](https://build.test.ros2.org/job/Erel_import-package/26/).
-      - [`Esrc_uR__upstream_b__ubuntu_resolute__source #1`](https://build.test.ros2.org/job/Esrc_uR__upstream_b__ubuntu_resolute__source/1/) ([Console](https://build.test.ros2.org/job/Esrc_uR__upstream_b__ubuntu_resolute__source/1/console)): **SUCCESS** — Built `vendor-extendable-upstream-b_0.1.0-1resolute.dsc`.
-      - [`Esrc_uR__upstream_c__ubuntu_resolute__source #1`](https://build.test.ros2.org/job/Esrc_uR__upstream_c__ubuntu_resolute__source/1/) ([Console](https://build.test.ros2.org/job/Esrc_uR__upstream_c__ubuntu_resolute__source/1/console)): **SUCCESS** — Built `vendor-extendable-upstream-c_0.1.0-1resolute.dsc`.
-    - **Binary Packaging Jobs (auto-triggered & topologically ordered)**:
-      - [`Ebin_uR64__upstream_a__ubuntu_resolute_amd64__binary #1`](https://build.test.ros2.org/job/Ebin_uR64__upstream_a__ubuntu_resolute_amd64__binary/1/) ([Console](https://build.test.ros2.org/job/Ebin_uR64__upstream_a__ubuntu_resolute_amd64__binary/1/console)): **SUCCESS** — Built and imported [`vendor-extendable-upstream-a_0.1.0-1resolute.20261109.233112_amd64.deb`](http://repo.test.ros2.org/ubuntu/testing/pool/main/v/vendor-extendable-upstream-a/vendor-extendable-upstream-a_0.1.0-1resolute.20261109.233112_amd64.deb).
-      - [`Ebin_uR64__upstream_b__ubuntu_resolute_amd64__binary #1`](https://build.test.ros2.org/job/Ebin_uR64__upstream_b__ubuntu_resolute_amd64__binary/1/) ([Console](https://build.test.ros2.org/job/Ebin_uR64__upstream_b__ubuntu_resolute_amd64__binary/1/console)): **SUCCESS** — Resolved `vendor-extendable-upstream-a` from `building` and built [`vendor-extendable-upstream-b_0.1.0-1resolute.20261109.233710_amd64.deb`](http://repo.test.ros2.org/ubuntu/testing/pool/main/v/vendor-extendable-upstream-b/vendor-extendable-upstream-b_0.1.0-1resolute.20261109.233710_amd64.deb).
-      - [`Ebin_uR64__upstream_c__ubuntu_resolute_amd64__binary #1`](https://build.test.ros2.org/job/Ebin_uR64__upstream_c__ubuntu_resolute_amd64__binary/1/) ([Console](https://build.test.ros2.org/job/Ebin_uR64__upstream_c__ubuntu_resolute_amd64__binary/1/console)): **SUCCESS** — Resolved `vendor-extendable-upstream-b` from `building` and built [`vendor-extendable-upstream-c_0.1.0-1resolute.20261109.233949_amd64.deb`](http://repo.test.ros2.org/ubuntu/testing/pool/main/v/vendor-extendable-upstream-c/vendor-extendable-upstream-c_0.1.0-1resolute.20261109.233949_amd64.deb).
-    - **Repository Sync & APT Artifacts**:
-      - [`Erel_sync-packages-to-testing_resolute_amd64 #8`](https://build.test.ros2.org/job/Erel_sync-packages-to-testing_resolute_amd64/8/) ([Console](https://build.test.ros2.org/job/Erel_sync-packages-to-testing_resolute_amd64/8/console)): **SUCCESS** — Waited for all 3 upstream packages in [`building/Packages.gz`](http://repo.test.ros2.org/ubuntu/building/dists/resolute/main/binary-amd64/Packages.gz) and promoted them to [`testing/Packages.gz`](http://repo.test.ros2.org/ubuntu/testing/dists/resolute/main/binary-amd64/Packages.gz) using `FilterFormula: Package (% vendor-extendable-*)`.
-    - **Root Distribution CI Jobs (`extendable`)**:
-      - [`Eci__nightly-release_ubuntu_resolute_amd64 #2`](https://build.test.ros2.org/job/Eci__nightly-release_ubuntu_resolute_amd64/2/) ([Console](https://build.test.ros2.org/job/Eci__nightly-release_ubuntu_resolute_amd64/2/console)): **SUCCESS** (3/3 CTest suites passed, 0 warnings).
-      - [`Eci__source-branches_ubuntu_resolute_amd64 #2`](https://build.test.ros2.org/job/Eci__source-branches_ubuntu_resolute_amd64/2/) ([Console](https://build.test.ros2.org/job/Eci__source-branches_ubuntu_resolute_amd64/2/console)): **SUCCESS** (3/3 CTest suites passed, 0 warnings).
-      - [`Eci__release-branches_ubuntu_resolute_amd64 #2`](https://build.test.ros2.org/job/Eci__release-branches_ubuntu_resolute_amd64/2/) ([Console](https://build.test.ros2.org/job/Eci__release-branches_ubuntu_resolute_amd64/2/console)): **SUCCESS** (3/3 CTest suites passed, 0 warnings).
-  - **AMENT `upstream` Suite (`U*` jobs)**:
-    - `Usrc_uR__upstream_a` (#4), `Ubin_uR64__upstream_a` (#4), `Ubin_uR64__upstream_b` (#8), `Ubin_uR64__upstream_c` (#9), `Urel_sync-packages-to-testing_resolute_amd64` (#10): **SUCCESS** — Validated multi-package dependency chain with `vendor-upstream-*` prefixing.
+### Jenkins Release & CI Pipeline Evidence (`extendable` / `E*`)
+* **Source Release Jobs**:
+  - [`Esrc_uR__upstream_a__ubuntu_resolute__source #2`](https://build.test.ros2.org/job/Esrc_uR__upstream_a__ubuntu_resolute__source/2/) ([Console](https://build.test.ros2.org/job/Esrc_uR__upstream_a__ubuntu_resolute__source/2/console)): **SUCCESS** — Built `vendor-extendable-upstream-a_0.1.0-1resolute.dsc`.
+  - [`Esrc_uR__upstream_b__ubuntu_resolute__source #1`](https://build.test.ros2.org/job/Esrc_uR__upstream_b__ubuntu_resolute__source/1/) ([Console](https://build.test.ros2.org/job/Esrc_uR__upstream_b__ubuntu_resolute__source/1/console)): **SUCCESS** — Built `vendor-extendable-upstream-b_0.1.0-1resolute.dsc`.
+  - [`Esrc_uR__upstream_c__ubuntu_resolute__source #1`](https://build.test.ros2.org/job/Esrc_uR__upstream_c__ubuntu_resolute__source/1/) ([Console](https://build.test.ros2.org/job/Esrc_uR__upstream_c__ubuntu_resolute__source/1/console)): **SUCCESS** — Built `vendor-extendable-upstream-c_0.1.0-1resolute.dsc`.
+* **Binary Packaging Jobs**:
+  - [`Ebin_uR64__upstream_a__ubuntu_resolute_amd64__binary #1`](https://build.test.ros2.org/job/Ebin_uR64__upstream_a__ubuntu_resolute_amd64__binary/1/) ([Console](https://build.test.ros2.org/job/Ebin_uR64__upstream_a__ubuntu_resolute_amd64__binary/1/console)): **SUCCESS**
+  - [`Ebin_uR64__upstream_b__ubuntu_resolute_amd64__binary #1`](https://build.test.ros2.org/job/Ebin_uR64__upstream_b__ubuntu_resolute_amd64__binary/1/) ([Console](https://build.test.ros2.org/job/Ebin_uR64__upstream_b__ubuntu_resolute_amd64__binary/1/console)): **SUCCESS**
+  - [`Ebin_uR64__upstream_c__ubuntu_resolute_amd64__binary #1`](https://build.test.ros2.org/job/Ebin_uR64__upstream_c__ubuntu_resolute_amd64__binary/1/) ([Console](https://build.test.ros2.org/job/Ebin_uR64__upstream_c__ubuntu_resolute_amd64__binary/1/console)): **SUCCESS**
+* **Repository Sync & Root CI Jobs**:
+  - [`Erel_sync-packages-to-testing_resolute_amd64 #8`](https://build.test.ros2.org/job/Erel_sync-packages-to-testing_resolute_amd64/8/) ([Console](https://build.test.ros2.org/job/Erel_sync-packages-to-testing_resolute_amd64/8/console)): **SUCCESS** (`FilterFormula: Package (% vendor-extendable-*)`)
+  - [`Eci__nightly-release_ubuntu_resolute_amd64 #2`](https://build.test.ros2.org/job/Eci__nightly-release_ubuntu_resolute_amd64/2/) ([Console](https://build.test.ros2.org/job/Eci__nightly-release_ubuntu_resolute_amd64/2/console)): **SUCCESS** (3/3 CTest suites passed)
+  - [`Eci__source-branches_ubuntu_resolute_amd64 #2`](https://build.test.ros2.org/job/Eci__source-branches_ubuntu_resolute_amd64/2/) ([Console](https://build.test.ros2.org/job/Eci__source-branches_ubuntu_resolute_amd64/2/console)): **SUCCESS** (3/3 CTest suites passed)
+  - [`Eci__release-branches_ubuntu_resolute_amd64 #2`](https://build.test.ros2.org/job/Eci__release-branches_ubuntu_resolute_amd64/2/) ([Console](https://build.test.ros2.org/job/Eci__release-branches_ubuntu_resolute_amd64/2/console)): **SUCCESS** (3/3 CTest suites passed)
 
 ---
 
-## 5. Known Limitations & Edge Cases in Reprepro Synchronization (--package-prefix)
+## 6. Known Limitations & Edge Cases in Reprepro Synchronization (`--package-prefix`)
 
-While `reprepro-updater --package-prefix` successfully validates vendor prefixing for typical rules (`search: '^'`, `replace: 'vendor-{distro}-'`), the current implementation relies on a heuristic in `ros_buildfarm.common.get_os_package_name_prefix()` with known edge cases:
-
-1. **Non-Anchor Regexes (`search != '^'`)**:
-   - If a distribution declares a pattern like `search: '^ros2-(.*)$'`, the strict check `rule.get('search') == '^'` evaluates to `False`.
-   - `ros_buildfarm` falls back to the default `ros-{distro}-` prefix, causing reprepro sync to miss the renamed packages.
-2. **Per-Repository Overrides (e.g. Gazebo / `libgz-*`)**:
-   - `get_os_package_name_prefix()` evaluates only the global distribution-level rule (`dist_file.binary_rule`).
-   - If a repository specifies an exact override (e.g., `gz_cmake` -> `libgz-cmake5-dev`), reprepro's glob filter (`Package (% <prefix>*)`) will skip it during promotion from `building` to `testing`.
-3. **Native Packages Without Prefixes (`replace: ''`)**:
-   - For standalone distros that strip prefixes (`replace: ''`), `get_os_package_name_prefix()` returns an empty string.
-   - In `sync_ros_packages.py`, an empty string is falsy and falls back to `ros-%s-`, breaking un-prefixed package synchronization.
-4. **Missing `{origin_distro}` Interpolation**:
-   - `get_os_package_name_prefix()` currently interpolates `{distro}`, but does not interpolate `{origin_distro}`.
-
-### Future Architectural Resolution
-For a fully generalized upstream implementation:
-* **Package List Filter**: Instead of a single glob prefix filter, `ros_buildfarm` can construct an explicit `FilterFormula` containing all evaluated binary names (`Package (= pkg1) | Package (= pkg2) ...`) from `dist_file.release_packages`.
-* **Multi-Prefix Support**: Alternatively, `reprepro-updater` can accept multiple `--package-prefix` arguments derived from the unique prefixes of all packages in the distribution.
-
----
-
-## 6. Release-Gated Upstream PR & Release Sequence
-
-1. **Wave 0 — `openrobotics/reps` (Spec)**:
-   - *Merged PR*: [`openrobotics/reps#35`](https://github.com/openrobotics/reps/pull/35) (`KmoM88:feature/rep-159-binary-name-templating` $\to$ `openrobotics:rosdistro_extension`, merged as `f683ccc`, feeding [`openrobotics/reps#32`](https://github.com/openrobotics/reps/pull/32)).
-   - *Title*: `rep-159: document design explorations, regex decision rationale, and binary renaming in binary_import`
-2. **Wave 0 — `ros-infrastructure/reprepro-updater` (Zero Release Prerequisite)**:
-   - *Title*: `feat: support custom --package-prefix for reprepro FilterFormula and cleanup`
-   - *Branch*: `feat/package-prefix` (`93ed2dc`) $\to$ **`refactor`** *(upstream sync jobs `git clone -b refactor` directly at runtime; no PyPI/APT package step)*.
-3. **Wave 0 — `ros-infrastructure/rosdistro`**:
-   - *Org PR*: [`rep159-testing/rosdistro#1`](https://github.com/rep159-testing/rosdistro/pull/1) (`feature/rep159-binary-naming-regex` $\to$ `rep159`); upstream target: `master`.
-   - *Title*: `feat(naming): add declarative regex-based binary package renaming engine`
-   - *Unblocks Release Gate 1*: Publish **`rosdistro >= 1.2.0`** (from `1.1.0`) to PyPI + OSRF `ros_bootstrap` APT (`python3-rosdistro-modules >= 1.2.0`).
-4. **Wave 1 — `ros-infrastructure/rosdep` (Blocked Until Gate 1 `rosdistro >= 1.2.0`)**:
-   - *Title*: `feat(rep159): delegate binary package name resolution to rosdistro binary_rule`
-   - *Branch*: Clean branch off `master` cherry-picking `2d5a548`, `07b6647`, `3d52dad` (dropping `KmoM88/rosdistro` git URL hacks in `setup.py`/`ci.yaml`, bumping `rosdistro >= 1.2.0` + `stdeb.cfg`).
-   - *Unblocks Release Gate 2*: Publish **`rosdep >= 0.27.0`** (from `0.26.0`) to PyPI + OSRF `ros_bootstrap` APT (`python3-rosdep-modules >= 0.27.0`).
-5. **Wave 3 — `ros-infrastructure/ros_buildfarm` (Blocked Until Gate 1 + Gate 2 + `reprepro-updater:refactor`)**:
-   - *Title*: `feat(release): delegate binary package names to rosdistro binary_rule and filter sync by prefix`
-   - *Core + Fix Commits*: `857b025`, `61b8d29`, `ceaaef7`, `c907db2`, `3397a12`, `4062a66` $\to$ `master` (excluding `*.Dockerfile.em` tarball `pip` hacks and reverting `reprepro-updater` URL back to `ros-infrastructure/reprepro-updater -b refactor`).
-   - *Unblocks Release Gate 4*: Publish **`ros_buildfarm >= 4.2.0`**.
+While `reprepro-updater --package-prefix` validates vendor prefixing for anchor rules (`search: '^'`, `replace: 'vendor-{distro}-'`), `ros_buildfarm.common.get_os_package_name_prefix()` has known edge cases for future follow-up:
+1. **Non-Anchor Regexes (`search != '^'`)**: Falls back to `ros-{distro}-`.
+2. **Per-Repository Overrides**: Evaluates only the global distribution-level `binary_rule`.
+3. **Empty Prefix (`replace: ''`)**: Empty string is falsy in `sync_ros_packages.py` and falls back to `ros-%s-`.
+4. **Future Resolution**: Construct an explicit `FilterFormula` enumerating evaluated binary names from `dist_file.release_packages` or pass multiple `--package-prefix` values.

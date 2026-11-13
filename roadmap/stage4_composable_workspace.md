@@ -5,9 +5,46 @@
 - **Stages 1–3 (`extendable*` family, Jenkins jobs `E*`)**: Validated pure graph traversal, custom binary naming (`binary_rule`), and installation prefixes (`install_rule`) using pure CMake packages with buildfarm-injected environment fallbacks (`CMAKE_PREFIX_PATH`, `LD_LIBRARY_PATH`).
 - **Stage 4 (`extendable` & `extendablebin`, Jenkins jobs `E*`)**: Evolves `extendable*` (`E*`) onto the native ROS 2 runtime stack by packaging `ament_package`, `ament_cmake_core`, and `ros_workspace` (`/opt/ros/<distro>/setup.sh`, `.dsv` hooks, `AMENT_PREFIX_PATH`), verifying recursive bash underlay chaining (`ROS_WORKSPACE_PARENT_PREFIX_PATH`), and automating Debian packaging via `bloom`.
 
+Reproduction commands via the repository stage runner:
+```bash
+./tools/stage_runner.py --stage stage4 --verify-branches
+./tools/stage_runner.py --stage stage4 --status
+```
+
 ---
 
-## 2. Design Decisions & Technical Rationale
+## 2. Implementation Architecture: Core PR Code vs. Testbed Overrides
+
+```mermaid
+flowchart TD
+    subgraph Core ["Core Implementation & Fixes (Clean PR Branches - Upstream Bound)"]
+        RD4["rosdistro: feat/rep159-install-rule (a8f5543) - BINARY_IMPORT_OVERRIDABLE = {'ros_workspace'}"]
+        WS4["ros_workspace: feat/rep159-parent-chaining (4997f85) - ROS_WORKSPACE_PARENT_PREFIX_PATH"]
+        BL4["bloom: feat/rep159-rules-support (7af7034) - binary_rule, install_rule & ParentPrefixes"]
+        BF4["ros_buildfarm: feat/rep159-binary-naming (a271be1) + feat/rep159-underlays (274640b)"]
+
+        RD4 --> BL4
+        WS4 --> BL4
+        RD4 --> BF4
+    end
+
+    subgraph Hacks ["Testbed Overrides & Harness Configs (build.test.ros2.org Only - Do NOT Upstream)"]
+        BF_TEST4["ros_buildfarm testbed: feat/extendable-workspace (ca13954) - Dockerfile pip installs & extbin view regex"]
+        DIST4["rep159-rosdistro: feat/extendable-workspace (19aedba)"]
+        CFG4["ros_buildfarm_config: feat/extendable-workspace (c80b6f7)"]
+        REL4["ament_cmake_core-release (32bc461, PYTHONPATH bootstrap patch), ros_workspace-release (f063a4d / bea31df), downstream_bin_a-release (9f8ba47)"]
+
+        BF_TEST4 --> CFG4
+        DIST4 --> CFG4
+        REL4 --> CFG4
+    end
+
+    BF4 -.->|"Mirrored on testbed branch"| BF_TEST4
+```
+
+---
+
+## 3. Design Decisions & Technical Rationale
 
 | Decision | Mechanism | Verified Invariant on `build.test.ros2.org` |
 |---|---|---|
@@ -18,19 +55,19 @@
 
 ---
 
-## 3. Implementation Breakdown: Clean Branches vs. Testbed Branches
+## 4. Implementation Breakdown: Clean Branches vs. Testbed Branches
 
 | Repository | Clean Upstream PR Branch (`@ SHA`) | Testfarm Branch (`@ SHA`) | Summary |
 |---|---|---|---|
 | **`ros-infrastructure/rosdistro`** | [`feat/rep159-install-rule`](https://github.com/rep159-testing/rosdistro/tree/feat/rep159-install-rule) (`a8f5543`) | `feat/rep159-install-rule` (`a8f5543`) | Adopts `jrivero`'s `BINARY_IMPORT_OVERRIDABLE = frozenset(['ros_workspace'])` (`aefe17c`, `a8f5543`) + `binary_rule` & `install_rule` (96/96 tests). |
 | **`ros2/ros_workspace`** | [`feat/rep159-parent-chaining`](https://github.com/rep159-testing/ros_workspace/tree/feat/rep159-parent-chaining) (`4997f85`) | `feat/rep159-parent-chaining` (`4997f85`) | Stacked directly on `jrivero`'s `12f93e9` (`ROS_WORKSPACE_PARENT_PREFIX_PATH` & `parent_prefix_path` index) + `PARENT_PREFIX_PATH` alias. |
 | **`ros-infrastructure/bloom`** | [`feat/rep159-rules-support`](https://github.com/rep159-testing/bloom/tree/feat/rep159-rules-support) (`7af7034`) | `feat/rep159-rules-support` (`7af7034`) | Stacked directly on `jrivero`'s `origin/rep159` (`0189046`..`2877687`) + `binary_rule`, `install_rule`, and `git tag -f -m` GPG fix (26/26 tests). |
-| **`ros-infrastructure/ros_buildfarm`** | [`feat/rep159-binary-naming`](https://github.com/rep159-testing/ros_buildfarm/tree/feat/rep159-binary-naming) (`a271be1` — PR 3C) | [`feat/extendable-workspace`](https://github.com/rep159-testing/ros_buildfarm/tree/feat/extendable-workspace) (`ca13954`) | Propagates `binary_rule` to `sourcedeb`/`binarydeb`, passes `--package-prefix` to sync jobs, and isolates child release jobs (`9b02768`). |
+| **`ros-infrastructure/ros_buildfarm`** | [`feat/rep159-binary-naming`](https://github.com/rep159-testing/ros_buildfarm/tree/feat/rep159-binary-naming) (`a271be1` — PR 3C) & [`feat/rep159-underlays`](https://github.com/rep159-testing/ros_buildfarm/tree/feat/rep159-underlays) (`274640b` — PR 3B) | [`feat/extendable-workspace`](https://github.com/rep159-testing/ros_buildfarm/tree/feat/extendable-workspace) (`ca13954`) | Propagates `binary_rule` to `sourcedeb`/`binarydeb`, passes `--package-prefix` to sync jobs, and isolates child release jobs (`9b02768`). |
 | **`rep159-rosdistro` & `ros_buildfarm_config`** | [`feat/extendable-workspace`](https://github.com/rep159-testing/rep159-rosdistro/tree/feat/extendable-workspace) (`19aedba` / `c80b6f7`) | `feat/extendable-workspace` (`19aedba` / `c80b6f7`) | `extendable` and `extendablebin` (`extbin`) workspace release and CI configurations on `build.test.ros2.org`. |
 
 ---
 
-## 4. Empirical Validation on `https://build.test.ros2.org` (`E*` Namespace)
+## 5. Empirical Validation on `https://build.test.ros2.org` (`E*` Namespace)
 
 | Pipeline Phase | Jenkins Job (`build.test.ros2.org`) | Build # | Status | Verified Artifact / Outcome |
 |---|---|:---:|:---:|---|

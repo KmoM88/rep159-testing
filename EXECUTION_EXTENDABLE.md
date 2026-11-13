@@ -5,9 +5,12 @@ Procedimiento secuencial, diagramas de arquitectura y matriz de evidencia empír
 > [!NOTE]
 > **Referencias Cruzadas**:
 > - **Plan de Rollout & Alineación con `jrivero`**: **[`ROLLOUT_PLAN.md`](ROLLOUT_PLAN.md)**
-> - **Stage 4 (`ros_workspace` + `ament_cmake` + `bloom` en `E*`)**: **[`STAGE4_COMPOSABLE_WORKSPACE_PLAN.md`](STAGE4_COMPOSABLE_WORKSPACE_PLAN.md)**
-> - **Stage 5 (`rosdistro_build_cache` + `bloom` en `E*`)**: **[`STAGE5_CACHE_AND_BLOOM_PLAN.md`](STAGE5_CACHE_AND_BLOOM_PLAN.md)**
-> - **Stage 6 (`ROS + Gazebo`: `lyrical/jetty` & `rolling/rotary` en `E*`)**: **[`STAGE6_ROS_GAZEBO_PLAN.md`](STAGE6_ROS_GAZEBO_PLAN.md)**
+> - **Stage 1 (`binary_rule` & Format 3 en `E*`)**: **[`roadmap/stage1_binary_naming_and_format3.md`](roadmap/stage1_binary_naming_and_format3.md)**
+> - **Stage 2 (`install_rule` & Underlays en `E*`)**: **[`roadmap/stage2_install_rule_and_underlays.md`](roadmap/stage2_install_rule_and_underlays.md)**
+> - **Stage 3 (Topologías 3-Tier, Mixed & Diamond en `E*`)**: **[`roadmap/stage3_topological_extensions.md`](roadmap/stage3_topological_extensions.md)**
+> - **Stage 4 (`ros_workspace` + `ament_cmake` + `bloom` en `E*`)**: **[`roadmap/stage4_composable_workspace.md`](roadmap/stage4_composable_workspace.md)**
+> - **Stage 5 (`rosdistro_build_cache` + `bloom` en `E*`)**: **[`roadmap/stage5_cache_lifecycle_and_bloom_release.md`](roadmap/stage5_cache_lifecycle_and_bloom_release.md)**
+> - **Stage 6 (`ROS + Gazebo`: `lyrical/jetty` & `distribution_eol_date` en `E*`)**: **[`roadmap/stage6_ros_gazebo_and_eol.md`](roadmap/stage6_ros_gazebo_and_eol.md)**
 
 ---
 
@@ -15,16 +18,16 @@ Procedimiento secuencial, diagramas de arquitectura y matriz de evidencia empír
 
 ```mermaid
 flowchart LR
-    subgraph PureCMake ["Stages 1-3: CMake Puro (<build_type>cmake</build_type>, Jobs E*)"]
-        E["Valida binary_rule, install_rule, poda binary_import<br/>y exportación CMake/LD (workspace.py) en 5 topologías"]
+    subgraph PureCMake ["Stages 1-3: CMake Puro (Jobs E*)"]
+        E["Valida binary_rule, install_rule, poda binary_import y exportacion CMake/LD (workspace.py) en 5 topologias"]
     end
 
     subgraph RosWorkspace ["Stages 4-5: Stack ROS 2 Nativo en extendable* (Jobs E*)"]
-        C["ament_cmake + ros_workspace + bloom + rosdistro_build_cache<br/>Adopta commits de jrivero: child ros_workspace override,<br/>ROS_WORKSPACE_PARENT_PREFIX_PATH y ParentPrefixes"]
+        C["ament_cmake + ros_workspace + bloom + rosdistro_build_cache (child ros_workspace override, ROS_WORKSPACE_PARENT_PREFIX_PATH y ParentPrefixes)"]
     end
 
     subgraph RosGazebo ["Stage 6: ROS + Gazebo con workspace_package (ros_workspace_shell, jrivero)"]
-        G["Adopta ros_workspace_shell (a89cc7b) y workspace_package (bc0600f, 2cb93dc, 146d05f)<br/>Demo 1: Gazebo -> ROS 2 hasta ros_gz_bridge (sin vendor pkgs)<br/>Demo 2: Extensión 3rd-party de ROS 2"]
+        G["Adopta ros_workspace_shell (b6a8195) y workspace_package (3670bd8, ec0bcca, e54594c) + Multi-Parent [lyrical, extendablejetty] con ros_gz_bridge sin vendor pkgs (08645e3)"]
     end
 
     PureCMake --> RosWorkspace --> RosGazebo
@@ -45,19 +48,21 @@ flowchart LR
 
 ---
 
-## 2. Matriz de Ramas Semánticas por Etapa (Stages 1–5)
+## 2. Matriz de Ramas Semánticas por Etapa (Stages 1–6)
 
-| Submódulo | Stage 1 (`binary_rule`) | Stage 2 (`install_rule` `/opt/vendor/{distro}`) | Stage 3 (Multi-Tier, Mixed & Diamond) | Stages 4 & 5 (`ros_workspace` + `bloom` + Caches) |
-|---|---|---|---|---|
-| **`rep159-rosdistro`** | `feat/extendable-binary-naming` (`b2882ed`) | `feat/extendable-install-rule` (`c980f45`) | `feat/chained-extensions` (`69afb27`)<br>`feat/binary-chained` (`e63a90a`)<br>`feat/mixed-extensions` (`3e66c48`)<br>`feat/diamond-extensions` (`7ab72c6`) | `feat/extendable-workspace` (`19aedba`) |
-| **`ros_buildfarm_config`** | `feat/extendable-binary-naming` (`30a7f90`) | `feat/extendable-install-rule` (`f8751e6`) | `feat/chained-extensions` (`7fa2b40`)<br>`feat/binary-chained` (`0f308af`)<br>`feat/mixed-extensions` (`6fc8b81`)<br>`feat/diamond-extensions` (`84064ae`) | `feat/extendable-workspace` (`c80b6f7`) |
-| **`rosdistro`** | `feature/rep159-binary-naming-regex` (`bfde799`, [`#1`](https://github.com/rep159-testing/rosdistro/pull/1)) | `feat/rep159-install-rule` (`a8f5543`) | `feat/rep159-install-rule` (`a8f5543`) | `feat/rep159-install-rule` (`a8f5543`) |
-| **`rosdep`** | `feat/rep159-binary-lookup` (`5661779`) / testbed `rep159` (`3d52dad`) | `feat/rep159-binary-lookup` (`5661779`) | `feat/rep159-binary-lookup` (`5661779`) | `feat/rep159-binary-lookup` (`5661779`) |
-| **`reprepro-updater`** | `feat/package-prefix` (`93ed2dc`) | `feat/package-prefix` (`93ed2dc`) | `feat/package-prefix` (`93ed2dc`) | `feat/package-prefix` (`93ed2dc`) |
-| **`ros_workspace`** | N/A | N/A | N/A | `feat/rep159-parent-chaining` (`4997f85`) |
-| **`bloom`** | N/A | N/A | N/A | `feat/rep159-rules-support` (`7af7034`) |
-| **`ros_buildfarm`** | Clean PR 3C: `feat/rep159-binary-naming` (`a271be1`)<br>Testbed: `feat/binary-naming-rule` (`797d771`) | Clean PR 3A (`486b579`) + PR 3B (`a4a5bbd`)<br>Testbed: `feat/binary-naming-rule` (`797d771`) | Clean PRs 3A (`486b579`) + 3B (`a4a5bbd`) + 3C (`a271be1`)<br>Testbed: `feat/binary-naming-rule` (`797d771`) | Clean PRs 3A–3C<br>Testbed: `feat/extendable-workspace` (`ca13954`) |
-| **Release Tracks (`*-release`)** | `upstream_{a,b,c}-release`:<br>`debian/vendor-extendable/resolute/upstream_*` (`d290d17`, `65280fc`, `ad6c0e8`) | `upstream_{a,b,c}-release`:<br>`debian/vendor-extendable-install-rule/resolute/upstream_*` (`ad87f5b`, `8c33a3d`, `eef2f2b`) | `upstream_{a,b,c}-release`: `debian/vendor-extendable/resolute/upstream_*`<br>`downstream_bin_a-release`: `debian/extendablebin/resolute/downstream_bin_a` (`ed6daa8`) | `ament_package-release`: `1b551c8`<br>`ament_cmake_core-release`: `32bc461`<br>`ros_workspace-release`: `f063a4d` (root), `bea31df` (child)<br>`downstream_bin_a-release`: `9f8ba47` (`vendor-extendablebin`) |
+| Submódulo | Stage 1 (`binary_rule`) | Stage 2 (`install_rule` `/opt/vendor/{distro}`) | Stage 3 (Multi-Tier, Mixed & Diamond) | Stages 4 & 5 (`ros_workspace` + `bloom` + Caches) | Stage 6 (`ros_workspace_shell` + ROS 2 & Gazebo) |
+|---|---|---|---|---|---|
+| **`rep159-rosdistro`** | `feat/extendable-binary-naming` (`b2882ed`) | `feat/extendable-install-rule` (`c980f45`) | `feat/chained-extensions` (`69afb27`)<br>`feat/binary-chained` (`e63a90a`)<br>`feat/mixed-extensions` (`3e66c48`)<br>`feat/diamond-extensions` (`7ab72c6`) | `feat/extendable-workspace` (`19aedba`) | `feat/extendable-gazebo` (`f3891ce`) |
+| **`ros_buildfarm_config`** | `feat/extendable-binary-naming` (`30a7f90`) | `feat/extendable-install-rule` (`f8751e6`) | `feat/chained-extensions` (`7ce43b3`)<br>`feat/binary-chained` (`0f308af`)<br>`feat/mixed-extensions` (`6fc8b81`)<br>`feat/diamond-extensions` (`84064ae`) | `feat/extendable-workspace` (`c80b6f7`) | `feat/extendable-gazebo` (`5bdad6b`) |
+| **`rosdistro`** | `feature/rep159-binary-naming-regex` (`bfde799`, [`#1`](https://github.com/rep159-testing/rosdistro/pull/1)) | `feat/rep159-install-rule` (`a8f5543`) | `feat/rep159-install-rule` (`a8f5543`) | `feat/rep159-install-rule` (`a8f5543`) | `feat/rep159-eol-date` (`5ec62f9`)<br>`feat/rep159-workspace-package` (`3670bd8`) |
+| **`rosdistro-reviewer`** | N/A | N/A | N/A | N/A | `feat/rep159-eol-date` (`3e6ab56`) |
+| **`rosdep`** | `feat/rep159-binary-lookup` (`5661779`) / testbed `rep159` (`3d52dad`) | `feat/rep159-binary-lookup` (`5661779`) | `feat/rep159-binary-lookup` (`5661779`) | `feat/rep159-binary-lookup` (`5661779`) | `feat/rep159-binary-lookup` (`5661779`) |
+| **`reprepro-updater`** | `feat/package-prefix` (`93ed2dc`) | `feat/package-prefix` (`93ed2dc`) | `feat/package-prefix` (`93ed2dc`) | `feat/package-prefix` (`93ed2dc`) | `feat/package-prefix` (`93ed2dc`) |
+| **`ros_workspace` / `ros_workspace_shell`** | N/A | N/A | N/A | `ros_workspace:feat/rep159-parent-chaining` (`4997f85`) | `ros_workspace:feat/rep159-parent-chaining` (`4997f85`)<br>`ros_workspace_shell:feat/rep159-unset-current-prefix` (`b6a8195`) |
+| **`bloom`** | N/A | N/A | N/A | `feat/rep159-rules-support` (`7af7034`) | `feat/rep159-workspace-package` (`ec0bcca`) |
+| **`ros_buildfarm`** | Clean PR 3C: `feat/rep159-binary-naming` (`a271be1`)<br>Testbed: `feat/binary-naming-rule` (`797d771`) | Clean PR 3A (`486b579`) + PR 3B (`274640b`)<br>Testbed: `feat/binary-naming-rule` (`797d771`) | Clean PRs 3A (`486b579`) + 3B (`274640b`) + 3C (`a271be1`)<br>Testbed: `feat/binary-naming-rule` (`797d771`) | Clean PRs 3A–3C<br>Testbed: `feat/extendable-workspace` (`ca13954`) | Clean PRs 3A–3D (`486b579`, `274640b`, `a271be1`, `e54594c`)<br>Testbed: `feat/extendable-workspace-package` (`b242685`) |
+| **`ros_gz` / `gz-*`** | N/A | N/A | N/A | N/A | Clean PR: `ros_gz:feat/rep159-vendorless-bridge` (`08645e3`)<br>Testbed: `ros_gz:feat/rep159-no-vendor` (`efec554`), `gz-tools:feat/rep159-jetty` (`a55273d`), `gz-transport:feat/rep159-jetty` (`7516752f`) |
+| **Release Tracks (`*-release`)** | `upstream_{a,b,c}-release`:<br>`debian/vendor-extendable/resolute/upstream_*` (`d290d17`, `65280fc`, `ad6c0e8`) | `upstream_{a,b,c}-release`:<br>`debian/vendor-extendable-install-rule/resolute/upstream_*` (`ad87f5b`, `8c33a3d`, `eef2f2b`) | `upstream_{a,b,c}-release`: `debian/vendor-extendable/resolute/upstream_*`<br>`downstream_bin_a-release`: `debian/extendablebin/resolute/downstream_bin_a` (`ed6daa8`) | `ament_package-release`: `1b551c8`<br>`ament_cmake_core-release`: `32bc461`<br>`ros_workspace-release`: `f063a4d` (root), `bea31df` (child)<br>`downstream_bin_a-release`: `9f8ba47` (`vendor-extendablebin`) | `ros_workspace_shell-release`, `gz-{cmake,utils,math,tools2,msgs,transport}-release` (`extendablejetty`)<br>`ros_workspace-release`, `gz-demo-math-release`, `ros_gz-release` (`extendablelyrical`) |
 
 ---
 
