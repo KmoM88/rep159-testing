@@ -104,7 +104,7 @@ graph TD
 | Repository | Active Semantic Branch(es) & Status | Description |
 |---|---|---|
 | [`reps`](https://github.com/KmoM88/reps) | [`openrobotics/reps#31`](https://github.com/openrobotics/reps/pull/31) (**MERGED**)<br>[`openrobotics/reps#35`](https://github.com/openrobotics/reps/pull/35) (**MERGED** `f683ccc`)<br>`feature/rep-159-install-rule` (`1aef980`, branch ready) | Formal REP-159 specification (`openrobotics/reps:rosdistro_extension` feeding [`#32`](https://github.com/openrobotics/reps/pull/32)) for `extends`, `binary_rule`, `install_rule`, `ros_workspace` override, and multi-tier DAGs. |
-| [`rep159-rosdistro`](https://github.com/rep159-testing/rep159-rosdistro) | `feat/extendable-binary-naming` (`b2882ed`)<br>`feat/extendable-install-rule` (`6bc24b1`)<br>`feat/chained-extensions`, `feat/binary-chained`, `feat/mixed-extensions`, `feat/diamond-extensions`<br>`feat/extendable-workspace` (`ab0400c`) | Central rosdistro index, distribution definitions, and cache archives (strictly canonical lowercase `{distro}`, `{package}`, `{origin_distro}`). |
+| [`rep159-rosdistro`](https://github.com/rep159-testing/rep159-rosdistro) | `feat/extendable-binary-naming` (`b2882ed`)<br>`feat/extendable-install-rule` (`c980f45`)<br>`feat/chained-extensions`, `feat/binary-chained`, `feat/mixed-extensions`, `feat/diamond-extensions`<br>`feat/extendable-workspace` (`19aedba`) | Central rosdistro index, distribution definitions, and cache archives (strictly canonical lowercase `{distro}`, `{package}`, `{origin_distro}`). |
 
 ### 2. Infrastructure & Tooling Forks (Aligned with Jose Luis Rivero's `jrivero` Commits)
 | Repository | Clean Upstream PR Branch(es) (`@ SHA`) | Testbed / Collaborator Branch(es) | Description |

@@ -50,7 +50,7 @@ graph LR
 | **`bloom`** | [`feat/rep159-rules-support`](https://github.com/rep159-testing/bloom/tree/feat/rep159-rules-support) (`7af7034`) | Stacked on `jrivero`'s `origin/rep159` (`0189046`..`2877687`) + `binary_rule`, `install_rule`, and `d6fdf9e` (`git tag -f -m` GPG sign fix). |
 | **`downstream_bin_a-release`** | [`debian/vendor-extendablebin/resolute/downstream_bin_a`](https://github.com/rep159-testing/downstream_bin_a-release/tree/debian/vendor-extendablebin/resolute/downstream_bin_a) (`9f8ba47`) | Debian packaging generated via `git-bloom-generate rosdebian` (`Package: vendor-extendablebin-downstream-bin-a`). |
 | **`ros_buildfarm`** | [`feat/extendable-workspace`](https://github.com/rep159-testing/ros_buildfarm/tree/feat/extendable-workspace) (`ca13954`) | Installs REP-159 `rosdistro` (`a8f5543`) in `rosdistro_cache_task.Dockerfile.em` (replaced upstream by **Release Gate 1** `python3-rosdistro-modules >= 1.2.0`). |
-| **`rep159-rosdistro` & `ros_buildfarm_config`** | [`feat/extendable-workspace`](https://github.com/rep159-testing/rep159-rosdistro/tree/feat/extendable-workspace) (`ab0400c` / `3322225`) | `extendable` and `extendablebin` distribution and buildfarm config definitions. |
+| **`rep159-rosdistro` & `ros_buildfarm_config`** | [`feat/extendable-workspace`](https://github.com/rep159-testing/rep159-rosdistro/tree/feat/extendable-workspace) (`19aedba` / `c80b6f7`) | `extendable` and `extendablebin` distribution and buildfarm config definitions. |
 
 ---
 

@@ -49,8 +49,8 @@ flowchart LR
 
 | Submódulo | Stage 1 (`binary_rule`) | Stage 2 (`install_rule` `/opt/vendor/{distro}`) | Stage 3 (Multi-Tier, Mixed & Diamond) | Stages 4 & 5 (`ros_workspace` + `bloom` + Caches) |
 |---|---|---|---|---|
-| **`rep159-rosdistro`** | `feat/extendable-binary-naming` (`b2882ed`) | `feat/extendable-install-rule` (`6bc24b1`) | `feat/chained-extensions` (`69afb27`)<br>`feat/binary-chained` (`e63a90a`)<br>`feat/mixed-extensions` (`3e66c48`)<br>`feat/diamond-extensions` (`7ab72c6`) | `feat/extendable-workspace` (`ab0400c`) |
-| **`ros_buildfarm_config`** | `feat/extendable-binary-naming` (`30a7f90`) | `feat/extendable-install-rule` (`f8751e6`) | `feat/chained-extensions` (`7fa2b40`)<br>`feat/binary-chained` (`0f308af`)<br>`feat/mixed-extensions` (`6fc8b81`)<br>`feat/diamond-extensions` (`84064ae`) | `feat/extendable-workspace` (`3322225`) |
+| **`rep159-rosdistro`** | `feat/extendable-binary-naming` (`b2882ed`) | `feat/extendable-install-rule` (`c980f45`) | `feat/chained-extensions` (`69afb27`)<br>`feat/binary-chained` (`e63a90a`)<br>`feat/mixed-extensions` (`3e66c48`)<br>`feat/diamond-extensions` (`7ab72c6`) | `feat/extendable-workspace` (`19aedba`) |
+| **`ros_buildfarm_config`** | `feat/extendable-binary-naming` (`30a7f90`) | `feat/extendable-install-rule` (`f8751e6`) | `feat/chained-extensions` (`7fa2b40`)<br>`feat/binary-chained` (`0f308af`)<br>`feat/mixed-extensions` (`6fc8b81`)<br>`feat/diamond-extensions` (`84064ae`) | `feat/extendable-workspace` (`c80b6f7`) |
 | **`rosdistro`** | `feature/rep159-binary-naming-regex` (`bfde799`, [`#1`](https://github.com/rep159-testing/rosdistro/pull/1)) | `feat/rep159-install-rule` (`a8f5543`) | `feat/rep159-install-rule` (`a8f5543`) | `feat/rep159-install-rule` (`a8f5543`) |
 | **`rosdep`** | `feat/rep159-binary-lookup` (`5661779`) / testbed `rep159` (`3d52dad`) | `feat/rep159-binary-lookup` (`5661779`) | `feat/rep159-binary-lookup` (`5661779`) | `feat/rep159-binary-lookup` (`5661779`) |
 | **`reprepro-updater`** | `feat/package-prefix` (`93ed2dc`) | `feat/package-prefix` (`93ed2dc`) | `feat/package-prefix` (`93ed2dc`) | `feat/package-prefix` (`93ed2dc`) |
