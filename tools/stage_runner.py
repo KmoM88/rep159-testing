@@ -222,7 +222,7 @@ STAGES = {
             "rosdep": "feat/rep159-binary-lookup",
             "bloom": "feat/rep159-workspace-package",
             "ros_workspace": "feat/rep159-parent-chaining",
-            "ros_workspace_shell": "main",
+            "ros_workspace_shell": "feat/rep159-unset-current-prefix",
             "ros_buildfarm": "feat/extendable-workspace-package",
             "rep159-rosdistro": "feat/extendable-gazebo",
             "ros_buildfarm_config": "feat/extendable-gazebo",
@@ -263,6 +263,135 @@ STAGES = {
                 "Erel_extlyrical_sync-packages-to-testing_resolute_amd64",
                 "Eci__gazebo-jetty-release_ubuntu_resolute_amd64",
                 "Eci__gazebo-lyrical-source-rebuild_ubuntu_resolute_amd64",
+                "Eci__gazebo-lyrical-binary-import_ubuntu_resolute_amd64",
+            ],
+        ],
+    },
+    "stage6-gazebo-step2a": {
+        "description": "Stage 6 Step 6B-2a (Single-Parent): Full 6-Package Gazebo extendablejetty -> extendablelyrical in rep159-testing org repos",
+        "branches": {
+            "rosdistro": "feat/rep159-workspace-package",
+            "rosdep": "feat/rep159-binary-lookup",
+            "bloom": "feat/rep159-workspace-package",
+            "ros_workspace": "feat/rep159-parent-chaining",
+            "ros_workspace_shell": "feat/rep159-unset-current-prefix",
+            "ros_buildfarm": "feat/extendable-workspace-package",
+            "rep159-rosdistro": "feat/extendable-gazebo",
+            "ros_buildfarm_config": "feat/extendable-gazebo",
+            "reps": "feature/rep-159-workspace-package",
+            "rosdistro-reviewer": "feat/rep159-eol-date",
+            "gz-tools": "feat/rep159-jetty",
+            "gz-transport": "feat/rep159-jetty",
+            "ros_gz": "feat/rep159-no-vendor",
+        },
+        "config_url": "https://raw.githubusercontent.com/rep159-testing/ros_buildfarm_config/feat/extendable-gazebo/index-rep159.yaml",
+        "release_builds": [
+            ("extendablejetty", "extjetty"),
+            ("extendablelyrical", "extlyrical"),
+        ],
+        "ci_distros": [
+            "extendablejetty",
+            "extendablelyricalsrc",
+            "extendablelyrical",
+        ],
+        "waves": [
+            [
+                "Esrc_uR__extjetty_ros_workspace_shell__ubuntu_resolute__source",
+                "Esrc_uR__extjetty_gz-cmake__ubuntu_resolute__source",
+                "Esrc_uR__extjetty_gz-utils__ubuntu_resolute__source",
+                "Esrc_uR__extjetty_gz-math__ubuntu_resolute__source",
+                "Esrc_uR__extjetty_gz-tools2__ubuntu_resolute__source",
+                "Esrc_uR__extjetty_gz-msgs__ubuntu_resolute__source",
+                "Esrc_uR__extjetty_gz-transport__ubuntu_resolute__source",
+                "Esrc_uR__extlyrical_ros_workspace_shell__ubuntu_resolute__source",
+                "Esrc_uR__extlyrical_gz-demo-math__ubuntu_resolute__source",
+            ],
+            ["Ebin_uR64__extjetty_ros_workspace_shell__ubuntu_resolute_amd64__binary"],
+            [
+                "Ebin_uR64__extjetty_gz-cmake__ubuntu_resolute_amd64__binary",
+                "Ebin_uR64__extlyrical_ros_workspace_shell__ubuntu_resolute_amd64__binary",
+            ],
+            [
+                "Ebin_uR64__extjetty_gz-utils__ubuntu_resolute_amd64__binary",
+                "Ebin_uR64__extjetty_gz-tools2__ubuntu_resolute_amd64__binary",
+            ],
+            ["Ebin_uR64__extjetty_gz-math__ubuntu_resolute_amd64__binary"],
+            ["Ebin_uR64__extjetty_gz-msgs__ubuntu_resolute_amd64__binary"],
+            ["Ebin_uR64__extjetty_gz-transport__ubuntu_resolute_amd64__binary"],
+            [
+                "Erel_extjetty_sync-packages-to-testing_resolute_amd64",
+                "Ebin_uR64__extlyrical_gz-demo-math__ubuntu_resolute_amd64__binary",
+            ],
+            [
+                "Erel_extlyrical_sync-packages-to-testing_resolute_amd64",
+                "Eci__gazebo-jetty-release_ubuntu_resolute_amd64",
+                "Eci__gazebo-lyrical-source-rebuild_ubuntu_resolute_amd64",
+                "Eci__gazebo-lyrical-binary-import_ubuntu_resolute_amd64",
+            ],
+        ],
+    },
+    "stage6-gazebo-step2b": {
+        "description": "Stage 6 Step 6B-2b (Multi-Parent): extendablelyrical extends [lyrical, extendablejetty] with vendorless ros_gz_bridge",
+        "branches": {
+            "rosdistro": "feat/rep159-workspace-package",
+            "rosdep": "feat/rep159-binary-lookup",
+            "bloom": "feat/rep159-workspace-package",
+            "ros_workspace": "feat/rep159-parent-chaining",
+            "ros_workspace_shell": "feat/rep159-unset-current-prefix",
+            "ros_buildfarm": "feat/extendable-workspace-package",
+            "rep159-rosdistro": "feat/extendable-gazebo",
+            "ros_buildfarm_config": "feat/extendable-gazebo",
+            "reps": "feature/rep-159-workspace-package",
+            "rosdistro-reviewer": "feat/rep159-eol-date",
+            "gz-tools": "feat/rep159-jetty",
+            "gz-transport": "feat/rep159-jetty",
+            "ros_gz": "feat/rep159-no-vendor",
+        },
+        "config_url": "https://raw.githubusercontent.com/rep159-testing/ros_buildfarm_config/feat/extendable-gazebo/index-rep159.yaml",
+        "release_builds": [
+            ("extendablelyrical", "extlyrical"),
+        ],
+        "ci_distros": [
+            "extendablelyrical",
+        ],
+        "waves": [
+            [
+                "Esrc_uR__extjetty_ros_workspace_shell__ubuntu_resolute__source",
+                "Esrc_uR__extlyrical_ros_workspace__ubuntu_resolute__source",
+                "Esrc_uR__extlyrical_gz-demo-math__ubuntu_resolute__source",
+                "Esrc_uR__extlyrical_ros_gz_interfaces__ubuntu_resolute__source",
+                "Esrc_uR__extlyrical_ros_gz_bridge__ubuntu_resolute__source",
+            ],
+            [
+                "Ebin_uR64__extjetty_ros_workspace_shell__ubuntu_resolute_amd64__binary",
+            ],
+            [
+                "Ebin_uR64__extjetty_gz-cmake__ubuntu_resolute_amd64__binary",
+                "Ebin_uR64__extlyrical_ros_workspace__ubuntu_resolute_amd64__binary",
+            ],
+            [
+                "Ebin_uR64__extjetty_gz-utils__ubuntu_resolute_amd64__binary",
+                "Ebin_uR64__extjetty_gz-tools2__ubuntu_resolute_amd64__binary",
+                "Ebin_uR64__extlyrical_ros_gz_interfaces__ubuntu_resolute_amd64__binary",
+            ],
+            [
+                "Ebin_uR64__extjetty_gz-math__ubuntu_resolute_amd64__binary",
+            ],
+            [
+                "Ebin_uR64__extjetty_gz-msgs__ubuntu_resolute_amd64__binary",
+                "Ebin_uR64__extlyrical_gz-demo-math__ubuntu_resolute_amd64__binary",
+            ],
+            [
+                "Ebin_uR64__extjetty_gz-transport__ubuntu_resolute_amd64__binary",
+            ],
+            [
+                "Erel_extjetty_sync-packages-to-testing_resolute_amd64",
+                "Ebin_uR64__extlyrical_ros_gz_bridge__ubuntu_resolute_amd64__binary",
+            ],
+            [
+                "Erel_extlyrical_sync-packages-to-testing_resolute_amd64",
+            ],
+            [
                 "Eci__gazebo-lyrical-binary-import_ubuntu_resolute_amd64",
             ],
         ],
@@ -317,29 +446,27 @@ def checkout_stage_branches(stage_name, verify_only=False):
         sys.exit(1)
 
 
-def generate_stage_jobs(stage_name, dry_run=False):
+def generate_stage_jobs(stage_name, dry_run=False, ci_only=False):
     info = STAGES[stage_name]
     config_url = info["config_url"]
     rb_dir = os.path.join(REPO_ROOT, "submodules", "ros_buildfarm")
     env = os.environ.copy()
     env["PYTHONPATH"] = f"{rb_dir}:{os.path.join(REPO_ROOT, 'submodules', 'rosdistro', 'src')}"
 
-    print(f"=== Generating Jenkins Jobs for '{stage_name}' (dry_run={dry_run}) ===")
-    for distro_name, release_build_name in info["release_builds"]:
-        cmd = [
-            sys.executable,
-            "scripts/release/generate_release_script.py",
-            config_url,
-            distro_name,
-            release_build_name,
-            "ubuntu",
-            "resolute",
-            "amd64",
-        ]
-        if not dry_run:
-            cmd.append("--commit")
-        print(f"[RELEASE GEN] {' '.join(cmd)}", flush=True)
-        subprocess.run(cmd, cwd=rb_dir, env=env, check=True)
+    print(f"=== Generating Jenkins Jobs for '{stage_name}' (dry_run={dry_run}, ci_only={ci_only}) ===")
+    if not ci_only:
+        for distro_name, release_build_name in info["release_builds"]:
+            cmd = [
+                sys.executable,
+                "scripts/release/generate_release_jobs.py",
+                config_url,
+                distro_name,
+                release_build_name,
+            ]
+            if dry_run:
+                cmd.append("--dry-run")
+            print(f"[RELEASE GEN] {' '.join(cmd)}", flush=True)
+            subprocess.run(cmd, cwd=rb_dir, env=env, check=True)
 
     for distro_name in info["ci_distros"]:
         cmd = [
@@ -382,17 +509,25 @@ def wait_for_import_idle(jenkins):
         time.sleep(5)
 
 
-def trigger_if_needed(jenkins, name):
+def trigger_if_needed(jenkins, name, force_rebuild=False):
     job = jenkins.get_job(name)
     base = get_last_num(job)
     if job.is_running():
         print(f"[RUNNING] {name} currently running build #{base}", flush=True)
         return base - 1
-    if not job.is_queued():
-        job.invoke()
-        print(f"[TRIGGER] Invoked {name} (prev #{base})", flush=True)
-    else:
+    if job.is_queued():
         print(f"[QUEUED] {name} already queued (prev #{base})", flush=True)
+        return base
+    if not force_rebuild and name.startswith(("Esrc_", "Ebin_", "Erel_")) and base > 0:
+        try:
+            last_status = job.get_build(base).get_status()
+            if last_status == "SUCCESS":
+                print(f"[SKIP] {name} already succeeded at build #{base}", flush=True)
+                return None
+        except Exception:
+            pass
+    job.invoke()
+    print(f"[TRIGGER] Invoked {name} (prev #{base})", flush=True)
     return base
 
 
@@ -442,9 +577,16 @@ def show_stage_status(stage_name, jenkins_url=DEFAULT_JENKINS_URL):
                 print(f"  - {job_name:<62} [ERROR: {exc}]")
 
 
-def run_stage_pipeline(stage_name, jenkins_url=DEFAULT_JENKINS_URL, prioritize=True):
+def run_stage_pipeline(
+    stage_name,
+    jenkins_url=DEFAULT_JENKINS_URL,
+    prioritize=True,
+    force_rebuild=False,
+    force_jobs=None,
+):
     from ros_buildfarm.jenkins import connect
 
+    force_set = set(force_jobs or [])
     info = STAGES[stage_name]
     jenkins = connect(jenkins_url)
     all_jobs = [j for wave in info["waves"] for j in wave]
@@ -453,12 +595,29 @@ def run_stage_pipeline(stage_name, jenkins_url=DEFAULT_JENKINS_URL, prioritize=T
             set_priority_1(jenkins, job_name)
 
     all_results = []
+    any_rebuilt = False
     for wave_idx, wave in enumerate(info["waves"], 1):
         print(f"=== Wave {wave_idx}/{len(info['waves'])}: {', '.join(wave)} ===", flush=True)
-        baselines = {name: trigger_if_needed(jenkins, name) for name in wave}
+        baselines = {}
+        for name in wave:
+            b = trigger_if_needed(
+                jenkins,
+                name,
+                force_rebuild=(
+                    force_rebuild
+                    or name in force_set
+                    or (name.startswith("Erel_") and any_rebuilt)
+                ),
+            )
+            if b is not None:
+                baselines[name] = b
+        if not baselines:
+            print(f"[SKIP WAVE] All jobs in Wave {wave_idx} already succeeded.", flush=True)
+            continue
         res = wait_for_jobs(jenkins, baselines)
         all_results.append(res)
-        if any(name.startswith(("Esrc_", "Ebin_")) for name in wave):
+        if any(name.startswith(("Esrc_", "Ebin_")) for name in baselines):
+            any_rebuilt = True
             wait_for_import_idle(jenkins)
         for job_name, (build_num, status) in res.items():
             if status != "SUCCESS":
@@ -505,6 +664,11 @@ def main():
         help="Generate Jenkins release and CI jobs for --stage on build.test.ros2.org",
     )
     parser.add_argument(
+        "--generate-ci-jobs",
+        action="store_true",
+        help="Generate only Jenkins CI jobs for --stage on build.test.ros2.org",
+    )
+    parser.add_argument(
         "--dry-run",
         action="store_true",
         help="Pass --dry-run when generating jobs with --generate-jobs",
@@ -520,11 +684,43 @@ def main():
         help="Trigger and orchestrate all ordered job waves for --stage on Jenkins",
     )
     parser.add_argument(
+        "--force-rebuild",
+        action="store_true",
+        help="Force rebuilding Esrc_/Ebin_ release jobs even if their latest build is SUCCESS",
+    )
+    parser.add_argument(
+        "--force-jobs",
+        nargs="*",
+        default=[],
+        help="Specific job names to force rebuild even if their latest build is SUCCESS",
+    )
+    parser.add_argument(
+        "--console",
+        help="Print console log of the latest build for a given Jenkins job name",
+    )
+    parser.add_argument(
+        "--tail",
+        type=int,
+        default=120,
+        help="Number of trailing lines to show with --console (default: 120)",
+    )
+    parser.add_argument(
         "--url",
         default=DEFAULT_JENKINS_URL,
         help=f"Jenkins URL (default: {DEFAULT_JENKINS_URL})",
     )
     args = parser.parse_args()
+
+    if args.console:
+        from ros_buildfarm.jenkins import connect
+
+        jenkins = connect(args.url)
+        job = jenkins[args.console]
+        b = job.get_last_build()
+        lines = b.get_console().splitlines()
+        print(f"=== {args.console} #{b.buildno} ({b.get_status()}) [last {args.tail} lines] ===")
+        print("\n".join(lines[-args.tail :]))
+        return
 
     if args.list_stages or not args.stage:
         list_stages()
@@ -536,14 +732,23 @@ def main():
     elif args.verify_branches:
         checkout_stage_branches(args.stage, verify_only=True)
 
-    if args.generate_jobs:
-        generate_stage_jobs(args.stage, dry_run=args.dry_run)
+    if args.generate_jobs or args.generate_ci_jobs:
+        generate_stage_jobs(
+            args.stage,
+            dry_run=args.dry_run,
+            ci_only=args.generate_ci_jobs and not args.generate_jobs,
+        )
 
     if args.status:
         show_stage_status(args.stage, jenkins_url=args.url)
 
     if args.run_pipeline:
-        run_stage_pipeline(args.stage, jenkins_url=args.url)
+        run_stage_pipeline(
+            args.stage,
+            jenkins_url=args.url,
+            force_rebuild=args.force_rebuild,
+            force_jobs=args.force_jobs,
+        )
 
 
 if __name__ == "__main__":

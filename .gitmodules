@@ -86,3 +86,36 @@
 [submodule "submodules/rosdistro-reviewer"]
 	path = submodules/rosdistro-reviewer
 	url = git@github.com:rep159-testing/rosdistro-reviewer.git
+[submodule "submodules/gz-tools"]
+	path = submodules/gz-tools
+	url = git@github.com:rep159-testing/gz-tools.git
+[submodule "submodules/gz-transport"]
+	path = submodules/gz-transport
+	url = git@github.com:rep159-testing/gz-transport.git
+[submodule "submodules/ros_gz"]
+	path = submodules/ros_gz
+	url = git@github.com:rep159-testing/ros_gz.git
+[submodule "submodules/gz-cmake-release"]
+	path = submodules/gz-cmake-release
+	url = git@github.com:rep159-testing/gz-cmake-release.git
+[submodule "submodules/gz-utils-release"]
+	path = submodules/gz-utils-release
+	url = git@github.com:rep159-testing/gz-utils-release.git
+[submodule "submodules/gz-math-release"]
+	path = submodules/gz-math-release
+	url = git@github.com:rep159-testing/gz-math-release.git
+[submodule "submodules/gz-tools-release"]
+	path = submodules/gz-tools-release
+	url = git@github.com:rep159-testing/gz-tools-release.git
+[submodule "submodules/gz-msgs-release"]
+	path = submodules/gz-msgs-release
+	url = git@github.com:rep159-testing/gz-msgs-release.git
+[submodule "submodules/gz-transport-release"]
+	path = submodules/gz-transport-release
+	url = git@github.com:rep159-testing/gz-transport-release.git
+[submodule "submodules/gz-demo-math-release"]
+	path = submodules/gz-demo-math-release
+	url = git@github.com:rep159-testing/gz-demo-math-release.git
+[submodule "submodules/ros_gz-release"]
+	path = submodules/ros_gz-release
+	url = git@github.com:rep159-testing/ros_gz-release.git
