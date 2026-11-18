@@ -21,7 +21,7 @@ flowchart TD
         RD4["rosdistro: feat/rep159-install-rule (a8f5543) - BINARY_IMPORT_OVERRIDABLE = {'ros_workspace'}"]
         WS4["ros_workspace: feat/rep159-parent-chaining (4997f85) - ROS_WORKSPACE_PARENT_PREFIX_PATH"]
         BL4["bloom: feat/rep159-rules-support (7af7034) - binary_rule, install_rule & ParentPrefixes"]
-        BF4["ros_buildfarm: feat/rep159-binary-naming (a271be1) + feat/rep159-underlays (274640b)"]
+        BF4["ros_buildfarm: feat/rep159-binary-naming (a271be1) + feat/rep159-underlays (e4a8694)"]
 
         RD4 --> BL4
         WS4 --> BL4
@@ -62,7 +62,7 @@ flowchart TD
 | **`ros-infrastructure/rosdistro`** | [`feat/rep159-install-rule`](https://github.com/rep159-testing/rosdistro/tree/feat/rep159-install-rule) (`a8f5543`) | `feat/rep159-install-rule` (`a8f5543`) | Adopts `jrivero`'s `BINARY_IMPORT_OVERRIDABLE = frozenset(['ros_workspace'])` (`aefe17c`, `a8f5543`) + `binary_rule` & `install_rule` (96/96 tests). |
 | **`ros2/ros_workspace`** | [`feat/rep159-parent-chaining`](https://github.com/rep159-testing/ros_workspace/tree/feat/rep159-parent-chaining) (`4997f85`) | `feat/rep159-parent-chaining` (`4997f85`) | Stacked directly on `jrivero`'s `12f93e9` (`ROS_WORKSPACE_PARENT_PREFIX_PATH` & `parent_prefix_path` index) + `PARENT_PREFIX_PATH` alias. |
 | **`ros-infrastructure/bloom`** | [`feat/rep159-rules-support`](https://github.com/rep159-testing/bloom/tree/feat/rep159-rules-support) (`7af7034`) | `feat/rep159-rules-support` (`7af7034`) | Stacked directly on `jrivero`'s `origin/rep159` (`0189046`..`2877687`) + `binary_rule`, `install_rule`, and `git tag -f -m` GPG fix (26/26 tests). |
-| **`ros-infrastructure/ros_buildfarm`** | [`feat/rep159-binary-naming`](https://github.com/rep159-testing/ros_buildfarm/tree/feat/rep159-binary-naming) (`a271be1` — PR 3C) & [`feat/rep159-underlays`](https://github.com/rep159-testing/ros_buildfarm/tree/feat/rep159-underlays) (`274640b` — PR 3B) | [`feat/extendable-workspace`](https://github.com/rep159-testing/ros_buildfarm/tree/feat/extendable-workspace) (`ca13954`) | Propagates `binary_rule` to `sourcedeb`/`binarydeb`, passes `--package-prefix` to sync jobs, and isolates child release jobs (`9b02768`). |
+| **`ros-infrastructure/ros_buildfarm`** | [`feat/rep159-binary-naming`](https://github.com/rep159-testing/ros_buildfarm/tree/feat/rep159-binary-naming) (`a271be1` — PR 3C) & [`feat/rep159-underlays`](https://github.com/rep159-testing/ros_buildfarm/tree/feat/rep159-underlays) (`e4a8694` — PR 3B) | [`feat/extendable-workspace`](https://github.com/rep159-testing/ros_buildfarm/tree/feat/extendable-workspace) (`ca13954`) | Propagates `binary_rule` to `sourcedeb`/`binarydeb`, passes `--package-prefix` to sync jobs, and isolates child release jobs (`9b02768`). |
 | **`rep159-rosdistro` & `ros_buildfarm_config`** | [`feat/extendable-workspace`](https://github.com/rep159-testing/rep159-rosdistro/tree/feat/extendable-workspace) (`19aedba` / `c80b6f7`) | `feat/extendable-workspace` (`19aedba` / `c80b6f7`) | `extendable` and `extendablebin` (`extbin`) workspace release and CI configurations on `build.test.ros2.org`. |
 
 ---

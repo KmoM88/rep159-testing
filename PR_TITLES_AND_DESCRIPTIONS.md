@@ -194,26 +194,23 @@ feat(rep159): delegate OS binary package name resolution to rosdistro binary_rul
 
 ## 8. [Wave 1 — Clean PR Ready on `jrivero`'s Base] Pull Requests for `ros2/ros_workspace` & `ros_workspace_shell`
 
-### 8A. `ros2/ros_workspace` (`feat/rep159-parent-chaining` @ `4997f85`)
+### 8A. `ros2/ros_workspace` (`feat/rep159-parent-chaining` @ `4997f85` + `rep159-split-base` @ `c9243f5`)
 * **Base Branch**: `main` (`db49f0a`)
-* **Clean PR-Ready Branch**: `feat/rep159-parent-chaining` (`4997f85`), directly based on Jose Luis Rivero's `origin/rep159-parent-chain` (`12f93e9`).
+* **Clean PR-Ready Branch**: `feat/rep159-parent-chaining` (`4997f85`), directly based on Jose Luis Rivero's `origin/rep159-parent-chain` (`12f93e9`), to be unified with Jose's `origin/rep159-split-base` (`c9243f5`, [`rep159-testing/ros_workspace#1`](https://github.com/rep159-testing/ros_workspace/pull/1)).
 * **Commits Included**:
   1. `12f93e9` (**Jose Luis Rivero**): Multi-prefix search loop (`${CMAKE_INSTALL_PREFIX};${ROS_WORKSPACE_PARENT_PREFIX_PATH}`) for locating `ament_package` templates when inherited from a parent underlay, hermetic `SKIP_PARENT_PREFIX_PATH` default for root distros, and `parent_prefix_path` ament resource index registration.
   2. `4997f85`: 5-line CMake variable alias accepting `PARENT_PREFIX_PATH` when `ROS_WORKSPACE_PARENT_PREFIX_PATH` is unset.
+  3. **Merge Coordination Note**: Combining with `rep159-split-base` (`<exec_depend>ros_workspace_shell</exec_depend>`) delegates shell setup script installation to `ros_workspace_shell` and requires `rosdistro`'s `binary_import_overridable` (and `bloom`) to permit child `binary_import` ROS 2 distros to release both `ros_workspace_shell` and `ros_workspace`.
 * **Proposed PR Title**:
   ```text
-  feat(rep159): support parent underlay chaining and parent ament_package discovery
+  feat(rep159): support parent underlay chaining and ros_workspace_shell base split
   ```
 
-### 8B. `ros_workspace_shell` (`feat/rep159-unset-current-prefix` @ `b6a8195`)
-* **Base Branch**: `main` (`a89cc7b`, tagged `0.1.0` by Jose Luis Rivero)
-* **Clean PR-Ready Branch**: `feat/rep159-unset-current-prefix` (`b6a8195`)
-* **Commit Included**:
-  - `b6a8195` (`templates/setup.sh.in`): Unsets `AMENT_CURRENT_PREFIX` after sourcing each parent prefix so parent Ament distributions (such as `lyrical`) do not leak `AMENT_CURRENT_PREFIX` into plain-CMake or child prefixes.
-* **Proposed PR Title**:
-  ```text
-  fix(setup): unset AMENT_CURRENT_PREFIX after sourcing parent prefixes
-  ```
+### 8B. `ros_workspace_shell` (`main` @ `a89cc7b`, tag `0.1.0` — No Additional Patch Needed)
+* **Base / Release Branch**: `main` (`a89cc7b`, tagged `0.1.0` by Jose Luis Rivero)
+* **Design Alignment**:
+  - Used **unmodified** so `templates/` stays an exact copy of `ament_package` templates compatible with `.github/workflows/sync-templates.yml` (`rsync -a --delete`).
+  - Caller-side `unset AMENT_CURRENT_PREFIX` in `bloom` (`ec0bcca`) and `ros_buildfarm` (`e4a8694` / `1fdc070`) already isolates `/bin/sh` sourcing across multiple parent prefixes (and any future template-level change belongs upstream in `ament/ament_package` first).
 
 ---
 
@@ -244,7 +241,7 @@ feat(debian): support REP-159 binary_rule, install_rule, workspace_package, and 
 
 * **Repository**: `ros-infrastructure/ros_buildfarm` (org fork `rep159-testing/ros_buildfarm`, currently v`4.1.1+master`)
 * **Base Branch**: `master` (`7daa2b1`)
-* **Clean PR-Ready Branches**: Four focused PR branches cut off `origin/master` (`7daa2b1`) with **zero Dockerfile tarball `pip` hacks** (all temporary tarball overrides remain isolated on testbed branches `feat/binary-naming-rule` @ `797d771`, `feat/extendable-workspace` @ `ca13954`, and `feat/extendable-workspace-package` @ `b242685`).
+* **Clean PR-Ready Branches**: Four focused PR branches cut off `origin/master` (`7daa2b1`) with **zero Dockerfile tarball `pip` hacks** (all temporary tarball overrides remain isolated on testbed branches `feat/binary-naming-rule` @ `797d771`, `feat/extendable-workspace` @ `ca13954`, and `feat/extendable-workspace-package` @ `1fdc070`).
 
 ### 10A. `ros_buildfarm` PR 3A — CI Workspace Dependency Walk (`feat/rep159-workspace-walk` @ `486b579`)
 * **Commits (by Jose Luis Rivero, cherry-picked from `origin/rep159` `52b51d8` & `9736140`)**:
@@ -254,13 +251,14 @@ feat(debian): support REP-159 binary_rule, install_rule, workspace_package, and 
   feat(ci): resolve source-only repos and stop workspace walk at binary_import parents
   ```
 
-### 10B. `ros_buildfarm` PR 3B — Dynamic Install Prefixes, Recursive Underlays & Multi-Parent Isolation (`feat/rep159-underlays` @ `274640b`)
+### 10B. `ros_buildfarm` PR 3B — Dynamic Install Prefixes, Recursive Underlays & Multi-Parent Isolation (`feat/rep159-underlays` @ `e4a8694`)
 * **Commits (stacked on Jose Luis Rivero's `9807b32` commit)**:
   - `83fd534` (**Jose Luis Rivero**, from `9807b32` on `origin/rep159`): `BINARY_IMPORT_DISTROS_ENV`, `get_binary_import_distros(dist_file)`, and 4 baseline unit tests in `test/test_rep159_underlay.py`.
   - `0ee8e49` & `7d23292`: `get_distribution_install_prefix()`, recursive multi-tier/diamond `get_binary_import_underlays(dist_file, index)` honoring `install_rule`, and 6 additional unit tests.
   - `4c70fdc` (`scripts/devel/build_and_install.py`): Fall back to `get_default_parent_result_spaces(args.rosdistro_name)` when `--parent-result-space` is `None`.
   - `6b7dc03`, `a63a39d`, `a4a5bbd` (`ros_buildfarm/workspace.py`): Export `CMAKE_PREFIX_PATH`, `COLCON_PREFIX_PATH`, `PATH`, and multiarch `LD_LIBRARY_PATH` when an underlay prefix exists on disk without `setup.sh`.
-  - `a9a60e2` & `274640b` (`ros_buildfarm/workspace.py`, `test/test_rep159_underlay.py`): Export `CMAKE_PREFIX_PATH` for `parent_result_spaces` with `setup.sh` (`ros_workspace_shell`) and unset `AMENT_CURRENT_PREFIX` after sourcing each parent `setup.sh` in `call_build_tool()` (**11/11 unit tests pass**).
+  - `708c055` & `274640b` (`ros_buildfarm/workspace.py`, `test/test_rep159_underlay.py`): Export `CMAKE_PREFIX_PATH` for `parent_result_spaces` with `setup.sh` (`ros_workspace_shell`) and unset `AMENT_CURRENT_PREFIX` after sourcing each parent `setup.sh` in `call_build_tool()`.
+  - `e4a8694` (`ros_buildfarm/ci_job.py`, `ros_buildfarm/common.py`, `test/test_rep159_underlay.py`): Propagate distribution file load errors immediately instead of swallowing exceptions with `try: ... except Exception: pass` (**13/13 underlay unit tests pass**, **18/18** total suite).
 * **Proposed PR Title**:
   ```text
   feat(underlays): resolve parent result spaces via install_rule and isolate multi-parent CMake/Ament env

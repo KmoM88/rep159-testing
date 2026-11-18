@@ -237,6 +237,45 @@ STAGES = {
             ],
         ],
     },
+    "stage5": {
+        "description": "Stage 5: Distribution Cache Lifecycle (extendable*_rosdistro-cache) & Automated Bloom Packaging (downstream_bin_a)",
+        "branches": {
+            "rosdistro": "feat/rep159-install-rule",
+            "rosdep": "feat/rep159-binary-lookup",
+            "bloom": "feat/rep159-rules-support",
+            "ros_workspace": "feat/rep159-parent-chaining",
+            "ros_buildfarm": "feat/extendable-workspace",
+            "rep159-rosdistro": "feat/extendable-workspace",
+            "ros_buildfarm_config": "feat/extendable-workspace",
+            "reps": "feature/rep-159-install-rule",
+        },
+        "config_url": "https://raw.githubusercontent.com/rep159-testing/ros_buildfarm_config/feat/extendable-workspace/index-rep159.yaml",
+        "cache_distros": ["extendable", "extendablebin"],
+        "release_builds": [
+            ("extendable", "default"),
+            ("extendablebin", "extbin"),
+        ],
+        "ci_distros": ["extendablebin"],
+        "waves": [
+            [
+                "extendable_rosdistro-cache",
+            ],
+            [
+                "extendablebin_rosdistro-cache",
+                "Esrc_uR__extbin_downstream_bin_a__ubuntu_resolute__source",
+            ],
+            [
+                "Ebin_uR64__extbin_downstream_bin_a__ubuntu_resolute_amd64__binary",
+            ],
+            [
+                "Erel_sync-packages-to-testing_resolute_amd64",
+                "Erel_extbin_sync-packages-to-testing_resolute_amd64",
+            ],
+            [
+                "Eci__workspace-binary-import_ubuntu_resolute_amd64",
+            ],
+        ],
+    },
     "stage6-gazebo-step1": {
         "description": "Stage 6 Step 6B-1 & 6D: Adopted workspace_package (ros_workspace_shell) + Gazebo Jetty -> Lyrical (gz-demo-math) & rosdistro-reviewer EOL check",
         "branches": {
@@ -244,7 +283,7 @@ STAGES = {
             "rosdep": "feat/rep159-binary-lookup",
             "bloom": "feat/rep159-workspace-package",
             "ros_workspace": "feat/rep159-parent-chaining",
-            "ros_workspace_shell": "feat/rep159-unset-current-prefix",
+            "ros_workspace_shell": "main",
             "ros_buildfarm": "feat/extendable-workspace-package",
             "rep159-rosdistro": "feat/extendable-gazebo",
             "ros_buildfarm_config": "feat/extendable-gazebo",
@@ -296,7 +335,7 @@ STAGES = {
             "rosdep": "feat/rep159-binary-lookup",
             "bloom": "feat/rep159-workspace-package",
             "ros_workspace": "feat/rep159-parent-chaining",
-            "ros_workspace_shell": "feat/rep159-unset-current-prefix",
+            "ros_workspace_shell": "main",
             "ros_buildfarm": "feat/extendable-workspace-package",
             "rep159-rosdistro": "feat/extendable-gazebo",
             "ros_buildfarm_config": "feat/extendable-gazebo",
@@ -359,7 +398,7 @@ STAGES = {
             "rosdep": "feat/rep159-binary-lookup",
             "bloom": "feat/rep159-workspace-package",
             "ros_workspace": "feat/rep159-parent-chaining",
-            "ros_workspace_shell": "feat/rep159-unset-current-prefix",
+            "ros_workspace_shell": "main",
             "ros_buildfarm": "feat/extendable-workspace-package",
             "rep159-rosdistro": "feat/extendable-gazebo",
             "ros_buildfarm_config": "feat/extendable-gazebo",
@@ -477,6 +516,18 @@ def generate_stage_jobs(stage_name, dry_run=False, ci_only=False):
 
     print(f"=== Generating Jenkins Jobs for '{stage_name}' (dry_run={dry_run}, ci_only={ci_only}) ===")
     if not ci_only:
+        for distro_name in info.get("cache_distros", []):
+            cmd = [
+                sys.executable,
+                "scripts/misc/generate_rosdistro_cache_job.py",
+                config_url,
+                distro_name,
+            ]
+            if dry_run:
+                cmd.append("--dry-run")
+            print(f"[CACHE GEN] {' '.join(cmd)}", flush=True)
+            subprocess.run(cmd, cwd=rb_dir, env=env, check=True)
+
         from ros_buildfarm.config import get_index as get_config_index
         from rosdistro import get_distribution_file, get_index
 

@@ -48,15 +48,15 @@ flowchart TD
         REV["rosdistro-reviewer: feat/rep159-eol-date (3e6ab56, 200/200 tests)"]
         RDEP["rosdep: feat/rep159-binary-lookup (5661779, #2)"]
         REP["reprepro-updater: feat/package-prefix (93ed2dc -> refactor)"]
-        WS["ros_workspace: feat/rep159-parent-chaining (4997f85) & ros_workspace_shell: feat/rep159-unset-current-prefix (b6a8195)"]
+        WS["ros_workspace: feat/rep159-parent-chaining (4997f85) & ros_workspace_shell: main (a89cc7b, tag 0.1.0)"]
         BL["bloom: feat/rep159-rules-support (7af7034, 26/26) -> feat/rep159-workspace-package (ec0bcca, 37/37)"]
-        BF["ros_buildfarm: PR 3A (486b579, 7/7) -> PR 3B (274640b, 11/11) -> PR 3C (a271be1, 6/6) -> PR 3D (e54594c)"]
+        BF["ros_buildfarm: PR 3A (486b579, 7/7) -> PR 3B (e4a8694, 13/13 underlays / 18/18 suite) -> PR 3C (a271be1, 6/6) -> PR 3D (e54594c)"]
         RGZ["ros_gz: feat/rep159-vendorless-bridge (08645e3: 3-file diff off 3.0.12, 0 deleted sibling dirs)"]
     end
 
     subgraph TestbedHacks ["Testbed Overrides & Harness Configs (build.test.ros2.org Only - Do NOT Upstream)"]
         TB_RDEP["rosdep: rep159 (3d52dad: git+https rosdistro URL in setup.py & ci.yaml)"]
-        TB_BF["ros_buildfarm: feat/binary-naming-rule (797d771), feat/extendable-workspace (ca13954), feat/extendable-workspace-package (b242685: Dockerfile pip3 tarball installs, fork reprepro URL, assignedNode, ext* job prefixes)"]
+        TB_BF["ros_buildfarm: feat/binary-naming-rule (797d771), feat/extendable-workspace (ca13954), feat/extendable-workspace-package (1fdc070: Dockerfile pip3 tarball installs, fork reprepro URL, assignedNode, ext* job prefixes)"]
         TB_RGZ["ros_gz: feat/rep159-no-vendor (efec554: prunes sibling ros_gz_* dirs to shrink CI workspace)"]
         TB_DIST["rep159-rosdistro & ros_buildfarm_config: feat/extendable-* & feat/*-extensions (E* test distros & GBP tracks)"]
     end
@@ -84,9 +84,9 @@ flowchart TD
 | **`rosdistro-reviewer`** | [`feat/rep159-eol-date`](https://github.com/rep159-testing/rosdistro-reviewer/tree/feat/rep159-eol-date) (`3e6ab56`) | [`feat/rep159-eol-date`](https://github.com/rep159-testing/rosdistro-reviewer/tree/feat/rep159-eol-date) (`3e6ab56`) | ISO 8601 `YYYY-MM-DD` validation of `distribution_eol_date` in `index-v4.yaml` (**200/200 unit & linter tests pass**) |
 | **`reprepro-updater`** | [`feat/package-prefix`](https://github.com/rep159-testing/reprepro-updater/tree/feat/package-prefix) (`93ed2dc`) | [`feat/package-prefix`](https://github.com/rep159-testing/reprepro-updater/tree/feat/package-prefix) (`93ed2dc`) | Selective APT promotion via `--package-prefix` (targets upstream `refactor`) |
 | **`rosdep`** | [`feat/rep159-binary-lookup`](https://github.com/rep159-testing/rosdep/tree/feat/rep159-binary-lookup) (`5661779`, [`#2`](https://github.com/rep159-testing/rosdep/pull/2)) | [`rep159`](https://github.com/rep159-testing/rosdep/tree/rep159) (`3d52dad`) | Delegates binary package lookup to `rosdistro.get_binary_package_name()` |
-| **`ros_workspace` & `ros_workspace_shell`** | • [`ros_workspace:feat/rep159-parent-chaining`](https://github.com/rep159-testing/ros_workspace/tree/feat/rep159-parent-chaining) (`4997f85`)<br>• [`ros_workspace_shell:feat/rep159-unset-current-prefix`](https://github.com/rep159-testing/ros_workspace_shell/tree/feat/rep159-unset-current-prefix) (`b6a8195`) | Same as clean PR branches (`4997f85`, `b6a8195`) | `ros_workspace` (`12f93e9` + `4997f85`) for Ament distros; `ros_workspace_shell` (`a89cc7b` + `b6a8195` `unset AMENT_CURRENT_PREFIX`) for plain-CMake distros |
+| **`ros_workspace` & `ros_workspace_shell`** | • [`ros_workspace:feat/rep159-parent-chaining`](https://github.com/rep159-testing/ros_workspace/tree/feat/rep159-parent-chaining) (`4997f85`)<br>• [`ros_workspace_shell:main`](https://github.com/rep159-testing/ros_workspace_shell/tree/main) (`a89cc7b`, tag `0.1.0`) | Same as clean branches (`4997f85`, `a89cc7b`) | `ros_workspace` (`12f93e9` + `4997f85`, to merge with `rep159-split-base` `c9243f5`) for Ament distros; `ros_workspace_shell` (`a89cc7b` unmodified) for plain-CMake distros |
 | **`bloom`** | • [`feat/rep159-rules-support`](https://github.com/rep159-testing/bloom/tree/feat/rep159-rules-support) (`7af7034`)<br>• [`feat/rep159-workspace-package`](https://github.com/rep159-testing/bloom/tree/feat/rep159-workspace-package) (`ec0bcca`) | [`feat/rep159-workspace-package`](https://github.com/rep159-testing/bloom/tree/feat/rep159-workspace-package) (`ec0bcca`) | `ParentPrefixes`, `binary_rule`, `install_rule`, `workspace_package`, `get_distribution_file()` `extends` resolution, and `unset AMENT_CURRENT_PREFIX` (**37/37 tests pass**) |
-| **`ros_buildfarm`** | • **PR 3A**: [`feat/rep159-workspace-walk`](https://github.com/rep159-testing/ros_buildfarm/tree/feat/rep159-workspace-walk) (`486b579`, 7/7)<br>• **PR 3B**: [`feat/rep159-underlays`](https://github.com/rep159-testing/ros_buildfarm/tree/feat/rep159-underlays) (`274640b`, 11/11)<br>• **PR 3C**: [`feat/rep159-binary-naming`](https://github.com/rep159-testing/ros_buildfarm/tree/feat/rep159-binary-naming) (`a271be1`, 6/6)<br>• **PR 3D**: [`feat/rep159-workspace-package`](https://github.com/rep159-testing/ros_buildfarm/tree/feat/rep159-workspace-package) (`e54594c`) | [`feat/binary-naming-rule`](https://github.com/rep159-testing/ros_buildfarm/tree/feat/binary-naming-rule) (`797d771`)<br>[`feat/extendable-workspace`](https://github.com/rep159-testing/ros_buildfarm/tree/feat/extendable-workspace) (`ca13954`)<br>[`feat/extendable-workspace-package`](https://github.com/rep159-testing/ros_buildfarm/tree/feat/extendable-workspace-package) (`b242685`, **34/34 tests pass**) | Release naming delegation, `--package-prefix`, `ReleaseAndSourceDependencyWalker`, dynamic underlays, `CMAKE_PREFIX_PATH` / `AMENT_CURRENT_PREFIX` multi-parent isolation, and `get_workspace_package()` |
+| **`ros_buildfarm`** | • **PR 3A**: [`feat/rep159-workspace-walk`](https://github.com/rep159-testing/ros_buildfarm/tree/feat/rep159-workspace-walk) (`486b579`, 7/7)<br>• **PR 3B**: [`feat/rep159-underlays`](https://github.com/rep159-testing/ros_buildfarm/tree/feat/rep159-underlays) (`e4a8694`, 13/13 underlays / 18/18 suite)<br>• **PR 3C**: [`feat/rep159-binary-naming`](https://github.com/rep159-testing/ros_buildfarm/tree/feat/rep159-binary-naming) (`a271be1`, 6/6)<br>• **PR 3D**: [`feat/rep159-workspace-package`](https://github.com/rep159-testing/ros_buildfarm/tree/feat/rep159-workspace-package) (`e54594c`) | [`feat/binary-naming-rule`](https://github.com/rep159-testing/ros_buildfarm/tree/feat/binary-naming-rule) (`797d771`)<br>[`feat/extendable-workspace`](https://github.com/rep159-testing/ros_buildfarm/tree/feat/extendable-workspace) (`ca13954`)<br>[`feat/extendable-workspace-package`](https://github.com/rep159-testing/ros_buildfarm/tree/feat/extendable-workspace-package) (`1fdc070`, **35/35 tests pass**) | Release naming delegation, `--package-prefix`, `ReleaseAndSourceDependencyWalker`, dynamic underlays, `CMAKE_PREFIX_PATH` / `AMENT_CURRENT_PREFIX` multi-parent isolation, fail-fast distribution load error propagation, and `get_workspace_package()` |
 | **`ros_gz`** | [`feat/rep159-vendorless-bridge`](https://github.com/rep159-testing/ros_gz/tree/feat/rep159-vendorless-bridge) (`08645e3`) | [`feat/rep159-no-vendor`](https://github.com/rep159-testing/ros_gz/tree/feat/rep159-no-vendor) (`efec554`) | Clean 3-file diff (`08645e3`) off tag `3.0.12` (`04a4544`) building `ros_gz_interfaces` & `ros_gz_bridge` directly against `gz-*` without `gz_*_vendor` wrappers |
 | **`rep159-rosdistro` & `ros_buildfarm_config`** | N/A (Testbed distribution data & job configs) | `feat/extendable-binary-naming` (`b2882ed` / `f8efb6e`), `feat/extendable-install-rule` (`c980f45` / `f8751e6`), `feat/chained-extensions` (`69afb27` / `db8b308`), `feat/binary-chained` (`e63a90a` / `bef4e2a`), `feat/mixed-extensions` (`3e66c48` / `8d11433`), `feat/diamond-extensions` (`7ab72c6` / `748a1f1`), `feat/extendable-workspace` (`19aedba` / `c80b6f7`), `feat/extendable-gazebo` (`f3891ce` / `5bdad6b`) | Distribution manifests and Jenkins job configs for `build.test.ros2.org` (`index-rep159.yaml`) |
 
@@ -107,13 +107,13 @@ flowchart LR
         SRC["Esrc_uR__*: Generates .dsc with custom name"]
         BIN["Ebin_uR64__*: Builds .deb in pbuilder chroot"]
         SYNC["Erel_sync-*: --package-prefix vendor-extendable-"]
-        SRC -->|Erel_import-package| BIN -->|check_sync_criteria| SYNC
+        SRC -->|"Erel_import-package"| BIN -->|"check_sync_criteria"| SYNC
     end
 
     subgraph Repositories ["APT Repositories (repo.test.ros2.org)"]
         BUILDING["building: vendor-extendable-upstream-*"]
         TESTING["testing: vendor-extendable-upstream-*"]
-        BIN --> BUILDING --> SYNC -->|FilterFormula| TESTING
+        BIN --> BUILDING --> SYNC -->|"FilterFormula"| TESTING
     end
 
     Spec --> ReleasePipeline
@@ -154,8 +154,8 @@ flowchart LR
 
 ```mermaid
 flowchart LR
-    E1["extendable (Root APT Repo): /opt/vendor/extendable (vendor-extendable-upstream-*)"] -->|binary_import| EB1["extendablebin: Workspace downstream_bin_a, Underlay /opt/vendor/extendable"]
-    E1 -->|source_rebuild| ES1["extendablesrc: Workspace upstream_{a,b,c} + downstream_src_a"]
+    E1["extendable (Root APT Repo): /opt/vendor/extendable (vendor-extendable-upstream-*)"] -->|"binary_import"| EB1["extendablebin: Workspace downstream_bin_a, Underlay /opt/vendor/extendable"]
+    E1 -->|"source_rebuild"| ES1["extendablesrc: Workspace upstream_{a,b,c} + downstream_src_a"]
 ```
 
 | Job / Artifact | Build & Console (`build.test.ros2.org`) | Status | Config / Branch (`@ SHA`) |
@@ -172,23 +172,23 @@ flowchart LR
 
 ```mermaid
 flowchart TD
-    E["extendable (Root APT Repo): /opt/ros/extendable (vendor-extendable-upstream-{a,b,c})"] -->|binary_import| EB["extendablebin (Intermediate APT Repo): /opt/ros/extendablebin (ros-extendablebin-downstream-bin-a)"]
-    E -->|source_rebuild| ES["extendablesrc: downstream_src_a"]
+    E["extendable (Root APT Repo): /opt/ros/extendable (vendor-extendable-upstream-{a,b,c})"] -->|"binary_import"| EB["extendablebin (Intermediate APT Repo): /opt/ros/extendablebin (ros-extendablebin-downstream-bin-a)"]
+    E -->|"source_rebuild"| ES["extendablesrc: downstream_src_a"]
 
-    EB -->|Topology 2: source_rebuild| T2["extendablechain (Option A): Builds all 5 source pkgs"]
-    EB -->|Topology 3: binary_import| T3["extendablechain (Option B): Source downstream_chain_a only, Underlays /opt/ros/extendable:/opt/ros/extendablebin"]
-    EB -->|Topology 4: binary_import + CI src| T4["extendablemixed: Source downstream_chain_a + upstream_c, APT ros-extendablebin-downstream-bin-a"]
-    EB -->|Topology 5: binary_import| T5["extendablediamond: Source downstream_chain_a + downstream_src_a, Deduplicated Underlays /opt/ros/extendable:/opt/ros/extendablebin"]
-    ES -->|Topology 5: source_rebuild| T5
+    EB -->|"Topology 2: source_rebuild"| T2["extendablechain (Option A): Builds all 5 source pkgs"]
+    EB -->|"Topology 3: binary_import"| T3["extendablechain (Option B): Source downstream_chain_a only, Underlays /opt/ros/extendable:/opt/ros/extendablebin"]
+    EB -->|"Topology 4: binary_import + CI src"| T4["extendablemixed: Source downstream_chain_a + upstream_c, APT ros-extendablebin-downstream-bin-a"]
+    EB -->|"Topology 5: binary_import"| T5["extendablediamond: Source downstream_chain_a + downstream_src_a, Deduplicated Underlays /opt/ros/extendable:/opt/ros/extendablebin"]
+    ES -->|"Topology 5: source_rebuild"| T5
 ```
 
 | Topology | Jenkins Job (`build.test.ros2.org`) | Build & Console | Status | Config & Distro Branch (`@ SHA`) |
 |---|---|---|:---:|---|
 | **Topology 2 (Option A: 3-Tier Source)** | `Eci__chained-import_ubuntu_resolute_amd64` | [#3](https://build.test.ros2.org/job/Eci__chained-import_ubuntu_resolute_amd64/3/) / [#5](https://build.test.ros2.org/job/Eci__chained-import_ubuntu_resolute_amd64/5/) ([Log](https://build.test.ros2.org/job/Eci__chained-import_ubuntu_resolute_amd64/5/console)) | **SUCCESS** | [`feat/chained-extensions`](https://github.com/rep159-testing/rep159-rosdistro/tree/feat/chained-extensions) (`69afb27` / `db8b308`) |
-| **Topology 3 (Intermediate Release)** | `Esrc_uR__downstream_bin_a__ubuntu_resolute__source`<br>`Ebin_uR64__downstream_bin_a__ubuntu_resolute_amd64__binary`<br>`Erel_sync-packages-to-testing_resolute_amd64` | [#1](https://build.test.ros2.org/job/Esrc_uR__downstream_bin_a__ubuntu_resolute__source/1/) ([Log](https://build.test.ros2.org/job/Esrc_uR__downstream_bin_a__ubuntu_resolute__source/1/console))<br>[#1](https://build.test.ros2.org/job/Ebin_uR64__downstream_bin_a__ubuntu_resolute_amd64__binary/1/) ([Log](https://build.test.ros2.org/job/Ebin_uR64__downstream_bin_a__ubuntu_resolute_amd64__binary/1/console))<br>[#7](https://build.test.ros2.org/job/Erel_sync-packages-to-testing_resolute_amd64/7/) / [#15](https://build.test.ros2.org/job/Erel_sync-packages-to-testing_resolute_amd64/15/) ([Log](https://build.test.ros2.org/job/Erel_sync-packages-to-testing_resolute_amd64/15/console)) | **SUCCESS** | [`extendablebin/release-build.yaml`](https://github.com/rep159-testing/ros_buildfarm_config/blob/feat/binary-chained/extendablebin/release-build.yaml)<br>[`pool/main/r/ros-extendablebin-downstream-bin-a/`](http://repo.test.ros2.org/ubuntu/testing/pool/main/r/ros-extendablebin-downstream-bin-a/) |
-| **Topology 3 (Option B: 3-Tier Binary)** | `Eci__chained-import_ubuntu_resolute_amd64` | [#4](https://build.test.ros2.org/job/Eci__chained-import_ubuntu_resolute_amd64/4/) ([Log](https://build.test.ros2.org/job/Eci__chained-import_ubuntu_resolute_amd64/4/console)) | **SUCCESS** | [`feat/binary-chained`](https://github.com/rep159-testing/rep159-rosdistro/tree/feat/binary-chained) (`e63a90a` / `bef4e2a`) |
-| **Topology 4 (Hybrid Binary + Source)** | `Eci__mixed-chain_ubuntu_resolute_amd64` | [#1](https://build.test.ros2.org/job/Eci__mixed-chain_ubuntu_resolute_amd64/1/) / [#2](https://build.test.ros2.org/job/Eci__mixed-chain_ubuntu_resolute_amd64/2/) ([Log](https://build.test.ros2.org/job/Eci__mixed-chain_ubuntu_resolute_amd64/2/console)) | **SUCCESS** | [`feat/mixed-extensions`](https://github.com/rep159-testing/rep159-rosdistro/tree/feat/mixed-extensions) (`3e66c48` / `8d11433`) |
-| **Topology 5 (Multi-Parent Diamond)** | `Eci__diamond-chain_ubuntu_resolute_amd64` | [#1](https://build.test.ros2.org/job/Eci__diamond-chain_ubuntu_resolute_amd64/1/) / [#3](https://build.test.ros2.org/job/Eci__diamond-chain_ubuntu_resolute_amd64/3/) ([Log](https://build.test.ros2.org/job/Eci__diamond-chain_ubuntu_resolute_amd64/3/console)) | **SUCCESS** | [`feat/diamond-extensions`](https://github.com/rep159-testing/rep159-rosdistro/tree/feat/diamond-extensions) (`7ab72c6` / `748a1f1`) |
+| **Topology 3 (Intermediate Release)** | `Esrc_uR__downstream_bin_a__ubuntu_resolute__source`<br>`Ebin_uR64__downstream_bin_a__ubuntu_resolute_amd64__binary`<br>`Erel_sync-packages-to-testing_resolute_amd64` | [#1](https://build.test.ros2.org/job/Esrc_uR__downstream_bin_a__ubuntu_resolute__source/1/) / [#2](https://build.test.ros2.org/job/Esrc_uR__downstream_bin_a__ubuntu_resolute__source/2/) ([Log](https://build.test.ros2.org/job/Esrc_uR__downstream_bin_a__ubuntu_resolute__source/2/console))<br>[#1](https://build.test.ros2.org/job/Ebin_uR64__downstream_bin_a__ubuntu_resolute_amd64__binary/1/) / [#2](https://build.test.ros2.org/job/Ebin_uR64__downstream_bin_a__ubuntu_resolute_amd64__binary/2/) ([Log](https://build.test.ros2.org/job/Ebin_uR64__downstream_bin_a__ubuntu_resolute_amd64__binary/2/console))<br>[#7](https://build.test.ros2.org/job/Erel_sync-packages-to-testing_resolute_amd64/7/) / [#16](https://build.test.ros2.org/job/Erel_sync-packages-to-testing_resolute_amd64/16/) ([Log](https://build.test.ros2.org/job/Erel_sync-packages-to-testing_resolute_amd64/16/console)) | **SUCCESS** | [`extendablebin/release-build.yaml`](https://github.com/rep159-testing/ros_buildfarm_config/blob/feat/binary-chained/extendablebin/release-build.yaml)<br>[`pool/main/r/ros-extendablebin-downstream-bin-a/`](http://repo.test.ros2.org/ubuntu/testing/pool/main/r/ros-extendablebin-downstream-bin-a/) |
+| **Topology 3 (Option B: 3-Tier Binary)** | `Eci__chained-import_ubuntu_resolute_amd64` | [#4](https://build.test.ros2.org/job/Eci__chained-import_ubuntu_resolute_amd64/4/) / [#6](https://build.test.ros2.org/job/Eci__chained-import_ubuntu_resolute_amd64/6/) ([Log](https://build.test.ros2.org/job/Eci__chained-import_ubuntu_resolute_amd64/6/console)) | **SUCCESS** | [`feat/binary-chained`](https://github.com/rep159-testing/rep159-rosdistro/tree/feat/binary-chained) (`e63a90a` / `bef4e2a`) |
+| **Topology 4 (Hybrid Binary + Source)** | `Eci__mixed-chain_ubuntu_resolute_amd64` | [#1](https://build.test.ros2.org/job/Eci__mixed-chain_ubuntu_resolute_amd64/1/) / [#3](https://build.test.ros2.org/job/Eci__mixed-chain_ubuntu_resolute_amd64/3/) ([Log](https://build.test.ros2.org/job/Eci__mixed-chain_ubuntu_resolute_amd64/3/console)) | **SUCCESS** | [`feat/mixed-extensions`](https://github.com/rep159-testing/rep159-rosdistro/tree/feat/mixed-extensions) (`3e66c48` / `8d11433`) |
+| **Topology 5 (Multi-Parent Diamond)** | `Eci__diamond-chain_ubuntu_resolute_amd64` | [#1](https://build.test.ros2.org/job/Eci__diamond-chain_ubuntu_resolute_amd64/1/) / [#4](https://build.test.ros2.org/job/Eci__diamond-chain_ubuntu_resolute_amd64/4/) ([Log](https://build.test.ros2.org/job/Eci__diamond-chain_ubuntu_resolute_amd64/4/console)) | **SUCCESS** | [`feat/diamond-extensions`](https://github.com/rep159-testing/rep159-rosdistro/tree/feat/diamond-extensions) (`7ab72c6` / `748a1f1`) |
 
 ---
 
@@ -199,11 +199,11 @@ flowchart TD
 ```mermaid
 flowchart LR
     subgraph Stage4 ["Stage 4 on extendable* (E*): Native ros_workspace & bloom"]
-        E["extendable (/opt/ros/extendable): vendor-extendable-{ament-package,ament-cmake-core,ros-workspace,upstream-*}"] -->|binary_import ROS_WORKSPACE_PARENT_PREFIX_PATH| EB["extendablebin (/opt/ros/extendablebin): vendor-extendablebin-{ros-workspace,downstream-bin-a}"]
+        E["extendable (/opt/ros/extendable): vendor-extendable-{ament-package,ament-cmake-core,ros-workspace,upstream-*}"] -->|"binary_import ROS_WORKSPACE_PARENT_PREFIX_PATH"| EB["extendablebin (/opt/ros/extendablebin): vendor-extendablebin-{ros-workspace,downstream-bin-a}"]
     end
 
     subgraph Stage5 ["Stage 5 on extendable* (E*): Cache Lifecycle & Isolation"]
-        CACHE_B["extendable-cache.yaml.gz (6 root packages)"] -->|extends.index_url & REMOVE parent pkgs| CACHE_C["extendablebin-cache.yaml.gz (Isolated: ros_workspace + downstream_bin_a)"]
+        CACHE_B["extendable-cache.yaml.gz (6 root packages)"] -->|"extends.index_url & REMOVE parent pkgs"| CACHE_C["extendablebin-cache.yaml.gz (Isolated: ros_workspace + downstream_bin_a)"]
     end
 ```
 
@@ -211,15 +211,15 @@ flowchart LR
 
 | Stage / Pipeline Phase | Jenkins Job (`build.test.ros2.org`) | Build & Console | Status | Config / Published APT Artifact (`repo.test.ros2.org`) |
 |---|---|---|:---:|---|
-| **Stage 5 Root Cache** | `extendable_rosdistro-cache` | [#139](https://build.test.ros2.org/job/extendable_rosdistro-cache/139/) ([Log](https://build.test.ros2.org/job/extendable_rosdistro-cache/139/console)) | **SUCCESS** | Generates & publishes `extendable-cache.yaml.gz` (6 packages) over SSH |
-| **Stage 5 Child Cache** | `extendablebin_rosdistro-cache` | [#138](https://build.test.ros2.org/job/extendablebin_rosdistro-cache/138/) ([Log](https://build.test.ros2.org/job/extendablebin_rosdistro-cache/138/console)) | **SUCCESS** | Loads parent `extendable-cache.yaml.gz`, strips 5 parent packages (`- REMOVE`), and publishes `extendablebin-cache.yaml.gz` |
+| **Stage 5 Root Cache** | `extendable_rosdistro-cache` | [#139](https://build.test.ros2.org/job/extendable_rosdistro-cache/139/) / [#2222](https://build.test.ros2.org/job/extendable_rosdistro-cache/2222/) ([Log](https://build.test.ros2.org/job/extendable_rosdistro-cache/2222/console)) | **SUCCESS** | Generates & publishes `extendable-cache.yaml.gz` (6 packages) over SSH |
+| **Stage 5 Child Cache** | `extendablebin_rosdistro-cache` | [#138](https://build.test.ros2.org/job/extendablebin_rosdistro-cache/138/) / [#2221](https://build.test.ros2.org/job/extendablebin_rosdistro-cache/2221/) ([Log](https://build.test.ros2.org/job/extendablebin_rosdistro-cache/2221/console)) | **SUCCESS** | Loads parent `extendable-cache.yaml.gz`, strips 5 parent packages (`- REMOVE`), and publishes `extendablebin-cache.yaml.gz` |
 | **Stage 4 Root `ament_package`** | `Esrc_uR__ament_package__ubuntu_resolute__source`<br>`Ebin_uR64__ament_package__ubuntu_resolute_amd64__binary` | [#1](https://build.test.ros2.org/job/Esrc_uR__ament_package__ubuntu_resolute__source/1/) ([Log](https://build.test.ros2.org/job/Esrc_uR__ament_package__ubuntu_resolute__source/1/console))<br>[#1](https://build.test.ros2.org/job/Ebin_uR64__ament_package__ubuntu_resolute_amd64__binary/1/) ([Log](https://build.test.ros2.org/job/Ebin_uR64__ament_package__ubuntu_resolute_amd64__binary/1/console)) | **SUCCESS** | [`pool/main/v/vendor-extendable-ament-package/`](http://repo.test.ros2.org/ubuntu/testing/pool/main/v/vendor-extendable-ament-package/) |
 | **Stage 4 Root `ament_cmake_core`** | `Esrc_uR__ament_cmake_core__ubuntu_resolute__source`<br>`Ebin_uR64__ament_cmake_core__ubuntu_resolute_amd64__binary` | [#1](https://build.test.ros2.org/job/Esrc_uR__ament_cmake_core__ubuntu_resolute__source/1/) ([Log](https://build.test.ros2.org/job/Esrc_uR__ament_cmake_core__ubuntu_resolute__source/1/console))<br>[#2](https://build.test.ros2.org/job/Ebin_uR64__ament_cmake_core__ubuntu_resolute_amd64__binary/2/) ([Log](https://build.test.ros2.org/job/Ebin_uR64__ament_cmake_core__ubuntu_resolute_amd64__binary/2/console)) | **SUCCESS** | [`pool/main/v/vendor-extendable-ament-cmake-core/`](http://repo.test.ros2.org/ubuntu/testing/pool/main/v/vendor-extendable-ament-cmake-core/) |
 | **Stage 4 Root `ros_workspace`** | `Esrc_uR__ros_workspace__ubuntu_resolute__source`<br>`Ebin_uR64__ros_workspace__ubuntu_resolute_amd64__binary` | [#1](https://build.test.ros2.org/job/Esrc_uR__ros_workspace__ubuntu_resolute__source/1/) ([Log](https://build.test.ros2.org/job/Esrc_uR__ros_workspace__ubuntu_resolute__source/1/console))<br>[#1](https://build.test.ros2.org/job/Ebin_uR64__ros_workspace__ubuntu_resolute_amd64__binary/1/) ([Log](https://build.test.ros2.org/job/Ebin_uR64__ros_workspace__ubuntu_resolute_amd64__binary/1/console)) | **SUCCESS** | [`pool/main/v/vendor-extendable-ros-workspace/`](http://repo.test.ros2.org/ubuntu/testing/pool/main/v/vendor-extendable-ros-workspace/) |
-| **Stage 4 Root APT Sync & CI** | `Erel_sync-packages-to-testing_resolute_amd64`<br>`Eci__workspace-release_ubuntu_resolute_amd64` | [#12](https://build.test.ros2.org/job/Erel_sync-packages-to-testing_resolute_amd64/12/) ([Log](https://build.test.ros2.org/job/Erel_sync-packages-to-testing_resolute_amd64/12/console))<br>[#2](https://build.test.ros2.org/job/Eci__workspace-release_ubuntu_resolute_amd64/2/) ([Log](https://build.test.ros2.org/job/Eci__workspace-release_ubuntu_resolute_amd64/2/console)) | **SUCCESS** | Syncs `vendor-extendable-{ament-package,ament-cmake-core,ros-workspace}` to `testing` and passes root workspace CI (5/5 packages green) |
+| **Stage 4 Root APT Sync & CI** | `Erel_sync-packages-to-testing_resolute_amd64`<br>`Eci__workspace-release_ubuntu_resolute_amd64` | [#12](https://build.test.ros2.org/job/Erel_sync-packages-to-testing_resolute_amd64/12/) / [#17](https://build.test.ros2.org/job/Erel_sync-packages-to-testing_resolute_amd64/17/) ([Log](https://build.test.ros2.org/job/Erel_sync-packages-to-testing_resolute_amd64/17/console))<br>[#2](https://build.test.ros2.org/job/Eci__workspace-release_ubuntu_resolute_amd64/2/) ([Log](https://build.test.ros2.org/job/Eci__workspace-release_ubuntu_resolute_amd64/2/console)) | **SUCCESS** | Syncs `vendor-extendable-{ament-package,ament-cmake-core,ros-workspace}` to `testing` and passes root workspace CI (5/5 packages green) |
 | **Stage 4 Child `ros_workspace` (`extbin`)** | `Esrc_uR__extbin_ros_workspace__ubuntu_resolute__source`<br>`Ebin_uR64__extbin_ros_workspace__ubuntu_resolute_amd64__binary` | [#1](https://build.test.ros2.org/job/Esrc_uR__extbin_ros_workspace__ubuntu_resolute__source/1/) ([Log](https://build.test.ros2.org/job/Esrc_uR__extbin_ros_workspace__ubuntu_resolute__source/1/console))<br>[#2](https://build.test.ros2.org/job/Ebin_uR64__extbin_ros_workspace__ubuntu_resolute_amd64__binary/2/) ([Log](https://build.test.ros2.org/job/Ebin_uR64__extbin_ros_workspace__ubuntu_resolute_amd64__binary/2/console)) | **SUCCESS** | [`pool/main/v/vendor-extendablebin-ros-workspace/`](http://repo.test.ros2.org/ubuntu/testing/pool/main/v/vendor-extendablebin-ros-workspace/) (`ROS_WORKSPACE_PARENT_PREFIX_PATH=/opt/ros/extendable`) |
-| **Stage 4 Child `downstream_bin_a` (`extbin`)** | `Esrc_uR__extbin_downstream_bin_a__ubuntu_resolute__source`<br>`Ebin_uR64__extbin_downstream_bin_a__ubuntu_resolute_amd64__binary` | [#1](https://build.test.ros2.org/job/Esrc_uR__extbin_downstream_bin_a__ubuntu_resolute__source/1/) ([Log](https://build.test.ros2.org/job/Esrc_uR__extbin_downstream_bin_a__ubuntu_resolute__source/1/console))<br>[#2](https://build.test.ros2.org/job/Ebin_uR64__extbin_downstream_bin_a__ubuntu_resolute_amd64__binary/2/) ([Log](https://build.test.ros2.org/job/Ebin_uR64__extbin_downstream_bin_a__ubuntu_resolute_amd64__binary/2/console)) | **SUCCESS** | [`pool/main/v/vendor-extendablebin-downstream-bin-a/`](http://repo.test.ros2.org/ubuntu/testing/pool/main/v/vendor-extendablebin-downstream-bin-a/) (generated via `bloom` with `ParentPrefixes`) |
-| **Stage 4 Child APT Sync & CI (`extbin`)** | `Erel_extbin_sync-packages-to-testing_resolute_amd64`<br>`Eci__workspace-binary-import_ubuntu_resolute_amd64` | [#3](https://build.test.ros2.org/job/Erel_extbin_sync-packages-to-testing_resolute_amd64/3/) ([Log](https://build.test.ros2.org/job/Erel_extbin_sync-packages-to-testing_resolute_amd64/3/console))<br>[#1](https://build.test.ros2.org/job/Eci__workspace-binary-import_ubuntu_resolute_amd64/1/) ([Log](https://build.test.ros2.org/job/Eci__workspace-binary-import_ubuntu_resolute_amd64/1/console)) | **SUCCESS** | Syncs `vendor-extendablebin-{ros-workspace,downstream-bin-a}` to `testing` and passes child `ros_workspace` CI (`/opt/ros/extendablebin/setup.sh` chains `/opt/ros/extendable`) |
+| **Stage 4 & 5 Child `downstream_bin_a` (`extbin`)** | `Esrc_uR__extbin_downstream_bin_a__ubuntu_resolute__source`<br>`Ebin_uR64__extbin_downstream_bin_a__ubuntu_resolute_amd64__binary` | [#1](https://build.test.ros2.org/job/Esrc_uR__extbin_downstream_bin_a__ubuntu_resolute__source/1/) / [#2](https://build.test.ros2.org/job/Esrc_uR__extbin_downstream_bin_a__ubuntu_resolute__source/2/) ([Log](https://build.test.ros2.org/job/Esrc_uR__extbin_downstream_bin_a__ubuntu_resolute__source/2/console))<br>[#2](https://build.test.ros2.org/job/Ebin_uR64__extbin_downstream_bin_a__ubuntu_resolute_amd64__binary/2/) / [#4](https://build.test.ros2.org/job/Ebin_uR64__extbin_downstream_bin_a__ubuntu_resolute_amd64__binary/4/) ([Log](https://build.test.ros2.org/job/Ebin_uR64__extbin_downstream_bin_a__ubuntu_resolute_amd64__binary/4/console)) | **SUCCESS** | [`pool/main/v/vendor-extendablebin-downstream-bin-a/`](http://repo.test.ros2.org/ubuntu/testing/pool/main/v/vendor-extendablebin-downstream-bin-a/) (generated via `bloom` with `ParentPrefixes`) |
+| **Stage 4 & 5 Child APT Sync & CI (`extbin`)** | `Erel_extbin_sync-packages-to-testing_resolute_amd64`<br>`Eci__workspace-binary-import_ubuntu_resolute_amd64` | [#3](https://build.test.ros2.org/job/Erel_extbin_sync-packages-to-testing_resolute_amd64/3/) / [#5](https://build.test.ros2.org/job/Erel_extbin_sync-packages-to-testing_resolute_amd64/5/) ([Log](https://build.test.ros2.org/job/Erel_extbin_sync-packages-to-testing_resolute_amd64/5/console))<br>[#1](https://build.test.ros2.org/job/Eci__workspace-binary-import_ubuntu_resolute_amd64/1/) / [#2](https://build.test.ros2.org/job/Eci__workspace-binary-import_ubuntu_resolute_amd64/2/) ([Log](https://build.test.ros2.org/job/Eci__workspace-binary-import_ubuntu_resolute_amd64/2/console)) | **SUCCESS** | Syncs `vendor-extendablebin-{ros-workspace,downstream-bin-a}` to `testing` and passes child `ros_workspace` CI (`/opt/ros/extendablebin/setup.sh` chains `/opt/ros/extendable`) |
 
 ---
 
@@ -245,9 +245,9 @@ flowchart LR
         EL["extendablelyrical (/opt/ros/extendablelyrical): extends [lyrical, extendablejetty] (binary_import) -> Releases ros-extendablelyrical-{ros-workspace,gz-demo-math,ros-gz-interfaces,ros-gz-bridge} without gz_*_vendor"]
     end
 
-    EJ -->|source_rebuild| ELS
-    LYR -->|binary_import (/opt/ros/lyrical)| EL
-    EJ -->|binary_import (/opt/ros/extendablejetty)| EL
+    EJ -->|"source_rebuild"| ELS
+    LYR -->|"binary_import (/opt/ros/lyrical)"| EL
+    EJ -->|"binary_import (/opt/ros/extendablejetty)"| EL
 ```
 
 ### Executed Stage 6 Jobs on `https://build.test.ros2.org` (`E*` Namespace)
@@ -286,11 +286,11 @@ flowchart LR
     end
     W0 --> G1{{"GATE 1: rosdistro REP-159 release"}}
     subgraph W1 ["Wave 1"]
-        R1["rosdep: feat/rep159-binary-lookup (5661779), ros_workspace (4997f85) & ros_workspace_shell (b6a8195)"]
+        R1["rosdep: feat/rep159-binary-lookup (5661779), ros_workspace (4997f85) & ros_workspace_shell (a89cc7b)"]
     end
     G1 --> W1 --> G2{{"GATE 2: rosdep & ros_workspace REP-159 releases"}}
     subgraph W23 ["Waves 2 & 3"]
-        R2["bloom: feat/rep159-workspace-package (ec0bcca), ros_buildfarm: PRs 3A (486b579), 3B (274640b), 3C (a271be1), 3D (e54594c)"]
+        R2["bloom: feat/rep159-workspace-package (ec0bcca), ros_buildfarm: PRs 3A (486b579), 3B (e4a8694), 3C (a271be1), 3D (e54594c)"]
     end
     G2 --> W23 --> G4{{"GATE 3 & 4: bloom & ros_buildfarm REP-159 releases"}}
     subgraph W4 ["Wave 4"]

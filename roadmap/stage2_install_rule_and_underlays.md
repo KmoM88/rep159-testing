@@ -25,7 +25,7 @@ flowchart TD
         REPS2["reps: feature/rep-159-install-rule (1aef980)"]
         RD2["rosdistro: feat/rep159-install-rule (a8f5543)"]
         BF_WALK["ros_buildfarm: feat/rep159-workspace-walk (486b579, PR 3A)"]
-        BF_UND["ros_buildfarm: feat/rep159-underlays (274640b, PR 3B)"]
+        BF_UND["ros_buildfarm: feat/rep159-underlays (e4a8694, PR 3B)"]
 
         REPS2 --> RD2
         RD2 -->|"get_install_prefix() & get_binary_import_underlays()"| BF_UND
@@ -85,12 +85,12 @@ flowchart TD
    - Context evaluation: Replaces canonical lowercase `{distro}`, `{package}`, and `{origin_distro}` placeholders.
    - Verification: 96/96 unit tests passing.
 
-2. **`ros-infrastructure/ros_buildfarm` (Branch: `feat/rep159-underlays` @ `274640b` — PR 3B, and `feat/rep159-workspace-walk` @ `486b579` — PR 3A)**:
+2. **`ros-infrastructure/ros_buildfarm` (Branch: `feat/rep159-underlays` @ `e4a8694` — PR 3B, and `feat/rep159-workspace-walk` @ `486b579` — PR 3A)**:
    - Clean PR-ready branches cut directly off `origin/master` (`7daa2b1`), starting with Jose Luis Rivero's commits (`83fd534` on `feat/rep159-underlays`, `1334bf9` & `486b579` on `feat/rep159-workspace-walk`) and zero Dockerfile pip hacks.
-   - `common.py`: Implements `get_distribution_install_prefix(dist_file)` and recursive `get_binary_import_underlays(dist_file, rosdistro_name)`.
-   - `release_job.py` and `ci_job.py`: Export `ROS_BUILDFARM_PARENT_RESULT_SPACES`.
+   - `common.py`: Implements `get_distribution_install_prefix(dist_file)` and recursive `get_binary_import_underlays(dist_file, index)` (propagating parent distribution load errors immediately without swallowing exceptions).
+   - `release_job.py` and `ci_job.py`: Export `ROS_BUILDFARM_PARENT_RESULT_SPACES` (failing fast if distribution file loading fails).
    - `workspace.py`: Dynamic environment export (`CMAKE_PREFIX_PATH`, `COLCON_PREFIX_PATH`, multiarch `LD_LIBRARY_PATH`) for both pure-CMake underlays lacking `setup.sh` and plain-CMake `setup.sh` underlays (`ros_workspace_shell`), plus `unset AMENT_CURRENT_PREFIX` after sourcing each parent `setup.sh`.
-   - Verification: 11/11 underlay tests (`test_rep159_underlay.py`) and 7/7 workspace walk tests (`test_rep159_create_workspace.py`) passing.
+   - Verification: 13/13 underlay tests (`test_rep159_underlay.py`, 18/18 total suite) and 7/7 workspace walk tests (`test_rep159_create_workspace.py`) passing.
 
 ### Testing Tweaks & Harness Configurations (Testfarm Only — Do NOT Upstream)
 
@@ -105,7 +105,7 @@ flowchart TD
 
 ### Local Test Suites
 * **`tools/validate_install_prefixes.py` (Suite 7)**: 100% pass across custom paths, templated variables, and fallback to default `/opt/ros/{distro}`.
-* **`test/test_rep159_underlay.py`**: 11/11 unit tests passing.
+* **`test/test_rep159_underlay.py`**: 13/13 unit tests passing (18/18 total suite).
 
 ### Jenkins Release & CI Job Evidence (`extendable` / `extendablebin` / `extendablesrc`)
 * **Custom Prefix Release & Sync Pipeline (`/opt/vendor/extendable`)**:

@@ -55,8 +55,8 @@ flowchart TD
 
 | Job on `build.test.ros2.org` | Build & Console | Status | Verified Console Output & Artifact |
 |---|---|:---:|---|
-| `extendable_rosdistro-cache` | [#139](https://build.test.ros2.org/job/extendable_rosdistro-cache/139/) ([Log](https://build.test.ros2.org/job/extendable_rosdistro-cache/139/console)) | **SUCCESS** | Loaded all 6 manifests (`ament_package`, `ament_cmake_core`, `ros_workspace`, `upstream_{a,b,c}`), wrote `extendable-cache.yaml.gz`, and transferred 1 file via SSH (`rosdistro_cache`). |
-| `extendablebin_rosdistro-cache` | [#138](https://build.test.ros2.org/job/extendablebin_rosdistro-cache/138/) ([Log](https://build.test.ros2.org/job/extendablebin_rosdistro-cache/138/console)) | **SUCCESS** | Loaded parent `extendable-cache.yaml.gz`, stripped `- REMOVE ament_cmake_core, ament_package, upstream_a, upstream_b, upstream_c`, kept `downstream_bin_a` + `ros_workspace`, and transferred `extendablebin-cache.yaml.gz` via SSH. |
+| `extendable_rosdistro-cache` | [#139](https://build.test.ros2.org/job/extendable_rosdistro-cache/139/) / [#2222](https://build.test.ros2.org/job/extendable_rosdistro-cache/2222/) ([Log](https://build.test.ros2.org/job/extendable_rosdistro-cache/2222/console)) | **SUCCESS** | Loaded all 6 manifests (`ament_package`, `ament_cmake_core`, `ros_workspace`, `upstream_{a,b,c}`), wrote `extendable-cache.yaml.gz`, and transferred 1 file via SSH (`rosdistro_cache`). |
+| `extendablebin_rosdistro-cache` | [#138](https://build.test.ros2.org/job/extendablebin_rosdistro-cache/138/) / [#2221](https://build.test.ros2.org/job/extendablebin_rosdistro-cache/2221/) ([Log](https://build.test.ros2.org/job/extendablebin_rosdistro-cache/2221/console)) | **SUCCESS** | Loaded parent `extendable-cache.yaml.gz`, stripped `- REMOVE ament_cmake_core, ament_package, upstream_a, upstream_b, upstream_c`, kept `downstream_bin_a` + `ros_workspace`, and transferred `extendablebin-cache.yaml.gz` via SSH. |
 
 ### 4.2 Automated Bloom Debian Generation & Binary Build (`downstream_bin_a-release`)
 
@@ -64,6 +64,6 @@ flowchart TD
   - `debian/control`: `Package: vendor-extendablebin-downstream-bin-a`, `Depends: ... vendor-extendable-upstream-c, vendor-extendablebin-ros-workspace`
   - `debian/rules`: `CMAKE_INSTALL_PREFIX="/opt/ros/extendablebin"`, `CMAKE_PREFIX_PATH="/opt/ros/extendablebin;/opt/ros/extendable"`, and parent `setup.sh` sourcing loop.
 - Built and synced on `https://build.test.ros2.org`:
-  - [`Esrc_uR__extbin_downstream_bin_a__ubuntu_resolute__source #1`](https://build.test.ros2.org/job/Esrc_uR__extbin_downstream_bin_a__ubuntu_resolute__source/1/) — **SUCCESS**
-  - [`Ebin_uR64__extbin_downstream_bin_a__ubuntu_resolute_amd64__binary #2`](https://build.test.ros2.org/job/Ebin_uR64__extbin_downstream_bin_a__ubuntu_resolute_amd64__binary/2/) — **SUCCESS**
-  - [`Erel_extbin_sync-packages-to-testing_resolute_amd64 #3`](https://build.test.ros2.org/job/Erel_extbin_sync-packages-to-testing_resolute_amd64/3/) — **SUCCESS**
+  - [`Esrc_uR__extbin_downstream_bin_a__ubuntu_resolute__source #1`](https://build.test.ros2.org/job/Esrc_uR__extbin_downstream_bin_a__ubuntu_resolute__source/1/) / [`#2`](https://build.test.ros2.org/job/Esrc_uR__extbin_downstream_bin_a__ubuntu_resolute__source/2/) — **SUCCESS**
+  - [`Ebin_uR64__extbin_downstream_bin_a__ubuntu_resolute_amd64__binary #2`](https://build.test.ros2.org/job/Ebin_uR64__extbin_downstream_bin_a__ubuntu_resolute_amd64__binary/2/) / [`#4`](https://build.test.ros2.org/job/Ebin_uR64__extbin_downstream_bin_a__ubuntu_resolute_amd64__binary/4/) — **SUCCESS**
+  - [`Erel_extbin_sync-packages-to-testing_resolute_amd64 #3`](https://build.test.ros2.org/job/Erel_extbin_sync-packages-to-testing_resolute_amd64/3/) / [`#5`](https://build.test.ros2.org/job/Erel_extbin_sync-packages-to-testing_resolute_amd64/5/) & [`Eci__workspace-binary-import_ubuntu_resolute_amd64 #2`](https://build.test.ros2.org/job/Eci__workspace-binary-import_ubuntu_resolute_amd64/2/) — **SUCCESS**

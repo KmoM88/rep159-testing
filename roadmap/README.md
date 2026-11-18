@@ -19,7 +19,7 @@ flowchart TD
     GATE1{{"RELEASE GATE 1: rosdistro REP-159 release (PyPI + ros_bootstrap APT)"}}
 
     ROSDEP["Wave 1: ros-infrastructure/rosdep (feat/rep159-binary-lookup @ 5661779)"]
-    WORKSPACE["Wave 1: ros2/ros_workspace (4997f85) & ros_workspace_shell (b6a8195)"]
+    WORKSPACE["Wave 1: ros2/ros_workspace (4997f85) & ros_workspace_shell (a89cc7b)"]
 
     GATE2{{"RELEASE GATE 2: rosdep REP-159 release (PyPI + ros_bootstrap APT)"}}
     GATE2B{{"RELEASE GATE 2B: ros_workspace & ros_workspace_shell REP-159 releases"}}
@@ -27,7 +27,7 @@ flowchart TD
     BLOOM["Wave 2: ros-infrastructure/bloom (feat/rep159-rules-support @ 7af7034 & feat/rep159-workspace-package @ ec0bcca)"]
     GATE3{{"RELEASE GATE 3: bloom REP-159 release (PyPI + ros_bootstrap APT)"}}
 
-    BUILDFARM["Wave 3: ros-infrastructure/ros_buildfarm (PR 3A: 486b579, PR 3B: 274640b, PR 3C: a271be1, PR 3D: e54594c)"]
+    BUILDFARM["Wave 3: ros-infrastructure/ros_buildfarm (PR 3A: 486b579, PR 3B: e4a8694, PR 3C: a271be1, PR 3D: e54594c)"]
     GATE4{{"RELEASE GATE 4: ros_buildfarm REP-159 release (PyPI + ros_bootstrap APT)"}}
 
     ROS_GZ["Wave 4: gazebosim/ros_gz (feat/rep159-vendorless-bridge @ 08645e3)"]
@@ -82,9 +82,9 @@ All validation stages (Stages 1–6) execute inside the unified **`extendable*` 
 | **Wave 0** | [`ros-infrastructure/bloom`](https://github.com/ros-infrastructure/bloom) | Cherry-pick `d6fdf9e` from `feat/rep159-rules-support` | `master` | **Ready** (standalone bugfix) | None | Fixes `git tag -f -m` abort when `tag.gpgSign=true` |
 | **Wave 0** | [`ros-infrastructure/rosdistro`](https://github.com/ros-infrastructure/rosdistro) | • `rep159` (`46a7580`)<br>• `feature/rep159-binary-naming-regex` (`bfde799`)<br>• `feat/rep159-install-rule` (`a8f5543`)<br>• `feat/rep159-eol-date` (`5ec62f9`)<br>• `feat/rep159-workspace-package` (`3670bd8`) | `master` *(org fork: `rep159`)* | Org PR [`rosdistro#1`](https://github.com/rep159-testing/rosdistro/pull/1) **OPEN** + stacked `a8f5543` (96/96), `5ec62f9` (`distribution_eol_date`), and `3670bd8` (`workspace_package` + hyphenated package lookup, **106/106 tests pass**) | REP-159 spec alignment | **Unblocks Gate 1**: New `rosdistro` release published to PyPI + `ros_bootstrap` APT (`python3-rosdistro-modules`) |
 | **Wave 1** | [`ros-infrastructure/rosdep`](https://github.com/ros-infrastructure/rosdep) | `feat/rep159-binary-lookup` (`5661779`, PR-ready clean off `master`)<br>*(testbed: `rep159` @ `3d52dad`)* | `master` | Org PR [`rosdep#2`](https://github.com/rep159-testing/rosdep/pull/2) **OPEN** (zero CI hacks); upstream PR blocked on Gate 1 PyPI publication | **Gate 1 (`rosdistro` REP-159 release)** | **Unblocks Gate 2**: New `rosdep` release published to PyPI + `ros_bootstrap` APT (`python3-rosdep-modules`) |
-| **Wave 1** | [`ros2/ros_workspace`](https://github.com/ros2/ros_workspace) & `ros_workspace_shell` | • `ros_workspace:feat/rep159-parent-chaining` (`4997f85`, stacked on `12f93e9`)<br>• `ros_workspace_shell:feat/rep159-unset-current-prefix` (`b6a8195`, stacked on `a89cc7b`) | `main` | **Branches Ready** (0 hacks): `ros_workspace` (`4997f85`) for Ament distros; `ros_workspace_shell` (`b6a8195`) for non-Ament plain-CMake distros (`unset AMENT_CURRENT_PREFIX`) | None (CMake-only) | **Unblocks Gate 2B**: Tag & release `ros_workspace` and `ros_workspace_shell` |
+| **Wave 1** | [`ros2/ros_workspace`](https://github.com/ros2/ros_workspace) & `ros_workspace_shell` | • `ros_workspace:feat/rep159-parent-chaining` (`4997f85`, stacked on `12f93e9`; to merge with `rep159-split-base` `c9243f5`)<br>• `ros_workspace_shell:main` (`a89cc7b`, tag `0.1.0`, unmodified `ament_package` templates) | `main` | **Branches Ready** (0 hacks): `ros_workspace` (`4997f85` + `c9243f5` split) for Ament distros; `ros_workspace_shell` (`a89cc7b` unmodified) for non-Ament plain-CMake distros | None (CMake-only) | **Unblocks Gate 2B**: Tag & release `ros_workspace` and `ros_workspace_shell` |
 | **Wave 2** | [`ros-infrastructure/bloom`](https://github.com/ros-infrastructure/bloom) | • `feat/rep159-rules-support` (`7af7034`, 26/26 tests)<br>• `feat/rep159-workspace-package` (`ec0bcca`, stacked, **37/37 tests**) | `master` *(org fork: `rep159`)* | Stacked on `jrivero`'s `rep159` (`2877687`) + `binary_rule`, `install_rule`, `workspace_package`, `get_distribution_file` `extends` resolution, and `unset AMENT_CURRENT_PREFIX` | **Gate 1 (`rosdistro` release) + Gate 2 (`rosdep` release)** | **Unblocks Gate 3**: New `bloom` release published to PyPI + `ros_bootstrap` APT (`python3-bloom`) |
-| **Wave 3** | [`ros-infrastructure/ros_buildfarm`](https://github.com/ros-infrastructure/ros_buildfarm) | • **PR 3A**: `feat/rep159-workspace-walk` (`486b579`, 7/7 tests)<br>• **PR 3B**: `feat/rep159-underlays` (`274640b`, 11/11 tests)<br>• **PR 3C**: `feat/rep159-binary-naming` (`a271be1`, 6/6 tests)<br>• **PR 3D**: `feat/rep159-workspace-package` (`e54594c`, stacked on `a271be1`) | `master` | All 4 PR-ready branches clean off `master` (`7daa2b1`, 0 Dockerfile pip hacks, 100% test coverage; includes `CMAKE_PREFIX_PATH` & `unset AMENT_CURRENT_PREFIX` fixes in `274640b` and `get_workspace_package()` in `e54594c`) | **Gate 1 + Gate 2 (in `ros_bootstrap` APT & PyPI) + `reprepro-updater:refactor`** | **Unblocks Gate 4**: New `ros_buildfarm` release published to PyPI + `ros_bootstrap` APT |
+| **Wave 3** | [`ros-infrastructure/ros_buildfarm`](https://github.com/ros-infrastructure/ros_buildfarm) | • **PR 3A**: `feat/rep159-workspace-walk` (`486b579`, 7/7 tests)<br>• **PR 3B**: `feat/rep159-underlays` (`e4a8694`, 13/13 underlay tests / 18/18 suite)<br>• **PR 3C**: `feat/rep159-binary-naming` (`a271be1`, 6/6 tests)<br>• **PR 3D**: `feat/rep159-workspace-package` (`e54594c`, stacked on `a271be1`) | `master` | All 4 PR-ready branches clean off `master` (`7daa2b1`, 0 Dockerfile pip hacks, 100% test coverage; includes `CMAKE_PREFIX_PATH`, `unset AMENT_CURRENT_PREFIX`, and fail-fast distribution load error propagation in `e4a8694`, plus `get_workspace_package()` in `e54594c`) | **Gate 1 + Gate 2 (in `ros_bootstrap` APT & PyPI) + `reprepro-updater:refactor`** | **Unblocks Gate 4**: New `ros_buildfarm` release published to PyPI + `ros_bootstrap` APT |
 | **Wave 4** | [`gazebosim/ros_gz`](https://github.com/gazebosim/ros_gz) & [`ros2/ros_buildfarm_config`](https://github.com/ros2/ros_buildfarm_config) | • `ros_gz:feat/rep159-vendorless-bridge` (`08645e3`, clean 3-file diff off `3.0.12`)<br>• `ros_buildfarm_config:feat/extendable-*` | `ros2` / `master` | Validated end-to-end on `build.test.ros2.org` (`E*` jobs) | **Gates 1–4 deployed** | Production extended ROS 2 + Gazebo distributions without `gz_*_vendor` wrapper packages |
 
 ---
@@ -132,11 +132,11 @@ To ensure clean upstream Pull Requests, every repository beyond `rosdistro` is d
 
 ---
 
-### 4.4 `ros_workspace` (`feat/rep159-parent-chaining` @ `4997f85`) & `ros_workspace_shell` (`feat/rep159-unset-current-prefix` @ `b6a8195`)
+### 4.4 `ros_workspace` (`feat/rep159-parent-chaining` @ `4997f85` + `rep159-split-base` @ `c9243f5`) & `ros_workspace_shell` (`main` @ `a89cc7b`)
 
 * **(A) Core Feature Implementation**:
-  - **`ros_workspace` (`4997f85`, stacked on Jose's `12f93e9`)**: Searches `${CMAKE_INSTALL_PREFIX};${ROS_WORKSPACE_PARENT_PREFIX_PATH}` for `ament_package` templates, preserves `SKIP_PARENT_PREFIX_PATH` default for root distros, accepts `ROS_WORKSPACE_PARENT_PREFIX_PATH` / `PARENT_PREFIX_PATH`, and registers `parent_prefix_path` in the ament index.
-  - **`ros_workspace_shell` (`b6a8195`, stacked on Jose's `a89cc7b` tag `0.1.0`)**: Provides `/opt/ros/<distro>/{setup.sh,local_setup.sh,setup.bash,setup.zsh}` for plain-CMake distributions without `ament_package`. Commit `b6a8195` unsets `AMENT_CURRENT_PREFIX` after sourcing each parent prefix in `templates/setup.sh.in` so parent Ament distributions (`lyrical`) do not leak `AMENT_CURRENT_PREFIX` into plain-CMake or child prefixes.
+  - **`ros_workspace` (`4997f85`, stacked on Jose's `12f93e9`; to merge with Jose's `rep159-split-base` `c9243f5`)**: Searches `${CMAKE_INSTALL_PREFIX};${ROS_WORKSPACE_PARENT_PREFIX_PATH}` for `ament_package` templates, preserves `SKIP_PARENT_PREFIX_PATH` default for root distros, accepts `ROS_WORKSPACE_PARENT_PREFIX_PATH` / `PARENT_PREFIX_PATH`, and registers `parent_prefix_path` in the ament index. Unifying with `rep159-split-base` (`<exec_depend>ros_workspace_shell</exec_depend>`) also requires `rosdistro`'s `binary_import_overridable` to permit child `binary_import` ROS 2 distros to release both `ros_workspace_shell` and `ros_workspace`.
+  - **`ros_workspace_shell` (`main` @ `a89cc7b`, tag `0.1.0`)**: Provides `/opt/ros/<distro>/{setup.sh,local_setup.sh,setup.bash,setup.zsh}` for plain-CMake distributions without `ament_package`. Used **unmodified** so `templates/` remains a clean `rsync --delete` mirror of `ament_package` (`sync-templates.yml`); caller-side `unset AMENT_CURRENT_PREFIX` in `bloom` (`ec0bcca`) and `ros_buildfarm` (`e4a8694` / `1fdc070`) prevents Ament parent prefixes from leaking `AMENT_CURRENT_PREFIX` across `/bin/sh` sourcing loops.
 * **(C) Temporary Pre-Release Overrides**:
   - None.
 
@@ -159,20 +159,20 @@ To ensure clean upstream Pull Requests, every repository beyond `rosdistro` is d
 
 ---
 
-### 4.6 `ros_buildfarm` (Clean PRs 3A–3D: `486b579`, `274640b`, `a271be1`, `e54594c`; Testbeds: `797d771`, `ca13954`, `b242685`)
+### 4.6 `ros_buildfarm` (Clean PRs 3A–3D: `486b579`, `e4a8694`, `a271be1`, `e54594c`; Testbeds: `797d771`, `ca13954`, `1fdc070`)
 
 * **(A) Core Feature Implementation & Engineering Fixes (4 Clean PR Branches off `master` `7daa2b1`, 0 Dockerfile Hacks)**:
   1. **PR 3A — CI Workspace Dependency Walk (`feat/rep159-workspace-walk` @ `486b579`, 7/7 tests pass)**:
      - Adopts Jose Luis Rivero's `ReleaseAndSourceDependencyWalker` (`1334bf9`, `486b579`) in `scripts/ci/create_workspace.py` and `test/test_rep159_create_workspace.py`.
-  2. **PR 3B — Dynamic Install Prefixes, Recursive Underlays & Multi-Parent Isolation (`feat/rep159-underlays` @ `274640b`, 11/11 tests pass)**:
+  2. **PR 3B — Dynamic Install Prefixes, Recursive Underlays & Multi-Parent Isolation (`feat/rep159-underlays` @ `e4a8694`, 13/13 underlay tests / 18/18 suite pass)**:
      - Adopts Jose Luis Rivero's `get_binary_import_distros()` (`83fd534`) + `get_distribution_install_prefix()` and recursive `get_binary_import_underlays(dist_file, index)` (`0ee8e49`, `7d23292`).
-     - Includes `scripts/devel/build_and_install.py` fallback (`4c70fdc`), pure-CMake `CMAKE_PREFIX_PATH`/`COLCON_PREFIX_PATH`/`LD_LIBRARY_PATH` exports (`6b7dc03`, `a63a39d`, `a4a5bbd`), `CMAKE_PREFIX_PATH` export for `ros_workspace_shell` parent spaces with `setup.sh` (`a9a60e2`), and `unset AMENT_CURRENT_PREFIX` after sourcing each parent `setup.sh` in `call_build_tool()` (`274640b`).
+     - Includes `scripts/devel/build_and_install.py` fallback (`4c70fdc`), pure-CMake `CMAKE_PREFIX_PATH`/`COLCON_PREFIX_PATH`/`LD_LIBRARY_PATH` exports (`6b7dc03`, `a63a39d`, `a4a5bbd`), `CMAKE_PREFIX_PATH` export for `ros_workspace_shell` parent spaces with `setup.sh` (`708c055`), `unset AMENT_CURRENT_PREFIX` after sourcing each parent `setup.sh` in `call_build_tool()` (`274640b`), and fail-fast propagation of distribution load errors in `ci_job.py` & `common.py` (`e4a8694`).
   3. **PR 3C — Binary Naming Rule Delegation & Child Release Isolation (`feat/rep159-binary-naming` @ `a271be1`, 6/6 tests pass)**:
      - Delegates `get_os_package_name()` and `get_os_package_name_prefix()` to `dist_file.get_binary_package_name()`, passes `--package-prefix` to `reprepro-updater`, fixes renamed subfolder lookups (`79cc19a`), and filters `release_job.py` so `binary_import` child distros only generate release jobs for their own `dist_file.release_packages` (`9b02768`).
   4. **PR 3D — Configurable `workspace_package` Release Job Filtering (`feat/rep159-workspace-package` @ `e54594c`, stacked on `a271be1`)**:
      - Adopts Jose Luis Rivero's `146d05f` commit in `ros_buildfarm/release_job.py`: queries `dist_file.get_workspace_package()` when filtering inherited `binary_import` packages.
 * **(C) Temporary Pre-Release Overrides Excluded from Clean PRs 3A–3D**:
-  - All Dockerfile `pip3 install --break-system-packages` tarball overrides, fork `reprepro-updater` git URLs, `<assignedNode>building_repository</assignedNode>` overrides, and `ext*` Jenkins job prefixes remain strictly isolated on the testbed branches (`feat/binary-naming-rule` @ `797d771`, `feat/extendable-workspace` @ `ca13954`, `feat/extendable-workspace-package` @ `b242685`).
+  - All Dockerfile `pip3 install --break-system-packages` tarball overrides, fork `reprepro-updater` git URLs, `<assignedNode>building_repository</assignedNode>` overrides, and `ext*` Jenkins job prefixes remain strictly isolated on the testbed branches (`feat/binary-naming-rule` @ `797d771`, `feat/extendable-workspace` @ `ca13954`, `feat/extendable-workspace-package` @ `1fdc070`).
 
 ---
 
@@ -194,4 +194,4 @@ Each validation stage is documented in its dedicated file inside `roadmap/` with
 * **[Stage 3: Multi-Tier Topological Extensions & Hybrid Overlays](stage3_topological_extensions.md)** — `build_and_install.py` underlay fallback, `workspace.py` pure-CMake & multiarch `LD_LIBRARY_PATH` exports, 3-tier chains, hybrid mixed, and diamond DAGs.
 * **[Stage 4: Composable Suite, Native Sourcing & Bloom Integration](stage4_composable_workspace.md)** — `ros_workspace` underlay chaining (`4997f85`), child `ros_workspace` override (`a8f5543`), `bloom` `binary_rule` / `install_rule` / `ParentPrefixes` packaging (`7af7034`).
 * **[Stage 5: Distribution Cache Lifecycle & Automated Packaging](stage5_cache_lifecycle_and_bloom_release.md)** — `rosdistro_build_cache` parent inheritance & `- REMOVE` isolation, `ros_bootstrap` APT dependency path vs. temporary container override, `bloom` `tag.gpgSign` fix.
-* **[Stage 6: Index v4 `distribution_eol_date`, `workspace_package` (`ros_workspace_shell`), and Composable ROS 2 + Gazebo](stage6_ros_gazebo_and_eol.md)** — `distribution_eol_date` (`5ec62f9`, `3e6ab56`), `workspace_package: ros_workspace_shell` (`3670bd8`, `b6a8195`, `ec0bcca`, `274640b`, `e54594c`), Single-Parent Gazebo Jetty (`6B-1`, `6B-2a`), and Multi-Parent `[lyrical, extendablejetty]` + Vendorless `ros_gz_bridge` (`6B-2b`, `08645e3`).
+* **[Stage 6: Index v4 `distribution_eol_date`, `workspace_package` (`ros_workspace_shell`), and Composable ROS 2 + Gazebo](stage6_ros_gazebo_and_eol.md)** — `distribution_eol_date` (`5ec62f9`, `3e6ab56`), `workspace_package: ros_workspace_shell` (`3670bd8`, `a89cc7b` unmodified, `ec0bcca`, `e4a8694`, `e54594c`), Single-Parent Gazebo Jetty (`6B-1`, `6B-2a`), and Multi-Parent `[lyrical, extendablejetty]` + Vendorless `ros_gz_bridge` (`6B-2b`, `08645e3`).

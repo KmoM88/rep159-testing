@@ -24,7 +24,7 @@ flowchart TD
     subgraph Core ["Core Implementation & Fixes (Clean PR Branches - Upstream Bound)"]
         RD3["rosdistro: feat/rep159-install-rule (a8f5543) - Recursive DAG & diamond deduplication"]
         BF_WALK3["ros_buildfarm: feat/rep159-workspace-walk (486b579, PR 3A) - Stop walk at binary_import"]
-        BF_UND3["ros_buildfarm: feat/rep159-underlays (274640b, PR 3B) - CMake/LD env exports & build_and_install fallback"]
+        BF_UND3["ros_buildfarm: feat/rep159-underlays (e4a8694, PR 3B) - CMake/LD env exports, build_and_install fallback & fail-fast load"]
 
         RD3 --> BF_WALK3
         RD3 --> BF_UND3
@@ -78,12 +78,12 @@ flowchart TD
    - **`scripts/ci/create_workspace.py` & `test/test_rep159_create_workspace.py` (Commits `1334bf9`, `486b579` by Jose Luis Rivero)**: Walks source-only repositories during dependency resolution (`ReleaseAndSourceDependencyWalker`) and stops workspace source checkout traversal at `binary_import` parent boundaries (leaving parent binaries to be installed via `rosdep` from APT).
    - Clean PR-ready branch cut directly off `origin/master` (`7daa2b1`, zero Dockerfile pip hacks, 7/7 tests passing).
 
-2. **`ros-infrastructure/ros_buildfarm` — Underlay & Pure-CMake Engineering Fixes (`feat/rep159-underlays` @ `274640b`, PR 3B)**:
+2. **`ros-infrastructure/ros_buildfarm` — Underlay & Pure-CMake Engineering Fixes (`feat/rep159-underlays` @ `e4a8694`, PR 3B)**:
    - **Commit `83fd534` (by Jose Luis Rivero, from `9807b32`)**: `BINARY_IMPORT_DISTROS_ENV`, `get_binary_import_distros(dist_file)`, and 4 baseline unit tests in `test/test_rep159_underlay.py`.
-   - **Commits `0ee8e49`, `7d23292`**: `install_rule` prefix evaluation (`get_distribution_install_prefix`) and recursive multi-tier/diamond `get_binary_import_underlays(dist_file, index)`.
+   - **Commits `0ee8e49`, `7d23292`, `e4a8694`**: `install_rule` prefix evaluation (`get_distribution_install_prefix`), recursive multi-tier/diamond `get_binary_import_underlays(dist_file, index)`, and fail-fast propagation of distribution load errors in `ci_job.py` and `common.py`.
    - **`scripts/devel/build_and_install.py` (Commit `4c70fdc`)**: Added fallback to `get_default_parent_result_spaces(args.rosdistro_name)` when `--parent-result-space` is `None`.
    - **`ros_buildfarm/workspace.py` (Commits `6b7dc03`..`274640b`)**: Added dynamic export of `CMAKE_PREFIX_PATH`, `COLCON_PREFIX_PATH`, `PATH`, and multiarch `LD_LIBRARY_PATH` when underlays exist on disk without `setup.sh`, plus `CMAKE_PREFIX_PATH` export and `unset AMENT_CURRENT_PREFIX` for underlays with `setup.sh`.
-   - Clean PR-ready branch cut directly off `origin/master` (`7daa2b1`, 11/11 underlay tests passing).
+   - Clean PR-ready branch cut directly off `origin/master` (`7daa2b1`, 13/13 underlay tests / 18/18 suite passing).
 
 3. **`ros-infrastructure/rosdistro` (Branch: `feat/rep159-install-rule` @ `a8f5543`)**:
    - Transitive topological DAG walk & multi-parent diamond deduplication: Recursively traverses multi-tier parent hierarchies ($C \to B \to A$ and convergent diamonds) without circular dependency deadlocks or false collision errors, plus Jose Luis Rivero's `BINARY_IMPORT_OVERRIDABLE = frozenset(['ros_workspace'])` (`aefe17c`, `a8f5543`).
@@ -104,12 +104,12 @@ flowchart TD
 * [`Eci__chained-import_ubuntu_resolute_amd64 #3`](https://build.test.ros2.org/job/Eci__chained-import_ubuntu_resolute_amd64/3/) / [`#5`](https://build.test.ros2.org/job/Eci__chained-import_ubuntu_resolute_amd64/5/) ([Console](https://build.test.ros2.org/job/Eci__chained-import_ubuntu_resolute_amd64/5/console)) — **SUCCESS**. Compiled all 5 repositories (`upstream_{a,b,c}`, `downstream_bin_a`, `downstream_chain_a`) from source in cascading colcon workspace and passed 5/5 CTest suites.
 
 ### Stage 3B: Chained Binary Import ($A \xrightarrow{\text{bin}} B \xrightarrow{\text{bin}} C$)
-* **Sourcedeb & Binarydeb**: [`Esrc_uR__downstream_bin_a #1`](https://build.test.ros2.org/job/Esrc_uR__downstream_bin_a__ubuntu_resolute__source/1/) and [`Ebin_uR64__downstream_bin_a #1`](https://build.test.ros2.org/job/Ebin_uR64__downstream_bin_a__ubuntu_resolute_amd64__binary/1/) built and published `ros-extendablebin-downstream-bin-a_0.2.0-1resolute_amd64.deb` into `building`.
-* **Sync**: [`Erel_sync-packages-to-testing_resolute_amd64 #7`](https://build.test.ros2.org/job/Erel_sync-packages-to-testing_resolute_amd64/7/) (and [`#15`](https://build.test.ros2.org/job/Erel_sync-packages-to-testing_resolute_amd64/15/) for root `/opt/ros/extendable`) promoted the packages to `http://repo.test.ros2.org/ubuntu/testing`.
-* **CI Execution**: [`Eci__chained-import_ubuntu_resolute_amd64 #4`](https://build.test.ros2.org/job/Eci__chained-import_ubuntu_resolute_amd64/4/) ([Console](https://build.test.ros2.org/job/Eci__chained-import_ubuntu_resolute_amd64/4/console)) — **SUCCESS** — Clean binary install from APT, compiled `downstream_chain_a`, linked against `libdownstream_bin_a.so` and `libupstream_c.so`, and passed all CTest suites.
+* **Sourcedeb & Binarydeb**: [`Esrc_uR__downstream_bin_a #1/#2`](https://build.test.ros2.org/job/Esrc_uR__downstream_bin_a__ubuntu_resolute__source/2/) and [`Ebin_uR64__downstream_bin_a #1/#2`](https://build.test.ros2.org/job/Ebin_uR64__downstream_bin_a__ubuntu_resolute_amd64__binary/2/) built and published `ros-extendablebin-downstream-bin-a_0.2.0-1resolute_amd64.deb` into `building`.
+* **Sync**: [`Erel_sync-packages-to-testing_resolute_amd64 #7/#16`](https://build.test.ros2.org/job/Erel_sync-packages-to-testing_resolute_amd64/16/) (and [`#15`](https://build.test.ros2.org/job/Erel_sync-packages-to-testing_resolute_amd64/15/) for root `/opt/ros/extendable`) promoted the packages to `http://repo.test.ros2.org/ubuntu/testing`.
+* **CI Execution**: [`Eci__chained-import_ubuntu_resolute_amd64 #4/#6`](https://build.test.ros2.org/job/Eci__chained-import_ubuntu_resolute_amd64/6/) ([Console](https://build.test.ros2.org/job/Eci__chained-import_ubuntu_resolute_amd64/6/console)) — **SUCCESS** — Clean binary install from APT, compiled `downstream_chain_a`, linked against `libdownstream_bin_a.so` and `libupstream_c.so`, and passed all CTest suites.
 
 ### Stage 3C: Hybrid Binary + Source Overriding (`--ignore-src`)
-* [`Eci__mixed-chain_ubuntu_resolute_amd64 #1`](https://build.test.ros2.org/job/Eci__mixed-chain_ubuntu_resolute_amd64/1/) / [`#2`](https://build.test.ros2.org/job/Eci__mixed-chain_ubuntu_resolute_amd64/2/) ([Console](https://build.test.ros2.org/job/Eci__mixed-chain_ubuntu_resolute_amd64/2/console)) — **SUCCESS**. `downstream_bin_a` installed from APT binaries; `upstream_c` compiled from source in workspace, passing 2/2 test suites.
+* [`Eci__mixed-chain_ubuntu_resolute_amd64 #1`](https://build.test.ros2.org/job/Eci__mixed-chain_ubuntu_resolute_amd64/1/) / [`#2`](https://build.test.ros2.org/job/Eci__mixed-chain_ubuntu_resolute_amd64/2/) / [`#3`](https://build.test.ros2.org/job/Eci__mixed-chain_ubuntu_resolute_amd64/3/) ([Console](https://build.test.ros2.org/job/Eci__mixed-chain_ubuntu_resolute_amd64/3/console)) — **SUCCESS**. `downstream_bin_a` installed from APT binaries; `upstream_c` compiled from source in workspace, passing 2/2 test suites.
 
 ### Stage 3D: Multi-Parent Convergent Diamond DAG
-* [`Eci__diamond-chain_ubuntu_resolute_amd64 #1`](https://build.test.ros2.org/job/Eci__diamond-chain_ubuntu_resolute_amd64/1/) / [`#3`](https://build.test.ros2.org/job/Eci__diamond-chain_ubuntu_resolute_amd64/3/) ([Console](https://build.test.ros2.org/job/Eci__diamond-chain_ubuntu_resolute_amd64/3/console)) — **SUCCESS**. Deduplicated underlays `/opt/ros/extendable:/opt/ros/extendablebin` and passed 2/2 test suites.
+* [`Eci__diamond-chain_ubuntu_resolute_amd64 #1`](https://build.test.ros2.org/job/Eci__diamond-chain_ubuntu_resolute_amd64/1/) / [`#3`](https://build.test.ros2.org/job/Eci__diamond-chain_ubuntu_resolute_amd64/3/) / [`#4`](https://build.test.ros2.org/job/Eci__diamond-chain_ubuntu_resolute_amd64/4/) ([Console](https://build.test.ros2.org/job/Eci__diamond-chain_ubuntu_resolute_amd64/4/console)) — **SUCCESS**. Deduplicated underlays `/opt/ros/extendable:/opt/ros/extendablebin` and passed 2/2 test suites.

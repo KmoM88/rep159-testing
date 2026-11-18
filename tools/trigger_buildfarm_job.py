@@ -339,6 +339,37 @@ def clear_queue(client, prefix=None, exclude_prefix=None, queue_id=None):
                 print(f"  [{done_count}/{len(ids_to_cancel)}] Cancelled ID {qid} ({name}) -> HTTP {code}")
 
 
+def stop_running_builds(client, prefix=None, exclude_prefix=None, job_name=None):
+    comp_resp = client.requester.get_url(
+        f"{client.baseurl}/computer/api/json?tree=computer[displayName,executors[currentExecutable[url,fullDisplayName]],oneOffExecutors[currentExecutable[url,fullDisplayName]]]"
+    )
+    targets = []
+    for node in comp_resp.json().get("computer", []):
+        node_name = node.get("displayName")
+        for ex in (node.get("executors", []) + node.get("oneOffExecutors", [])):
+            cur = ex.get("currentExecutable")
+            if not cur or not cur.get("url"):
+                continue
+            url = cur["url"].rstrip("/")
+            parts = url.split("/job/")
+            jname = parts[1].split("/")[0] if len(parts) > 1 else (cur.get("fullDisplayName") or url)
+            if job_name and jname != job_name:
+                continue
+            if prefix and not jname.startswith(prefix):
+                continue
+            if exclude_prefix and jname.startswith(exclude_prefix):
+                continue
+            targets.append((node_name, jname, cur.get("fullDisplayName") or jname, url))
+
+    if not targets:
+        print("No matching running builds to stop.")
+        return
+
+    for node_name, jname, display, url in targets:
+        r = client.requester.post_url(f"{url}/stop", data="")
+        print(f"  Stopped '{display}' on {node_name} ({url}/stop) -> HTTP {r.status_code}")
+
+
 def set_jobs_priority(client, priority, prefix=None):
     import re
     jobs_to_update = [j for j in REP159_JOBS if not prefix or j.startswith(prefix)]
@@ -524,6 +555,11 @@ def main():
         help="Cancel a specific Jenkins queue item by Queue ID",
     )
     parser.add_argument(
+        "--stop-running",
+        action="store_true",
+        help="Stop currently running Jenkins builds (filtered by --job, --prefix, or --exclude-prefix)",
+    )
+    parser.add_argument(
         "--set-priority",
         type=int,
         help="Set <priority>N</priority> on REP-159 jobs (optionally filtered by --prefix, e.g. --prefix E --set-priority 1)",
@@ -614,6 +650,16 @@ def main():
         action_taken = True
     if args.queue_cancel is not None:
         clear_queue(client, queue_id=args.queue_cancel)
+        action_taken = True
+    if args.stop_running:
+        stop_running_builds(
+            client,
+            prefix=args.prefix,
+            exclude_prefix=args.exclude_prefix,
+            job_name=args.job,
+        )
+        if args.job:
+            return
         action_taken = True
     if args.set_priority is not None:
         set_jobs_priority(client, args.set_priority, prefix=args.prefix)
