@@ -45,14 +45,14 @@ STAGES = {
         "branches": {
             "rosdistro": "feature/rep159-binary-naming-regex",
             "rosdep": "feat/rep159-binary-lookup",
-            "ros_buildfarm": "feat/rep159-binary-naming",
+            "ros_buildfarm": "feat/binary-naming-rule",
             "reprepro-updater": "feat/package-prefix",
             "rep159-rosdistro": "feat/extendable-binary-naming",
             "ros_buildfarm_config": "feat/extendable-binary-naming",
             "reps": "feature/rep-159-binary-name-templating",
         },
         "config_url": "https://raw.githubusercontent.com/rep159-testing/ros_buildfarm_config/feat/extendable-binary-naming/index-rep159.yaml",
-        "release_builds": [("extendable", "release")],
+        "release_builds": [("extendable", "default")],
         "ci_distros": ["extendable"],
         "waves": [
             [
@@ -76,14 +76,15 @@ STAGES = {
         "branches": {
             "rosdistro": "feat/rep159-install-rule",
             "rosdep": "feat/rep159-binary-lookup",
-            "ros_buildfarm": "feat/rep159-underlays",
+            "bloom": "feat/rep159-rules-support",
+            "ros_buildfarm": "feat/binary-naming-rule",
             "reprepro-updater": "feat/package-prefix",
             "rep159-rosdistro": "feat/extendable-install-rule",
             "ros_buildfarm_config": "feat/extendable-install-rule",
             "reps": "feature/rep-159-install-rule",
         },
         "config_url": "https://raw.githubusercontent.com/rep159-testing/ros_buildfarm_config/feat/extendable-install-rule/index-rep159.yaml",
-        "release_builds": [("extendable", "release")],
+        "release_builds": [("extendable", "default")],
         "ci_distros": ["extendablesrc", "extendablebin"],
         "waves": [
             [
@@ -102,18 +103,30 @@ STAGES = {
         ],
     },
     "stage3-option-a": {
-        "description": "Stage 3 Option A: 3-Tier source_rebuild Chain (extendable -> extendablesrc -> extendablechain)",
+        "description": "Stage 3 Option A: 3-Tier Hybrid Chain (extendable -[binary_import]-> extendablebin -[source_rebuild]-> extendablechain)",
         "branches": {
             "rosdistro": "feat/rep159-install-rule",
             "rosdep": "feat/rep159-binary-lookup",
-            "ros_buildfarm": "feat/rep159-workspace-walk",
+            "bloom": "feat/rep159-rules-support",
+            "ros_buildfarm": "feat/binary-naming-rule",
+            "reprepro-updater": "feat/package-prefix",
             "rep159-rosdistro": "feat/chained-extensions",
             "ros_buildfarm_config": "feat/chained-extensions",
+            "reps": "feature/rep-159-install-rule",
         },
         "config_url": "https://raw.githubusercontent.com/rep159-testing/ros_buildfarm_config/feat/chained-extensions/index-rep159.yaml",
-        "release_builds": [],
+        "release_builds": [("extendable", "default")],
         "ci_distros": ["extendablechain"],
         "waves": [
+            [
+                "Esrc_uR__upstream_a__ubuntu_resolute__source",
+                "Esrc_uR__upstream_b__ubuntu_resolute__source",
+                "Esrc_uR__upstream_c__ubuntu_resolute__source",
+            ],
+            ["Ebin_uR64__upstream_a__ubuntu_resolute_amd64__binary"],
+            ["Ebin_uR64__upstream_b__ubuntu_resolute_amd64__binary"],
+            ["Ebin_uR64__upstream_c__ubuntu_resolute_amd64__binary"],
+            ["Erel_sync-packages-to-testing_resolute_amd64"],
             ["Eci__chained-import_ubuntu_resolute_amd64"],
         ],
     },
@@ -122,12 +135,15 @@ STAGES = {
         "branches": {
             "rosdistro": "feat/rep159-install-rule",
             "rosdep": "feat/rep159-binary-lookup",
-            "ros_buildfarm": "feat/rep159-underlays",
+            "bloom": "feat/rep159-rules-support",
+            "ros_buildfarm": "feat/binary-naming-rule",
+            "reprepro-updater": "feat/package-prefix",
             "rep159-rosdistro": "feat/binary-chained",
             "ros_buildfarm_config": "feat/binary-chained",
+            "reps": "feature/rep-159-install-rule",
         },
         "config_url": "https://raw.githubusercontent.com/rep159-testing/ros_buildfarm_config/feat/binary-chained/index-rep159.yaml",
-        "release_builds": [("extendablebin", "release")],
+        "release_builds": [("extendablebin", "default")],
         "ci_distros": ["extendablechain"],
         "waves": [
             ["Esrc_uR__downstream_bin_a__ubuntu_resolute__source"],
@@ -141,9 +157,12 @@ STAGES = {
         "branches": {
             "rosdistro": "feat/rep159-install-rule",
             "rosdep": "feat/rep159-binary-lookup",
-            "ros_buildfarm": "feat/rep159-underlays",
+            "bloom": "feat/rep159-rules-support",
+            "ros_buildfarm": "feat/binary-naming-rule",
+            "reprepro-updater": "feat/package-prefix",
             "rep159-rosdistro": "feat/mixed-extensions",
             "ros_buildfarm_config": "feat/mixed-extensions",
+            "reps": "feature/rep-159-install-rule",
         },
         "config_url": "https://raw.githubusercontent.com/rep159-testing/ros_buildfarm_config/feat/mixed-extensions/index-rep159.yaml",
         "release_builds": [],
@@ -157,9 +176,12 @@ STAGES = {
         "branches": {
             "rosdistro": "feat/rep159-install-rule",
             "rosdep": "feat/rep159-binary-lookup",
-            "ros_buildfarm": "feat/rep159-underlays",
+            "bloom": "feat/rep159-rules-support",
+            "ros_buildfarm": "feat/binary-naming-rule",
+            "reprepro-updater": "feat/package-prefix",
             "rep159-rosdistro": "feat/diamond-extensions",
             "ros_buildfarm_config": "feat/diamond-extensions",
+            "reps": "feature/rep-159-install-rule",
         },
         "config_url": "https://raw.githubusercontent.com/rep159-testing/ros_buildfarm_config/feat/diamond-extensions/index-rep159.yaml",
         "release_builds": [],
@@ -182,7 +204,7 @@ STAGES = {
         },
         "config_url": "https://raw.githubusercontent.com/rep159-testing/ros_buildfarm_config/feat/extendable-workspace/index-rep159.yaml",
         "release_builds": [
-            ("extendable", "release"),
+            ("extendable", "default"),
             ("extendablebin", "extbin"),
         ],
         "ci_distros": ["extendable", "extendablebin"],
@@ -455,7 +477,19 @@ def generate_stage_jobs(stage_name, dry_run=False, ci_only=False):
 
     print(f"=== Generating Jenkins Jobs for '{stage_name}' (dry_run={dry_run}, ci_only={ci_only}) ===")
     if not ci_only:
+        from ros_buildfarm.config import get_index as get_config_index
+        from rosdistro import get_distribution_file, get_index
+
+        cfg_idx = get_config_index(config_url)
+        rd_idx = get_index(cfg_idx.rosdistro_index_url)
         for distro_name, release_build_name in info["release_builds"]:
+            dist_file = get_distribution_file(rd_idx, distro_name)
+            own_pkgs = sorted(
+                pkg_name
+                for pkg_name, pkg in dist_file.release_packages.items()
+                if getattr(dist_file.repositories[pkg.repository_name], "origin_distro", distro_name)
+                == distro_name
+            )
             cmd = [
                 sys.executable,
                 "scripts/release/generate_release_jobs.py",
@@ -463,6 +497,8 @@ def generate_stage_jobs(stage_name, dry_run=False, ci_only=False):
                 distro_name,
                 release_build_name,
             ]
+            if own_pkgs:
+                cmd.extend(["--package-names"] + own_pkgs)
             if dry_run:
                 cmd.append("--dry-run")
             print(f"[RELEASE GEN] {' '.join(cmd)}", flush=True)
@@ -482,12 +518,15 @@ def generate_stage_jobs(stage_name, dry_run=False, ci_only=False):
 
 
 def set_priority_1(jenkins, job_name):
-    job = jenkins.get_job(job_name)
-    cfg = job.get_config()
-    new_cfg = re.sub(r"<priority>\d+</priority>", "<priority>1</priority>", cfg)
-    if new_cfg != cfg:
-        job.update_config(new_cfg)
-        print(f"[PRIORITY] Set priority=1 on {job_name}", flush=True)
+    try:
+        job = jenkins.get_job(job_name)
+        cfg = job.get_config()
+        new_cfg = re.sub(r"<priority>\d+</priority>", "<priority>1</priority>", cfg)
+        if new_cfg != cfg:
+            job.update_config(new_cfg)
+            print(f"[PRIORITY] Set priority=1 on {job_name}", flush=True)
+    except Exception as exc:
+        print(f"[WARN] Skipping priority update on {job_name}: {exc}", flush=True)
 
 
 def get_last_num(job):
@@ -583,20 +622,27 @@ def run_stage_pipeline(
     prioritize=True,
     force_rebuild=False,
     force_jobs=None,
+    only_waves=None,
 ):
     from ros_buildfarm.jenkins import connect
 
     force_set = set(force_jobs or [])
+    wave_filter = set(only_waves) if only_waves else None
     info = STAGES[stage_name]
     jenkins = connect(jenkins_url)
-    all_jobs = [j for wave in info["waves"] for j in wave]
+    selected_waves = [
+        (idx, w)
+        for idx, w in enumerate(info["waves"], 1)
+        if wave_filter is None or idx in wave_filter
+    ]
+    all_jobs = [j for _, wave in selected_waves for j in wave]
     if prioritize:
         for job_name in all_jobs:
             set_priority_1(jenkins, job_name)
 
     all_results = []
     any_rebuilt = False
-    for wave_idx, wave in enumerate(info["waves"], 1):
+    for wave_idx, wave in selected_waves:
         print(f"=== Wave {wave_idx}/{len(info['waves'])}: {', '.join(wave)} ===", flush=True)
         baselines = {}
         for name in wave:
@@ -695,6 +741,13 @@ def main():
         help="Specific job names to force rebuild even if their latest build is SUCCESS",
     )
     parser.add_argument(
+        "--waves",
+        type=int,
+        nargs="*",
+        default=None,
+        help="Optional 1-based wave numbers to run with --run-pipeline (e.g. --waves 1 for Esrc only)",
+    )
+    parser.add_argument(
         "--console",
         help="Print console log of the latest build for a given Jenkins job name",
     )
@@ -748,6 +801,7 @@ def main():
             jenkins_url=args.url,
             force_rebuild=args.force_rebuild,
             force_jobs=args.force_jobs,
+            only_waves=args.waves,
         )
 
 

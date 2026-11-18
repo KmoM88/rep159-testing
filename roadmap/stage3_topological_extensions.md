@@ -9,10 +9,10 @@ Stages 1 and 2 validated direct parent-child relationships ($A \to B$). However,
 
 Reproduction commands via the repository stage runner:
 ```bash
-./tools/stage_runner.py --stage stage3a --status
-./tools/stage_runner.py --stage stage3b --status
-./tools/stage_runner.py --stage stage3c --status
-./tools/stage_runner.py --stage stage3d --status
+./tools/stage_runner.py --stage stage3-option-a --status
+./tools/stage_runner.py --stage stage3-option-b --status
+./tools/stage_runner.py --stage stage3-mixed --status
+./tools/stage_runner.py --stage stage3-diamond --status
 ```
 
 ---
@@ -33,7 +33,7 @@ flowchart TD
     subgraph Hacks ["Testbed Overrides & Harness Configs (build.test.ros2.org Only - Do NOT Upstream)"]
         BF_TEST3["ros_buildfarm testbed: feat/binary-naming-rule (797d771) with Dockerfile pip tarball installs"]
         DIST3["rep159-rosdistro: feat/chained-extensions (69afb27), feat/binary-chained (e63a90a), feat/mixed-extensions (3e66c48), feat/diamond-extensions (7ab72c6)"]
-        CFG3["ros_buildfarm_config: feat/chained-extensions (7ce43b3), feat/binary-chained (0f308af), feat/mixed-extensions (6fc8b81), feat/diamond-extensions (84064ae)"]
+        CFG3["ros_buildfarm_config: feat/chained-extensions (db8b308), feat/binary-chained (bef4e2a), feat/mixed-extensions (8d11433), feat/diamond-extensions (748a1f1)"]
         PKG3["downstream_chain_a: main & feat/chained-extensions (2e31db1)"]
 
         BF_TEST3 --> CFG3
@@ -101,11 +101,11 @@ flowchart TD
 ## 5. Empirical Validation & Test Evidence (`https://build.test.ros2.org`)
 
 ### Stage 3A: Chained Source Rebuild ($A \xrightarrow{\text{src}} B \xrightarrow{\text{src}} C$)
-* [`Eci__chained-import_ubuntu_resolute_amd64 #3`](https://build.test.ros2.org/job/Eci__chained-import_ubuntu_resolute_amd64/3/) ([Console](https://build.test.ros2.org/job/Eci__chained-import_ubuntu_resolute_amd64/3/console)) — **SUCCESS**. Compiled all 5 repositories (`upstream_{a,b,c}`, `downstream_bin_a`, `downstream_chain_a`) from source in cascading colcon workspace and passed 5/5 CTest suites.
+* [`Eci__chained-import_ubuntu_resolute_amd64 #3`](https://build.test.ros2.org/job/Eci__chained-import_ubuntu_resolute_amd64/3/) / [`#5`](https://build.test.ros2.org/job/Eci__chained-import_ubuntu_resolute_amd64/5/) ([Console](https://build.test.ros2.org/job/Eci__chained-import_ubuntu_resolute_amd64/5/console)) — **SUCCESS**. Compiled all 5 repositories (`upstream_{a,b,c}`, `downstream_bin_a`, `downstream_chain_a`) from source in cascading colcon workspace and passed 5/5 CTest suites.
 
 ### Stage 3B: Chained Binary Import ($A \xrightarrow{\text{bin}} B \xrightarrow{\text{bin}} C$)
 * **Sourcedeb & Binarydeb**: [`Esrc_uR__downstream_bin_a #1`](https://build.test.ros2.org/job/Esrc_uR__downstream_bin_a__ubuntu_resolute__source/1/) and [`Ebin_uR64__downstream_bin_a #1`](https://build.test.ros2.org/job/Ebin_uR64__downstream_bin_a__ubuntu_resolute_amd64__binary/1/) built and published `ros-extendablebin-downstream-bin-a_0.2.0-1resolute_amd64.deb` into `building`.
-* **Sync**: [`Erel_sync-packages-to-testing_resolute_amd64 #7`](https://build.test.ros2.org/job/Erel_sync-packages-to-testing_resolute_amd64/7/) (and `#10` for root `/opt/ros/extendable`) promoted the packages to `http://repo.test.ros2.org/ubuntu/testing`.
+* **Sync**: [`Erel_sync-packages-to-testing_resolute_amd64 #7`](https://build.test.ros2.org/job/Erel_sync-packages-to-testing_resolute_amd64/7/) (and [`#15`](https://build.test.ros2.org/job/Erel_sync-packages-to-testing_resolute_amd64/15/) for root `/opt/ros/extendable`) promoted the packages to `http://repo.test.ros2.org/ubuntu/testing`.
 * **CI Execution**: [`Eci__chained-import_ubuntu_resolute_amd64 #4`](https://build.test.ros2.org/job/Eci__chained-import_ubuntu_resolute_amd64/4/) ([Console](https://build.test.ros2.org/job/Eci__chained-import_ubuntu_resolute_amd64/4/console)) — **SUCCESS** — Clean binary install from APT, compiled `downstream_chain_a`, linked against `libdownstream_bin_a.so` and `libupstream_c.so`, and passed all CTest suites.
 
 ### Stage 3C: Hybrid Binary + Source Overriding (`--ignore-src`)
