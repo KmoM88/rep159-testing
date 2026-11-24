@@ -1,0 +1,14 @@
+# Python virtual environment
+.venv/
+
+# Imported tooling repositories (keep directory structure tracked via .gitkeep)
+tooling_ws/src/*
+!tooling_ws/src/.gitkeep
+
+# Scenario colcon workspaces: imported sources, generated .repos, build/install/log
+*/ws/src/*
+!*/ws/src/.gitkeep
+*/ws/build/
+*/ws/install/
+*/ws/log/
+*/ws/*.repos

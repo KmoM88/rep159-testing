@@ -1,0 +1,46 @@
+repositories:
+  # Tooling repositories (open PR branches targeting rep159)
+  rosdistro:
+    type: git
+    url: https://github.com/rep159-testing/rosdistro.git
+    version: feat/rep159-workspace-package
+  bloom:
+    type: git
+    url: https://github.com/rep159-testing/bloom.git
+    version: feat/rep159-workspace-package
+  rosdep:
+    type: git
+    url: https://github.com/rep159-testing/rosdep.git
+    version: feat/rep159-binary-lookup
+  ros_buildfarm:
+    type: git
+    url: https://github.com/rep159-testing/ros_buildfarm.git
+    version: feat/rep159-core
+
+  # Tooling and workspace repositories (direct rep159 branches)
+  rosdistro-reviewer:
+    type: git
+    url: https://github.com/rep159-testing/rosdistro-reviewer.git
+    version: rep159
+  reprepro-updater:
+    type: git
+    url: https://github.com/rep159-testing/reprepro-updater.git
+    version: rep159
+  ros_workspace:
+    type: git
+    url: https://github.com/rep159-testing/ros_workspace.git
+    version: rep159
+  ros_workspace_shell:
+    type: git
+    url: https://github.com/rep159-testing/ros_workspace_shell.git
+    version: rep159
+
+  # Configuration repositories (current working branches)
+  rep159-rosdistro:
+    type: git
+    url: https://github.com/rep159-testing/rep159-rosdistro.git
+    version: feat/extendable-gazebo
+  ros_buildfarm_config:
+    type: git
+    url: https://github.com/rep159-testing/ros_buildfarm_config.git
+    version: feat/extendable-gazebo

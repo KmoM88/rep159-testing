@@ -1,0 +1,36 @@
+repositories:
+  # Inherited from parent extendablejetty via extension_method: source_rebuild
+  ros_workspace_shell:
+    type: git
+    url: https://github.com/rep159-testing/ros_workspace_shell.git
+    version: rep159
+  gz-cmake:
+    type: git
+    url: https://github.com/gazebosim/gz-cmake.git
+    version: gz-cmake5_5.1.1
+  gz-utils:
+    type: git
+    url: https://github.com/gazebosim/gz-utils.git
+    version: gz-utils4_4.0.0
+  gz-math:
+    type: git
+    url: https://github.com/gazebosim/gz-math.git
+    version: gz-math9_9.3.0
+  gz-tools:
+    type: git
+    url: https://github.com/rep159-testing/gz-tools.git
+    version: feat/rep159-jetty
+  gz-msgs:
+    type: git
+    url: https://github.com/gazebosim/gz-msgs.git
+    version: gz-msgs12_12.0.2
+  gz-transport:
+    type: git
+    url: https://github.com/rep159-testing/gz-transport.git
+    version: feat/rep159-jetty
+
+  # Defined directly in child distribution extendablelyricalsrc
+  gz-demo-math:
+    type: git
+    url: https://github.com/j-rivero/gz-demo-math.git
+    version: main
