@@ -1,0 +1,8 @@
+repositories:
+  # Defined directly in child distribution extendablelyricalbin
+  # Parent packages (gz-math, gz-utils, gz-cmake, ros_workspace_shell) come as
+  # prebuilt binaries from extendablejetty via extension_method: binary_import
+  gz-demo-math:
+    type: git
+    url: https://github.com/j-rivero/gz-demo-math.git
+    version: main

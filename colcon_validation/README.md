@@ -12,11 +12,16 @@ Standalone workspace layout and instructions to verify **[REP-159](https://githu
 ├── tooling.repos                        # vcstool manifest for REP-159 tooling & config repos
 ├── tooling_ws/
 │   └── src/                             # Target directory for REP-159 tooling checkout
-└── single_parent_source/
-    ├── README.md                        # Instructions for single-parent all-source (source_rebuild)
-    ├── distribution.repos               # vcstool manifest for extendablelyricalsrc source repos
+├── single_parent_source/
+│   ├── README.md                        # Instructions for single-parent all-source (source_rebuild)
+│   ├── distribution.repos               # vcstool manifest for extendablelyricalsrc source repos
+│   └── ws/
+│       └── src/                         # Target colcon source space for the distribution
+└── single_parent_binary/
+    ├── README.md                        # Instructions for single-parent binary import (binary_import)
+    ├── distribution.repos               # vcstool manifest for extendablelyricalbin child repo
     └── ws/
-        └── src/                         # Target colcon source space for the distribution
+        └── src/                         # Target colcon source space for the child package
 ```
 
 ---
@@ -115,3 +120,4 @@ export ROSDISTRO_INDEX_URL="https://raw.githubusercontent.com/rep159-testing/rep
 | Scenario | Topology | Child Distribution | Parent(s) | Instructions |
 |---|---|---|---|---|
 | **Single-Parent All-Source** | `source_rebuild` | `extendablelyricalsrc` | `extendablejetty` | [`single_parent_source/README.md`](single_parent_source/README.md) |
+| **Single-Parent Binary Import** | `binary_import` | `extendablelyricalbin` | `extendablejetty` | [`single_parent_binary/README.md`](single_parent_binary/README.md) |
