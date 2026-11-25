@@ -119,3 +119,6 @@
 [submodule "submodules/ros_gz-release"]
 	path = submodules/ros_gz-release
 	url = git@github.com:rep159-testing/ros_gz-release.git
+[submodule "submodules/rep159-guide"]
+	path = submodules/rep159-guide
+	url = git@github.com:rep159-testing/rep159-guide.git
