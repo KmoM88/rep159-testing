@@ -1,0 +1,21 @@
+repositories:
+  # Child packages defined in extendablelyrical.
+  # Parent packages come as prebuilt binaries from both:
+  #   - lyrical         (/opt/ros/lyrical         via packages.ros.org)
+  #   - extendablejetty (/opt/ros/extendablejetty via repo.test.ros2.org)
+  gz-demo-math:
+    type: git
+    url: https://github.com/j-rivero/gz-demo-math.git
+    version: main
+  ros_gz_interfaces:
+    type: git
+    url: https://github.com/rep159-testing/ros_gz-release.git
+    version: release/extendablelyrical/ros_gz_interfaces/3.0.12-1
+  ros_gz_bridge:
+    type: git
+    url: https://github.com/rep159-testing/ros_gz-release.git
+    version: release/extendablelyrical/ros_gz_bridge/3.0.12-1
+  ros_workspace:
+    type: git
+    url: https://github.com/rep159-testing/ros_workspace.git
+    version: rep159

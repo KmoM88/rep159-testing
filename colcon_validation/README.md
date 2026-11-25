@@ -17,11 +17,16 @@ Standalone workspace layout and instructions to verify **[REP-159](https://githu
 │   ├── distribution.repos               # vcstool manifest for extendablelyricalsrc source repos
 │   └── ws/
 │       └── src/                         # Target colcon source space for the distribution
-└── single_parent_binary/
-    ├── README.md                        # Instructions for single-parent binary import (binary_import)
-    ├── distribution.repos               # vcstool manifest for extendablelyricalbin child repo
+├── single_parent_binary/
+│   ├── README.md                        # Instructions for single-parent binary import (binary_import)
+│   ├── distribution.repos               # vcstool manifest for extendablelyricalbin child repo
+│   └── ws/
+│       └── src/                         # Target colcon source space for the child package
+└── multi_parent_binary/
+    ├── README.md                        # Instructions for multi-parent binary import ([lyrical, extendablejetty])
+    ├── distribution.repos               # vcstool manifest for extendablelyrical child packages
     └── ws/
-        └── src/                         # Target colcon source space for the child package
+        └── src/                         # Target colcon source space for the child packages
 ```
 
 ---
@@ -121,3 +126,4 @@ export ROSDISTRO_INDEX_URL="https://raw.githubusercontent.com/rep159-testing/rep
 |---|---|---|---|---|
 | **Single-Parent All-Source** | `source_rebuild` | `extendablelyricalsrc` | `extendablejetty` | [`single_parent_source/README.md`](single_parent_source/README.md) |
 | **Single-Parent Binary Import** | `binary_import` | `extendablelyricalbin` | `extendablejetty` | [`single_parent_binary/README.md`](single_parent_binary/README.md) |
+| **Multi-Parent Binary Import** | `binary_import` | `extendablelyrical` | `lyrical`, `extendablejetty` | [`multi_parent_binary/README.md`](multi_parent_binary/README.md) |
