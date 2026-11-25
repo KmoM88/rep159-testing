@@ -122,3 +122,70 @@ colcon test \
 
 colcon test-result --verbose
 ```
+
+---
+
+## 4. One-Command Clean Docker Run (`ubuntu:resolute`)
+
+To execute the entire workflow (prerequisites, `tooling.repos`, dynamic `create_workspace.py`, `rosdep install`, `colcon build`, and `colcon test`) non-interactively in a fresh `ubuntu:resolute` container from the repository root:
+
+```bash
+docker run --rm \
+  -e DEBIAN_FRONTEND=noninteractive \
+  -v "$(pwd)":/src_repo:ro \
+  ubuntu:resolute bash -euo pipefail -c '
+    apt-get update
+    apt-get install -y build-essential cmake git pkg-config python3 python3-pip python3-venv sudo
+    cp -a /src_repo /work && cd /work
+
+    python3 -m venv --system-site-packages .venv
+    source .venv/bin/activate
+    pip install --upgrade pip setuptools wheel "empy<4" vcstool colcon-common-extensions
+
+    vcs import tooling_ws/src < tooling.repos
+    pip install \
+      tooling_ws/src/rosdistro \
+      tooling_ws/src/rosdep \
+      tooling_ws/src/bloom \
+      tooling_ws/src/ros_buildfarm \
+      tooling_ws/src/rosdistro-reviewer
+
+    export ROSDISTRO_INDEX_URL="https://raw.githubusercontent.com/rep159-testing/rep159-rosdistro/feat/extendable-gazebo/index-v4.yaml"
+
+    # Change "--package-names gz-demo-math ros_workspace_shell" to
+    # "--package-names gz-demo-math gz-transport ros_workspace_shell" to build all 8 packages
+    python3 -m ros_buildfarm.scripts.ci.create_workspace \
+      extendablelyricalsrc \
+      --repos-file-urls \
+      --package-names gz-demo-math ros_workspace_shell \
+      --package-dependencies \
+      --workspace-root single_parent_source/ws
+
+    .venv/bin/rosdep init
+    rosdep update --rosdistro extendablelyricalsrc
+    rosdep install \
+      --from-paths single_parent_source/ws/src \
+      --ignore-src \
+      --rosdistro extendablelyricalsrc \
+      -y
+
+    cd single_parent_source/ws
+    colcon build \
+      --merge-install \
+      --event-handlers console_cohesion+ \
+      --cmake-args -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON --no-warn-unused-cli
+
+    set +u
+    source install/setup.sh
+    set -u
+
+    colcon test \
+      --merge-install \
+      --event-handlers console_direct+ \
+      --retest-until-pass 2 \
+      --ctest-args -LE xfail \
+      --pytest-args -m "not xfail"
+
+    colcon test-result --verbose
+  '
+```

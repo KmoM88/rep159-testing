@@ -23,6 +23,41 @@ Standalone workspace layout and instructions to verify **[REP-159](https://githu
 
 ## 2. Prerequisites (Ubuntu 24.04 Noble / 26.04 Resolute)
 
+### Option A: Clean Environment via Docker (`ubuntu:resolute`)
+
+To run all steps in a clean Ubuntu 26.04 (`resolute`) container without modifying your host system or creating root-owned files in your local checkout, run from the root of this repository:
+
+```bash
+docker run --rm -it \
+  -e DEBIAN_FRONTEND=noninteractive \
+  -v "$(pwd)":/src_repo:ro \
+  ubuntu:resolute bash -c '
+    apt-get update && apt-get install -y sudo
+    echo "Defaults env_keep += \"DEBIAN_FRONTEND\"" > /etc/sudoers.d/noninteractive
+    chmod 0440 /etc/sudoers.d/noninteractive
+    cp -a /src_repo /work && cd /work
+    exec bash
+  '
+```
+
+If you prefer to persist downloaded sources and `colcon` build outputs back into your host directory instead of copying to `/work`:
+
+```bash
+docker run --rm -it \
+  -e DEBIAN_FRONTEND=noninteractive \
+  -v "$(pwd)":/work -w /work \
+  ubuntu:resolute bash -c '
+    apt-get update && apt-get install -y sudo
+    echo "Defaults env_keep += \"DEBIAN_FRONTEND\"" > /etc/sudoers.d/noninteractive
+    chmod 0440 /etc/sudoers.d/noninteractive
+    exec bash
+  '
+```
+
+Once inside the container shell, install the packages in Option B below, then follow Sections 3 and 4 verbatim.
+
+### Option B: Directly on Ubuntu
+
 Install basic system build tools and Python virtual environment support:
 
 ```bash
